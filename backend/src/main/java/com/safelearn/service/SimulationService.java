@@ -54,7 +54,11 @@ public class SimulationService {
         try {
             return objectMapper.readValue(json, Map.class);
         } catch (Exception e) {
-            return json;
+            try {
+                return objectMapper.readValue(json, List.class);
+            } catch (Exception e2) {
+                return json;
+            }
         }
     }
 }

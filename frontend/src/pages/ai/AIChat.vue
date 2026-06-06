@@ -180,6 +180,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.ai-chat {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .chat-card {
   height: calc(100vh - 300px);
   display: flex;

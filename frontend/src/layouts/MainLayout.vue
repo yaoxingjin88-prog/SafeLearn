@@ -51,7 +51,7 @@
     </el-aside>
 
     <!-- 主内容区 -->
-    <el-container>
+    <el-container class="flex-1 overflow-hidden">
       <!-- 顶部栏 -->
       <el-header class="flex items-center justify-between bg-white shadow-sm border-b">
         <div class="flex items-center">
@@ -86,7 +86,7 @@
       </el-header>
 
       <!-- 内容区 -->
-      <el-main class="bg-gray-50 p-6">
+      <el-main class="bg-gray-50">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -146,5 +146,22 @@ function handleLogout() {
 
 :deep(.el-menu-item.is-active) {
   background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+:deep(.el-main) {
+  padding: 0 !important;
+  height: calc(100vh - 60px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+:deep(.el-header) {
+  height: 60px;
+  line-height: 60px;
+}
+
+:deep(.el-aside) {
+  overflow: hidden;
 }
 </style>

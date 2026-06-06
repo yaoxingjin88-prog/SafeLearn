@@ -76,7 +76,7 @@
 
     <!-- 操作按钮 -->
     <div class="action-buttons mt-6">
-      <el-button type="primary" size="large" @click="$router.push('/training')">
+      <el-button type="primary" size="large" @click="router.push(p('/training/scenarios'))">
         返回训练列表
       </el-button>
       <el-button size="large" @click="handleRetry">
@@ -90,9 +90,11 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 
 const route = useRoute()
 const router = useRouter()
+const { p } = useAppBase()
 
 const record = ref<any>({
   id: '', scenarioId: '', scenarioName: '', completedAt: '', totalScore: 0, rating: 'good',
@@ -129,9 +131,9 @@ function getRatingName(rating: string) {
 function handleRetry() {
   const scenarioId = record.value.scenarioId || (route.query.scenarioId as string) || ''
   if (scenarioId) {
-    router.push(`/training/${scenarioId}`)
+    router.push(p(`/training/${scenarioId}`))
   } else {
-    router.push('/training')
+    router.push(p('/training/scenarios'))
   }
 }
 
@@ -146,6 +148,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.training-report {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .report-header {
   display: flex;
   align-items: center;

@@ -116,9 +116,20 @@ const stats = reactive({
   avgScore: 0,
 })
 
+const chartData = ref<{
+  completion: { name: string; value: number; color: string }[]
+  accidentTypes: { name: string; value: number; color: string }[]
+  monthlyTrend: { months: string[]; trainingUsers: number[]; simulationCounts: number[] }
+  riskLevels: { name: string; value: number; color: string }[]
+} | null>(null)
+
 onMounted(async () => {
-  const res = await request.get('/admin/stats')
-  Object.assign(stats, res.data)
+  const [statsRes, chartsRes] = await Promise.all([
+    request.get('/admin/stats'),
+    request.get('/admin/charts'),
+  ])
+  Object.assign(stats, statsRes.data)
+  chartData.value = chartsRes.data
   initCharts()
   window.addEventListener('resize', handleResize)
 })
@@ -132,8 +143,17 @@ function handleResize() {
   charts.forEach(chart => chart.resize())
 }
 
+function toPieData(items: { name: string; value: number; color: string }[]) {
+  return items.map(item => ({
+    name: item.name,
+    value: item.value,
+    itemStyle: { color: item.color },
+  }))
+}
+
 function initCharts() {
-  // 培训完成率
+  if (!chartData.value) return
+
   if (completionChart.value) {
     const chart = echarts.init(completionChart.value)
     charts.push(chart)
@@ -147,16 +167,11 @@ function initCharts() {
         itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } },
-        data: [
-          { value: 735, name: '已完成', itemStyle: { color: '#10b981' } },
-          { value: 580, name: '进行中', itemStyle: { color: '#3b82f6' } },
-          { value: 484, name: '未开始', itemStyle: { color: '#d1d5db' } },
-        ],
+        data: toPieData(chartData.value.completion),
       }],
     })
   }
 
-  // 事故类型分布
   if (accidentChart.value) {
     const chart = echarts.init(accidentChart.value)
     charts.push(chart)
@@ -166,18 +181,13 @@ function initCharts() {
       series: [{
         type: 'pie',
         radius: '50%',
-        data: [
-          { value: 580, name: '火灾', itemStyle: { color: '#ef4444' } },
-          { value: 320, name: '热失控', itemStyle: { color: '#f59e0b' } },
-          { value: 150, name: '爆炸', itemStyle: { color: '#8b5cf6' } },
-          { value: 80, name: '气体泄漏', itemStyle: { color: '#06b6d4' } },
-        ],
+        data: toPieData(chartData.value.accidentTypes),
       }],
     })
   }
 
-  // 月度趋势
   if (trendChart.value) {
+    const trend = chartData.value.monthlyTrend
     const chart = echarts.init(trendChart.value)
     charts.push(chart)
     chart.setOption({
@@ -186,7 +196,7 @@ function initCharts() {
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: {
         type: 'category',
-        data: ['1月', '2月', '3月', '4月', '5月', '6月'],
+        data: trend.months,
       },
       yAxis: { type: 'value' },
       series: [
@@ -194,21 +204,20 @@ function initCharts() {
           name: '培训人数',
           type: 'line',
           smooth: true,
-          data: [120, 200, 150, 320, 280, 350],
+          data: trend.trainingUsers,
           itemStyle: { color: '#3b82f6' },
         },
         {
           name: '推演次数',
           type: 'line',
           smooth: true,
-          data: [80, 150, 120, 250, 200, 280],
+          data: trend.simulationCounts,
           itemStyle: { color: '#10b981' },
         },
       ],
     })
   }
 
-  // 风险等级分布
   if (riskChart.value) {
     const chart = echarts.init(riskChart.value)
     charts.push(chart)
@@ -217,17 +226,15 @@ function initCharts() {
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: {
         type: 'category',
-        data: ['低风险', '中风险', '高风险', '极高风险'],
+        data: chartData.value.riskLevels.map(item => item.name),
       },
       yAxis: { type: 'value' },
       series: [{
         type: 'bar',
-        data: [
-          { value: 450, itemStyle: { color: '#10b981' } },
-          { value: 320, itemStyle: { color: '#f59e0b' } },
-          { value: 180, itemStyle: { color: '#f97316' } },
-          { value: 80, itemStyle: { color: '#ef4444' } },
-        ],
+        data: chartData.value.riskLevels.map(item => ({
+          value: item.value,
+          itemStyle: { color: item.color },
+        })),
       }],
     })
   }
@@ -235,6 +242,13 @@ function initCharts() {
 </script>
 
 <style scoped>
+.data-screen {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .stat-card {
   display: flex;
   align-items: center;

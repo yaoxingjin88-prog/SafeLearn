@@ -5,6 +5,7 @@ import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import 'virtual:uno.css'
 import './styles/global.css'
+import './style.css'
 
 import App from './App.vue'
 import router from './router'

@@ -2,12 +2,17 @@
   <div class="course-list">
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold">安全培训课程</h2>
+      <div class="flex items-center gap-3">
+        <el-button type="primary" plain @click="router.push(p('/courses/skill-tree'))">
+          安全进阶路径
+        </el-button>
       <el-input
         v-model="searchText"
         placeholder="搜索课程..."
         prefix-icon="Search"
         style="width: 300px"
       />
+      </div>
     </div>
 
     <!-- 分类筛选 -->
@@ -28,7 +33,7 @@
       <el-empty v-if="!filteredCourses.length" description="暂无课程" />
       <el-row v-else :gutter="20">
         <el-col :span="6" v-for="course in filteredCourses" :key="course.id">
-          <el-card class="course-card" shadow="hover" @click="$router.push(`/courses/${course.id}`)">
+          <el-card class="course-card" shadow="hover" @click="router.push(p(`/courses/${course.id}`))">
             <div class="course-cover">
               <img :src="course.coverImage || '/images/default-course.svg'" alt="cover" />
               <el-tag class="course-tag" :type="getCategoryType(course.category)">
@@ -57,11 +62,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Clock, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 import type { Course } from '@/types'
 
+const route = useRoute()
+const router = useRouter()
+const { p } = useAppBase()
 const searchText = ref('')
 const activeCategory = ref('all')
 
@@ -69,6 +79,9 @@ const courses = ref<Course[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
+  if (route.query.keyword) {
+    searchText.value = String(route.query.keyword)
+  }
   loading.value = true
   try {
     const res = await request.get('/courses')
@@ -121,6 +134,13 @@ function getCategoryName(category: string) {
 </script>
 
 <style scoped>
+.course-list {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .course-card {
   cursor: pointer;
   transition: all 0.3s;

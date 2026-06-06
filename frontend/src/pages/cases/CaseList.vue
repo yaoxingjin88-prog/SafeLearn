@@ -27,7 +27,7 @@
       <el-empty v-if="!filteredCases.length" description="暂无案例" />
       <el-row v-else :gutter="20">
         <el-col :span="8" v-for="caseItem in filteredCases" :key="caseItem.id">
-          <el-card class="case-card" shadow="hover" @click="$router.push(`/cases/${caseItem.id}`)">
+          <el-card class="case-card" shadow="hover" @click="router.push(p(`/cases/${caseItem.id}`))">
             <div class="case-header">
               <el-tag :type="getSeverityType(caseItem.severity)">
                 {{ getSeverityName(caseItem.severity) }}
@@ -54,10 +54,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Location } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 import type { AccidentCase } from '@/types'
+
+const router = useRouter()
+const { p } = useAppBase()
 
 const searchText = ref('')
 const activeType = ref('all')
@@ -136,6 +141,13 @@ function getTypeName(type: string) {
 </script>
 
 <style scoped>
+.case-list {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .case-card {
   margin-bottom: 20px;
   cursor: pointer;

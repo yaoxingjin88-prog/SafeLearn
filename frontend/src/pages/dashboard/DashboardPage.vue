@@ -2,7 +2,6 @@
   <div class="dashboard">
     <h2 class="text-2xl font-bold mb-6">工作台</h2>
 
-    <!-- 统计卡片 -->
     <el-row :gutter="20" class="mb-6">
       <el-col :span="6">
         <div class="stat-card bg-blue-500">
@@ -50,7 +49,6 @@
       </el-col>
     </el-row>
 
-    <!-- 快捷入口 -->
     <h3 class="text-lg font-semibold mb-4">快捷入口</h3>
     <el-row :gutter="20" class="mb-6">
       <el-col :span="6" v-for="item in quickLinks" :key="item.path">
@@ -64,7 +62,6 @@
       </el-col>
     </el-row>
 
-    <!-- 最近学习 -->
     <h3 class="text-lg font-semibold mb-4">最近学习</h3>
     <el-card>
       <el-table :data="recentCourses" style="width: 100%">
@@ -123,6 +120,14 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.dashboard {
+  width: 100%;
+  height: calc(100vh - 60px);
+  padding: 24px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
 .stat-card {
   padding: 24px;
   border-radius: 12px;

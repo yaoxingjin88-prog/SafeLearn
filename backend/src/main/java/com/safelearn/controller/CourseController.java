@@ -50,4 +50,10 @@ public class CourseController {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(courseService.getProgress(userId, courseId));
     }
+
+    @GetMapping("/skill-tree")
+    public ApiResponse<Map<String, Object>> getSkillTree(Authentication auth) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(courseService.getSkillTree(userId));
+    }
 }

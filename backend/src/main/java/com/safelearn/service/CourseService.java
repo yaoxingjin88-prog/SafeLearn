@@ -139,6 +139,80 @@ public class CourseService {
         }).toList();
     }
 
+    public Map<String, Object> getSkillTree(String userId) {
+        List<Course> courses = courseRepo.findByStatusOrderByCreatedAtDesc("published");
+
+        final Set<String> completedIds = userId != null
+                ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
+                : new HashSet<>();
+        final Set<String> qualifiedIds = userId != null
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                : new HashSet<>();
+
+        List<Map<String, Object>> basicNodes = new ArrayList<>();
+        List<Map<String, Object>> intermediateNodes = new ArrayList<>();
+        List<Map<String, Object>> advancedNodes = new ArrayList<>();
+        List<Map<String, Object>> connections = new ArrayList<>();
+
+        for (Course course : courses) {
+            for (Chapter ch : course.getChapters()) {
+                Map<String, Object> node = new HashMap<>();
+                node.put("id", ch.getId());
+                node.put("courseId", course.getId());
+                node.put("courseTitle", course.getTitle());
+                node.put("title", ch.getTitle());
+                int level = ch.getDifficultyLevel() != null ? ch.getDifficultyLevel() : 1;
+                String levelName = switch (level) {
+                    case 1 -> "BASIC";
+                    case 2 -> "INTERMEDIATE";
+                    case 3 -> "ADVANCED";
+                    default -> "BASIC";
+                };
+                node.put("difficultyLevel", levelName);
+                node.put("prerequisiteIds", parsePrereqIds(ch.getPrerequisiteIds()));
+
+                boolean unlocked = isChapterUnlocked(ch, userId, completedIds, qualifiedIds);
+                boolean completed = completedIds.contains(ch.getId());
+                int progress = 0;
+                if (userId != null) {
+                    progress = progressRepo.findByUserIdAndChapterId(userId, ch.getId())
+                            .map(UserProgress::getProgress)
+                            .orElse(0);
+                }
+                node.put("unlocked", unlocked);
+                node.put("completed", completed);
+                node.put("progress", completed ? 100 : progress);
+
+                // 根据难度等级分类节点
+                switch (level) {
+                    case 1 -> basicNodes.add(node);
+                    case 2 -> intermediateNodes.add(node);
+                    case 3 -> advancedNodes.add(node);
+                    default -> basicNodes.add(node);
+                }
+
+                // 构建连接线
+                List<String> prereqIds = parsePrereqIds(ch.getPrerequisiteIds());
+                for (String prereqId : prereqIds) {
+                    Map<String, Object> conn = new HashMap<>();
+                    conn.put("from", prereqId);
+                    conn.put("to", ch.getId());
+                    connections.add(conn);
+                }
+            }
+        }
+
+        Map<String, Object> levels = new HashMap<>();
+        levels.put("BASIC", basicNodes);
+        levels.put("INTERMEDIATE", intermediateNodes);
+        levels.put("ADVANCED", advancedNodes);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("levels", levels);
+        result.put("connections", connections);
+        return result;
+    }
+
     private boolean isChapterUnlocked(Chapter ch, String userId,
                                       Set<String> completedIds, Set<String> qualifiedIds) {
         if (userId == null) return true;

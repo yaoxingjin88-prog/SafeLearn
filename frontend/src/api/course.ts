@@ -14,7 +14,13 @@ export const courseApi = {
     return request.get(`/courses/${courseId}/chapters/${chapterId}`)
   },
 
-  updateProgress(data: { courseId: string; chapterId: string; progress: number }): Promise<ApiResponse<void>> {
+  updateProgress(data: {
+    courseId: string
+    chapterId: string
+    progress: number
+    completed?: boolean
+    masteryLevel?: number
+  }): Promise<ApiResponse<void>> {
     return request.post('/progress', data)
   },
 

@@ -45,6 +45,9 @@
         <span>还没有账号？</span>
         <el-link type="primary" @click="$router.push('/register')">立即注册</el-link>
       </div>
+      <div class="login-footer" style="margin-top: 12px">
+        <el-link type="info" @click="$router.push('/user/login')">学员入口 →</el-link>
+      </div>
     </div>
   </div>
 </template>

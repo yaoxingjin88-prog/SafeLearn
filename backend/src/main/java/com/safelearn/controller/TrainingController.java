@@ -47,12 +47,14 @@ public class TrainingController {
     }
 
     @GetMapping("/records/{id}")
-    public ApiResponse<Map<String, Object>> getRecordById(@PathVariable String id) {
-        return ApiResponse.success(trainingService.getRecordById(id));
+    public ApiResponse<Map<String, Object>> getRecordById(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(trainingService.getRecordById(userId, id));
     }
 
     @GetMapping("/records/{id}/report")
-    public ApiResponse<Map<String, Object>> getReport(@PathVariable String id) {
-        return ApiResponse.success(trainingService.getRecordById(id));
+    public ApiResponse<Map<String, Object>> getReport(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(trainingService.getRecordById(userId, id));
     }
 }

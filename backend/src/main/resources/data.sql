@@ -2,6 +2,12 @@
 INSERT IGNORE INTO users (id, username, email, password_hash, role, company, department, created_at, updated_at)
 VALUES ('550e8400-e29b-41d4-a716-446655440000', 'admin', 'admin@example.com', '$2a$10$H2wPB2Pxr9eac3CKbwcqJejquPzbbAjm6VCj8kC0nlV21X2gbk7hK', 'admin', '储能科技公司', '安全管理部', NOW(), NOW());
 
+-- 测试用户 (密码均为 admin123)
+INSERT IGNORE INTO users (id, username, email, password_hash, role, company, department, created_at, updated_at) VALUES
+('660e8400-e29b-41d4-a716-446655440001', 'zhanggong', 'zhanggong@safelearn.com', '$2a$10$H2wPB2Pxr9eac3CKbwcqJejquPzbbAjm6VCj8kC0nlV21X2gbk7hK', 'trainee', '华能储能电站', '运维部', DATE_SUB(NOW(), INTERVAL 44 DAY), NOW()),
+('660e8400-e29b-41d4-a716-446655440002', 'lisi', 'lisi@safelearn.com', '$2a$10$H2wPB2Pxr9eac3CKbwcqJejquPzbbAjm6VCj8kC0nlV21X2gbk7hK', 'trainee', '国电新能源', '安全部', DATE_SUB(NOW(), INTERVAL 20 DAY), NOW()),
+('660e8400-e29b-41d4-a716-446655440003', 'wangwu', 'wangwu@safelearn.com', '$2a$10$H2wPB2Pxr9eac3CKbwcqJejquPzbbAjm6VCj8kC0nlV21X2gbk7hK', 'trainee', '南方电网储能', '培训部', DATE_SUB(NOW(), INTERVAL 60 DAY), NOW());
+
 -- 课程数据
 INSERT IGNORE INTO courses (id, title, description, category, total_duration, status, created_at, updated_at) VALUES
 ('10000000-0000-0000-0000-000000000001', '储能基础知识', '了解储能电站的基本原理和组成结构', 'basic', 120, 'published', NOW(), NOW()),
@@ -34,3 +40,29 @@ INSERT IGNORE INTO scenarios (id, name, description, initial_conditions, events,
 INSERT IGNORE INTO accident_cases (id, title, location, date, type, severity, description, timeline, cause_analysis, loss_estimate, lessons_learned, created_at, updated_at) VALUES
 ('40000000-0000-0000-0000-000000000001', '某储能电站锂电池起火事故', '广东省深圳市', '2025-03-15', 'fire', 'major', '某储能电站在运行过程中，一个电池模组发生热失控，导致起火。事故造成直接经济损失约200万元。', '[{"id":"t1","time":"03:15","title":"BMS告警","description":"BMS系统检测到3号电池模组温度异常，温度达到55°C","type":"warning"},{"id":"t2","time":"03:18","title":"温度持续升高","description":"3分钟内温度升至75°C，BMS发出紧急告警","type":"danger"},{"id":"t3","time":"03:22","title":"电池冒烟","description":"3号模组开始冒出白色烟雾，运维人员发现异常","type":"danger"},{"id":"t4","time":"03:25","title":"切断电源","description":"运维人员手动切断该模组电源","type":"action"},{"id":"t5","time":"03:30","title":"电池起火","description":"3号模组电池起火，火势向相邻模组蔓延","type":"danger"},{"id":"t6","time":"03:35","title":"启动消防","description":"启动气体灭火系统，消防部门接到报警","type":"action"},{"id":"t7","time":"04:15","title":"火势控制","description":"消防人员控制住火势，事故得到处置","type":"info"}]', '电池内部短路导致热失控，BMS未能及时切断电路。根本原因是电池制造缺陷导致隔膜损坏，引起内部短路。', '直接经济损失约200万元，包括设备损毁150万元、停产损失30万元、救援费用20万元。', '1. 加强BMS告警阈值设置，温度超过45°C即触发预警；2. 安装气体探测预警系统，实现早期发现；3. 定期进行电池内阻检测，及时发现异常电池；4. 完善应急预案，缩短响应时间。', NOW(), NOW()),
 ('40000000-0000-0000-0000-000000000002', '储能电站热失控扩散事故', '江苏省南京市', '2025-06-20', 'thermal_runaway', 'severe', '某储能电站因单体电池热失控引发连锁反应，导致整个电池舱起火。', '[{"id":"t8","time":"14:00","title":"单体异常","description":"巡检发现A区5号电池单体电压异常偏低","type":"warning"},{"id":"t9","time":"14:30","title":"温度升高","description":"5号电池温度快速升至80°C","type":"danger"},{"id":"t10","time":"14:35","title":"热扩散","description":"热量向相邻电池扩散，多个电池温度异常","type":"danger"},{"id":"t11","time":"14:40","title":"模组起火","description":"A区电池模组起火","type":"danger"},{"id":"t12","time":"14:50","title":"舱内蔓延","description":"火势蔓延至整个A区，产生大量有毒烟雾","type":"danger"},{"id":"t13","time":"15:00","title":"全面响应","description":"启动全站应急预案，消防力量到场","type":"action"},{"id":"t14","time":"16:30","title":"火灾扑灭","description":"火灾被扑灭，事故处置完成","type":"info"}]', '电池模组间缺乏有效的热隔离措施，热失控快速扩散。电池老化导致内阻增大，是热失控的诱因。', '直接经济损失约500万元，包括设备损毁380万元、停产损失80万元、环境修复40万元。', '1. 电池模组间必须设置防火隔离层；2. 安装自动灭火系统，实现早期灭火；3. 制定完善的应急预案，定期演练；4. 建立电池健康状态监测体系。', NOW(), NOW());
+
+-- 知识库数据
+INSERT IGNORE INTO knowledge_base (id, category, title, content, tags, source, created_at, updated_at) VALUES
+('50000000-0000-0000-0000-000000000001', 'procedure', '储能柜冒烟应急处置', '发现储能柜冒烟后：1. 立即切断电源；2. 启动消防系统；3. 疏散周围人员；4. 通知消防部门；5. 在安全距离外观察。切勿直接用水扑灭锂电池火灾。', '冒烟,应急,处置,消防', '储能电站安全管理规定', NOW(), NOW()),
+('50000000-0000-0000-0000-000000000002', 'faq', '热失控前兆识别', '热失控前兆包括：1. 电池温度异常升高；2. 电压异常波动；3. 电池膨胀变形；4. 产生异味气体；5. BMS频繁告警。一旦发现应立即启动应急响应。', '热失控,前兆,BMS,温度', '锂离子电池储能系统技术规范', NOW(), NOW()),
+('50000000-0000-0000-0000-000000000003', 'standard', '锂电池储能消防系统选择', '锂电池储能消防系统类型：1. 气体灭火系统（七氟丙烷、全氟己酮）；2. 水喷雾系统；3. 细水雾系统；4. 干粉灭火系统。大型储能舱推荐全氟己酮或组合式气体灭火方案。', '消防,灭火,全氟己酮,七氟丙烷', '电化学储能电站安全规程', NOW(), NOW()),
+('50000000-0000-0000-0000-000000000004', 'regulation', 'BMS安全监控要点', 'BMS系统主要功能：1. 电池状态监控（电压、电流、温度）；2. SOC/SOH估算；3. 均衡管理；4. 故障诊断与预警；5. 热管理控制。应定期核查告警阈值与联动策略。', 'BMS,监控,告警,SOC', '储能电站安全管理规定', NOW(), NOW()),
+('50000000-0000-0000-0000-000000000005', 'procedure', '储能电站安全检查清单', '储能电站安全检查重点：1. 电池外观检查；2. BMS告警记录；3. 消防系统状态；4. 通风系统运行；5. 电气连接检查；6. 接地系统检测。', '安全检查,巡检,运维', '储能电站运维规范', NOW(), NOW()),
+('50000000-0000-0000-0000-000000000006', 'case', '热扩散隔离措施', '当单体电池热失控并向相邻电池扩散时，应优先切断故障模组电源，启动区域隔离和消防系统，避免火势蔓延至整个电池舱。', '热扩散,隔离,模组,应急', '典型事故案例分析', NOW(), NOW());
+
+-- 张工学习进度（工作台演示数据）
+INSERT IGNORE INTO user_progress (id, user_id, course_id, chapter_id, progress, completed, mastery_level, last_access_at) VALUES
+('77000000-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 100, 1, 85, DATE_SUB(NOW(), INTERVAL 12 DAY)),
+('77000000-0000-0000-0000-000000000002', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', 100, 1, 90, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+('77000000-0000-0000-0000-000000000003', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000003', 100, 1, 88, DATE_SUB(NOW(), INTERVAL 8 DAY)),
+('77000000-0000-0000-0000-000000000004', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000004', 68, 0, 55, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('77000000-0000-0000-0000-000000000005', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000006', 100, 1, 92, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+('77000000-0000-0000-0000-000000000006', '660e8400-e29b-41d4-a716-446655440001', '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000007', 45, 0, 40, DATE_SUB(NOW(), INTERVAL 2 DAY));
+
+-- 张工训练记录
+INSERT IGNORE INTO training_records (id, user_id, scenario_id, start_time, end_time, decisions, total_score, rating, feedback, created_at) VALUES
+('88000000-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001', '30000000-0000-0000-0000-000000000001', DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY), '[{"decisionPointId":"dp1","optionId":"opt1","score":30,"correct":true}]', 95, 'excellent', '表现优秀。全部决策正确，应急处置流程掌握扎实。', DATE_SUB(NOW(), INTERVAL 3 DAY));
+
+-- 张工 AI 问答记录
+INSERT IGNORE INTO qa_records (id, user_id, question, answer, sources, rating, created_at) VALUES
+('99000000-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001', '储能柜冒烟如何处理？', '发现储能柜冒烟后：1. 立即切断电源；2. 启动消防系统；3. 疏散周围人员；4. 通知消防部门。', '["储能柜冒烟应急处置"]', 5, DATE_SUB(NOW(), INTERVAL 2 DAY));

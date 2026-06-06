@@ -147,7 +147,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Warning, VideoPlay, VideoPause, RefreshRight } from '@element-plus/icons-vue'
 import request from '@/api/request'
-import { useSimulation } from '@/composables/useSimulation'
+import { useSimulation, normalizeScenarioEvents } from '@/composables/useSimulation'
 import BatteryScene from '@/components/simulation/BatteryScene.vue'
 import ParticleSystem from '@/components/simulation/ParticleSystem.vue'
 import TemperatureField from '@/components/simulation/TemperatureField.vue'
@@ -165,7 +165,7 @@ const sceneHeight = ref(400)
 
 const {
   currentTime, isPlaying, cells, events, environment, totalDuration,
-  togglePlay, reset, seek, setSpeed, reinit,
+  togglePlay, reset, seek, setSpeed, reinit, play,
 } = useSimulation()
 
 const speedModel = ref(1)
@@ -194,8 +194,14 @@ onMounted(async () => {
   const id = route.params.id as string
   const res = await request.get(`/simulation/scenarios/${id}`)
   scenario.value = res.data
-  reinit(res.data.duration, res.data.initialConditions.batteryCount, res.data.initialConditions.initialTemperature)
+  reinit(
+    res.data.duration,
+    res.data.initialConditions.batteryCount,
+    res.data.initialConditions.initialTemperature,
+    normalizeScenarioEvents(res.data.events),
+  )
   updateSceneSize()
+  play()
   window.addEventListener('resize', updateSceneSize)
 })
 
@@ -205,6 +211,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.simulation-view {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .scene-card {
   height: calc(100vh - 200px);
 }

@@ -58,7 +58,7 @@
         <el-table-column prop="completedAt" label="完成时间" width="180" />
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button type="primary" link @click="$router.push(`/training/records/${row.id}`)">
+            <el-button type="primary" link @click="router.push(p(`/training/records/${row.id}`))">
               查看报告
             </el-button>
           </template>
@@ -74,9 +74,11 @@ import { useRouter } from 'vue-router'
 import { Cpu, Timer, List, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 import type { TrainingScenario } from '@/types'
 
 const router = useRouter()
+const { p } = useAppBase()
 
 const scenarios = ref<TrainingScenario[]>([])
 const records = ref([])
@@ -149,12 +151,19 @@ function handleStartScenario(scenario: TrainingScenario) {
     ElMessage.warning('请先完成前置章节学习')
     return
   }
-  router.push(`/training/${scenario.id}`)
+  router.push(p(`/training/${scenario.id}`))
 }
 
 </script>
 
 <style scoped>
+.training-list {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .training-card {
   margin-bottom: 20px;
   transition: all 0.3s;

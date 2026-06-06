@@ -80,9 +80,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Warning, Timer, Loading } from '@element-plus/icons-vue'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 
 const route = useRoute()
 const router = useRouter()
+const { p } = useAppBase()
 
 const scenario = ref<any>({
   id: '', name: '', description: '', difficulty: 'easy', timeLimit: 60, decisionPoints: [],
@@ -160,9 +162,9 @@ async function nextDecision() {
           responseTime: d.responseTime,
         })
       }
-      router.push({ path: `/training/records/${recordId.value}`, query: { scenarioId: scenario.value.id } })
+      router.push({ path: p(`/training/records/${recordId.value}`), query: { scenarioId: scenario.value.id } })
     } catch {
-      router.push({ path: `/training/records/${recordId.value}`, query: { scenarioId: scenario.value.id } })
+      router.push({ path: p(`/training/records/${recordId.value}`), query: { scenarioId: scenario.value.id } })
     }
   } else {
     currentStep.value++
@@ -210,6 +212,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.training-view {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .training-content {
   max-width: 800px;
   margin: 0 auto;

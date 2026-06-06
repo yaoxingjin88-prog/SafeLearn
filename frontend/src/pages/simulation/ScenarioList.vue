@@ -19,7 +19,7 @@
             <span><el-icon><Timer /></el-icon> {{ scenario.duration }}秒</span>
             <span><el-icon><Cpu /></el-icon> {{ scenario.initialConditions.batteryCount }}电池</span>
           </div>
-          <el-button type="primary" class="w-full mt-4" @click="$router.push(`/simulation/${scenario.id}`)">
+          <el-button type="primary" class="w-full mt-4" @click="router.push(p(`/simulation/${scenario.id}`))">
             开始推演
           </el-button>
         </el-card>
@@ -30,9 +30,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Warning, Timer, Cpu } from '@element-plus/icons-vue'
 import request from '@/api/request'
+import { useAppBase } from '@/composables/useAppBase'
 import type { AccidentScenario } from '@/types'
+
+const router = useRouter()
+const { p } = useAppBase()
 
 const scenarios = ref<AccidentScenario[]>([])
 
@@ -65,6 +70,13 @@ function getDifficultyName(difficulty: string) {
 </script>
 
 <style scoped>
+.scenario-list {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .scenario-card {
   margin-bottom: 20px;
   transition: all 0.3s;

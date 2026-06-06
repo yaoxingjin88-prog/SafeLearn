@@ -87,10 +87,13 @@ import { ElMessage } from 'element-plus'
 import { Lock } from '@element-plus/icons-vue'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
+import { useAppBase } from '@/composables/useAppBase'
 
 const route = useRoute()
 const router = useRouter()
+const { p } = useAppBase()
 
+const loading = ref(true)
 const chapter = ref({ id: '', title: '', content: '', videoUrl: '' })
 const chapters = ref<{ id: string; title: string; difficultyLevel?: number; unlocked?: boolean }[]>([])
 const completed = ref<Record<string, boolean>>({})
@@ -100,7 +103,7 @@ const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < c
 
 function switchChapter(id: string) {
   const courseId = route.params.courseId
-  router.push(`/courses/${courseId}/chapters/${id}`)
+  router.push(p(`/courses/${courseId}/chapters/${id}`))
 }
 
 function handleTocClick(item: { id: string; unlocked?: boolean }) {
@@ -153,14 +156,24 @@ function handleNext() {
 async function loadChapter() {
   const courseId = route.params.courseId as string
   const chapterId = route.params.chapterId as string
+  loading.value = true
   try {
-    const res = await request.get(`/courses/${courseId}/chapters/${chapterId}`)
-    chapter.value = res.data.chapter
-    chapters.value = res.data.chapters
-    completed.value[chapterId] = true
+    const [chapterRes, progressRes] = await Promise.all([
+      request.get(`/courses/${courseId}/chapters/${chapterId}`),
+      courseApi.getProgress(courseId).catch(() => ({ data: [] })),
+    ])
+    chapter.value = chapterRes.data.chapter
+    chapters.value = chapterRes.data.chapters
+    const progressMap: Record<string, boolean> = {}
+    for (const item of progressRes.data || []) {
+      if (item.completed) progressMap[item.chapterId] = true
+    }
+    completed.value = progressMap
   } catch (error) {
     console.error('加载章节失败', error)
     ElMessage.error('加载章节失败，请检查网络或后端服务')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -172,6 +185,13 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
 </script>
 
 <style scoped>
+.chapter-view {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .video-container {
   margin-bottom: 24px;
   border-radius: 8px;

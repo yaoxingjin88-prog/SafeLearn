@@ -3,7 +3,7 @@ export interface UserInfo {
   id: string
   username: string
   email: string
-  role: 'admin' | 'manager' | 'trainee'
+  role: 'admin' | 'trainee'
   company?: string
   department?: string
   avatar?: string
@@ -12,6 +12,42 @@ export interface UserInfo {
 export interface LoginForm {
   username: string
   password: string
+}
+
+// 难度等级
+export const DifficultyLevel = {
+  BASIC: 'BASIC',
+  INTERMEDIATE: 'INTERMEDIATE',
+  ADVANCED: 'ADVANCED',
+} as const
+
+export type DifficultyLevel = typeof DifficultyLevel[keyof typeof DifficultyLevel]
+
+// 技能树相关
+export interface SkillTreeNode {
+  id: string
+  courseId: string
+  courseTitle: string
+  title: string
+  difficultyLevel: DifficultyLevel
+  prerequisiteIds: string[]
+  unlocked: boolean
+  completed: boolean
+  progress: number
+}
+
+export interface SkillTreeConnection {
+  from: string
+  to: string
+}
+
+export interface SkillTreeData {
+  levels: {
+    BASIC: SkillTreeNode[]
+    INTERMEDIATE: SkillTreeNode[]
+    ADVANCED: SkillTreeNode[]
+  }
+  connections: SkillTreeConnection[]
 }
 
 // 课程相关
@@ -24,6 +60,8 @@ export interface Course {
   chapters: Chapter[]
   totalDuration: number
   progress?: number
+  status?: string
+  chapterCount?: number
   createdAt: string
   updatedAt: string
 }

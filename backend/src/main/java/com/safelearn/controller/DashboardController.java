@@ -26,4 +26,10 @@ public class DashboardController {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(dashboardService.getRecentCourses(userId));
     }
+
+    @GetMapping("/overview")
+    public ApiResponse<Map<String, Object>> getOverview(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(dashboardService.getOverview(userId));
+    }
 }

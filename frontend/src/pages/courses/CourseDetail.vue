@@ -121,10 +121,12 @@ import { Clock, Document, Check, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
+import { useAppBase } from '@/composables/useAppBase'
 import type { Course, Chapter } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const { p } = useAppBase()
 
 const course = ref<Course>({
   id: '',
@@ -189,13 +191,13 @@ function handleChapterClick(chapter: Chapter) {
     ElMessage.warning('请先完成前置章节')
     return
   }
-  router.push(`/courses/${course.value.id}/chapters/${chapter.id}`)
+  router.push(p(`/courses/${course.value.id}/chapters/${chapter.id}`))
 }
 
 function handleStartLearning() {
   const nextChapter = course.value.chapters?.find(c => !isChapterCompleted(c.id) && c.unlocked !== false)
   if (nextChapter) {
-    router.push(`/courses/${course.value.id}/chapters/${nextChapter.id}`)
+    router.push(p(`/courses/${course.value.id}/chapters/${nextChapter.id}`))
   } else {
     ElMessage.info('所有可用章节已完成')
   }
@@ -227,6 +229,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.course-detail {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .course-header {
   display: flex;
   gap: 24px;

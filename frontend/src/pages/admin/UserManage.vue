@@ -51,7 +51,6 @@
         <el-form-item label="角色" prop="role">
           <el-select v-model="form.role" placeholder="请选择角色">
             <el-option label="管理员" value="admin" />
-            <el-option label="管理人员" value="manager" />
             <el-option label="培训人员" value="trainee" />
           </el-select>
         </el-form-item>
@@ -111,12 +110,12 @@ const rules: FormRules = {
 }
 
 function getRoleType(role: string) {
-  const map: Record<string, string> = { admin: 'danger', manager: 'warning', trainee: '' }
+  const map: Record<string, string> = { admin: 'danger', trainee: '' }
   return map[role] || ''
 }
 
 function getRoleName(role: string) {
-  const map: Record<string, string> = { admin: '管理员', manager: '管理人员', trainee: '培训人员' }
+  const map: Record<string, string> = { admin: '管理员', trainee: '培训人员' }
   return map[role] || role
 }
 
@@ -159,3 +158,12 @@ async function handleSubmit() {
   ElMessage.success(isEdit.value ? '编辑成功' : '添加成功')
 }
 </script>
+
+<style scoped>
+.user-manage {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+</style>

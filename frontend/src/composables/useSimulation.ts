@@ -15,6 +15,19 @@ export interface SimulationEvent {
   cellId?: number
 }
 
+export interface ScenarioEventInput {
+  id?: string
+  triggerTime: number
+  type: string
+  description: string
+  location?: { x: number; y: number; z: number }
+  parameters?: {
+    temperature?: number
+    spreadRate?: number
+    gasConcentration?: number
+  }
+}
+
 export interface SimulationState {
   currentTime: number
   isPlaying: boolean
@@ -27,6 +40,20 @@ export interface SimulationState {
   }
 }
 
+export function normalizeScenarioEvents(input: unknown): ScenarioEventInput[] {
+  if (!input) return []
+  if (Array.isArray(input)) return input as ScenarioEventInput[]
+  if (typeof input === 'string') {
+    try {
+      const parsed = JSON.parse(input)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export function useSimulation(initDuration = 120, initCellCount = 16, initTemp = 30) {
   const totalDuration = ref(initDuration)
   const initialTemp = ref(initTemp)
@@ -35,6 +62,9 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
   const speed = ref(1)
   let animFrame: number | null = null
   let lastTimestamp = 0
+
+  let scenarioEvents: ScenarioEventInput[] = []
+  let hotspotCellId = 0
 
   const cells = ref<BatteryCellState[]>(
     Array.from({ length: initCellCount }, (_, i) => ({
@@ -63,25 +93,94 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
     return 'normal'
   }
 
+  function mapEventType(type: string): SimulationEvent['type'] {
+    switch (type) {
+      case 'temperature_rise':
+        return 'warning'
+      case 'smoke':
+      case 'gas_leak':
+        return 'danger'
+      case 'fire':
+      case 'explosion':
+        return 'critical'
+      default:
+        return 'warning'
+    }
+  }
+
+  function resolveHotspot(cellCount: number, events: ScenarioEventInput[]): number {
+    const first = events.find(e => e.type === 'temperature_rise' || e.type === 'fire')
+    if (first?.location) {
+      const idx = Math.round(first.location.x * cellCount) % cellCount
+      return Math.max(0, Math.min(cellCount - 1, idx))
+    }
+    return Math.max(0, Math.floor(cellCount / 2))
+  }
+
+  function heatIntensityAt(time: number): number {
+    const progress = totalDuration.value === 0 ? 0 : time / totalDuration.value
+    const triggered = scenarioEvents.filter(e => e.triggerTime <= time)
+    if (triggered.length === 0) return progress * 0.2
+
+    let intensity = progress
+    for (const evt of triggered) {
+      const elapsed = Math.max(0, time - evt.triggerTime)
+      const spread = evt.parameters?.spreadRate ?? 1
+      const factor = Math.min(1, (elapsed / Math.max(totalDuration.value * 0.3, 1)) * spread)
+      switch (evt.type) {
+        case 'temperature_rise':
+          intensity = Math.max(intensity, 0.3 + factor * 0.4)
+          break
+        case 'smoke':
+          intensity = Math.max(intensity, 0.45 + factor * 0.35)
+          break
+        case 'fire':
+        case 'explosion':
+          intensity = Math.max(intensity, 0.55 + factor * 0.45)
+          break
+        case 'gas_leak':
+          intensity = Math.max(intensity, 0.35 + factor * 0.25)
+          break
+      }
+    }
+    return Math.min(1, intensity)
+  }
+
   function updateState(time: number) {
-    const t = time / totalDuration
+    const heat = heatIntensityAt(time)
+    const triggered = scenarioEvents.filter(e => e.triggerTime <= time)
 
     cells.value = cells.value.map((cell, i) => {
-      const hotspot = i === 3
-      const neighbor = Math.abs(i - 3) <= 1
-
+      const hotspot = i === hotspotCellId
+      const neighbor = Math.abs(i - hotspotCellId) <= 1
       const base = initialTemp.value
       let temp = base
+
       if (hotspot) {
-        temp = base + t * t * 400
+        temp = base + heat * heat * 400
       } else if (neighbor) {
-        temp = base + t * t * 150 * (1 - Math.abs(i - 3) * 0.3)
+        temp = base + heat * heat * 150 * (1 - Math.abs(i - hotspotCellId) * 0.3)
       } else {
-        temp = base + t * 30
+        temp = base + heat * 30
       }
 
-      const smokeIntensity = hotspot ? Math.min(1, t * 1.5) : neighbor ? Math.min(0.5, t) : 0
-      const fireIntensity = hotspot && t > 0.4 ? Math.min(1, (t - 0.4) * 2.5) : 0
+      for (const evt of triggered) {
+        const targetTemp = evt.parameters?.temperature
+        if (targetTemp && (hotspot || neighbor)) {
+          temp = Math.max(temp, targetTemp * (hotspot ? 1 : 0.55))
+        }
+      }
+
+      const smokeEvents = triggered.filter(e => e.type === 'smoke' || e.type === 'gas_leak').length
+      const fireEvents = triggered.filter(e => e.type === 'fire' || e.type === 'explosion').length
+      const smokeIntensity = hotspot
+        ? Math.min(1, heat * 1.2 + smokeEvents * 0.15)
+        : neighbor
+          ? Math.min(0.6, heat * 0.6 + smokeEvents * 0.08)
+          : 0
+      const fireIntensity = hotspot && heat > 0.4
+        ? Math.min(1, (heat - 0.35) * 2 + fireEvents * 0.2)
+        : 0
 
       return {
         ...cell,
@@ -92,28 +191,51 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
       }
     })
 
+    const envHeat = triggered.filter(e =>
+      e.type === 'temperature_rise' || e.type === 'fire' || e.type === 'smoke'
+    ).length
+    const gasLeak = triggered
+      .filter(e => e.type === 'gas_leak')
+      .reduce((sum, e) => sum + (e.parameters?.gasConcentration ?? 800), 0)
+
     environment.value = {
-      temperature: 25 + t * 15,
-      humidity: Math.max(20, 45 - t * 30),
-      gasLevel: 100 + t * t * 5000,
+      temperature: 25 + heat * 15 + envHeat * 3,
+      humidity: Math.max(20, 45 - heat * 30 - triggered.filter(e => e.type === 'fire').length * 5),
+      gasLevel: 100 + heat * heat * 5000 + gasLeak,
     }
 
+    syncScenarioEvents(time)
+  }
+
+  function syncScenarioEvents(time: number) {
+    if (scenarioEvents.length === 0) {
+      syncFallbackEvents(time)
+      return
+    }
+
+    const visible = scenarioEvents
+      .filter(e => e.triggerTime <= time)
+      .map(e => ({
+        time: e.triggerTime,
+        type: mapEventType(e.type),
+        message: e.description,
+        cellId: hotspotCellId,
+      }))
+
+    events.value = visible
+  }
+
+  function syncFallbackEvents(time: number) {
     const newEvents: SimulationEvent[] = []
-    if (time >= 20 && !events.value.find(e => e.time === 20)) {
-      newEvents.push({ time: 20, type: 'warning', message: '电池#4温度异常升高', cellId: 3 })
+    const checkpoints = [
+      { time: 20, type: 'warning' as const, message: '电池温度异常升高', cellId: hotspotCellId },
+      { time: 45, type: 'danger' as const, message: '达到热失控阈值', cellId: hotspotCellId },
+      { time: 90, type: 'critical' as const, message: '发生热失控，产生大量烟雾', cellId: hotspotCellId },
+    ]
+    for (const cp of checkpoints) {
+      if (time >= cp.time) newEvents.push(cp)
     }
-    if (time >= 45 && !events.value.find(e => e.time === 45)) {
-      newEvents.push({ time: 45, type: 'danger', message: '电池#4达到热失控阈值', cellId: 3 })
-    }
-    if (time >= 60 && !events.value.find(e => e.time === 60)) {
-      newEvents.push({ time: 60, type: 'warning', message: '相邻电池温度传导升高' })
-    }
-    if (time >= 90 && !events.value.find(e => e.time === 90)) {
-      newEvents.push({ time: 90, type: 'critical', message: '电池#4发生热失控，产生大量烟雾', cellId: 3 })
-    }
-    if (newEvents.length) {
-      events.value = [...events.value, ...newEvents]
-    }
+    events.value = newEvents
   }
 
   function tick(timestamp: number) {
@@ -161,11 +283,11 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
       fireIntensity: 0,
     }))
     environment.value = { temperature: 25, humidity: 45, gasLevel: 100 }
+    updateState(0)
   }
 
   function seek(time: number) {
     currentTime.value = Math.max(0, Math.min(totalDuration.value, time))
-    events.value = []
     updateState(currentTime.value)
   }
 
@@ -173,10 +295,13 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
     speed.value = s
   }
 
-  function reinit(duration: number, cellCount: number, temp: number) {
+  function reinit(duration: number, cellCount: number, temp: number, scenarioEventList: unknown = []) {
     pause()
     totalDuration.value = duration
     initialTemp.value = temp
+    scenarioEvents = normalizeScenarioEvents(scenarioEventList)
+      .sort((a, b) => a.triggerTime - b.triggerTime)
+    hotspotCellId = resolveHotspot(cellCount, scenarioEvents)
     currentTime.value = 0
     events.value = []
     cells.value = Array.from({ length: cellCount }, (_, i) => ({
@@ -187,6 +312,7 @@ export function useSimulation(initDuration = 120, initCellCount = 16, initTemp =
       fireIntensity: 0,
     }))
     environment.value = { temperature: 25, humidity: 45, gasLevel: 100 }
+    updateState(0)
   }
 
   onUnmounted(() => {

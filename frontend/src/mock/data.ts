@@ -3,7 +3,7 @@
 export const mockUsers = [
   { id: '1', username: 'admin', email: 'admin@example.com', role: 'admin', company: '储能科技公司', department: '安全管理部', createdAt: '2026-01-01 10:00:00' },
   { id: '2', username: 'zhangsan', email: 'zhangsan@example.com', role: 'trainee', company: '新能源集团', department: '运维部', createdAt: '2026-02-15 14:30:00' },
-  { id: '3', username: 'lisi', email: 'lisi@example.com', role: 'manager', company: '电力公司', department: '安监部', createdAt: '2026-03-20 09:15:00' },
+  { id: '3', username: 'lisi', email: 'lisi@example.com', role: 'trainee', company: '电力公司', department: '安监部', createdAt: '2026-03-20 09:15:00' },
 ]
 
 export const mockCourses = [
