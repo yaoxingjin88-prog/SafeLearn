@@ -18,4 +18,12 @@ public interface UserProgressRepository extends JpaRepository<UserProgress, Stri
 
     @Query("SELECT up FROM UserProgress up WHERE up.user.id = :userId ORDER BY up.lastAccessAt DESC")
     List<UserProgress> findRecentByUserId(@Param("userId") String userId);
+
+    @Query("SELECT CASE WHEN COUNT(up) > 0 THEN true ELSE false END FROM UserProgress up " +
+           "WHERE up.user.id = :userId AND up.chapter.id = :chapterId AND up.completed = true")
+    boolean existsByUserIdAndChapterIdAndCompletedTrue(
+            @Param("userId") String userId, @Param("chapterId") String chapterId);
+
+    @Query("SELECT up.chapter.id FROM UserProgress up WHERE up.user.id = :userId AND up.completed = true")
+    List<String> findCompletedChapterIdsByUserId(@Param("userId") String userId);
 }

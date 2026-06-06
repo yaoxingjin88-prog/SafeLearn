@@ -29,26 +29,47 @@
             </div>
           </el-card>
 
-          <!-- 章节列表 -->
+          <!-- 阶梯式学习路径 -->
           <el-card class="mt-4">
             <template #header>
               <span class="font-bold">课程章节</span>
             </template>
             <div v-if="course.chapters?.length">
-              <div
-                v-for="(chapter, index) in course.chapters"
-                :key="chapter.id"
-                class="chapter-item"
-                :class="{ completed: isChapterCompleted(chapter.id) }"
-                @click="$router.push(`/courses/${course.id}/chapters/${chapter.id}`)"
-              >
-                <div class="chapter-index">{{ index + 1 }}</div>
-                <div class="chapter-info">
-                  <div class="chapter-title">{{ chapter.title }}</div>
-                  <div class="chapter-duration">{{ chapter.duration }}分钟</div>
+              <template v-for="(tier, tierIdx) in difficultyTiers" :key="tier.level">
+                <div v-if="tier.chapters.length" class="difficulty-tier">
+                  <div class="tier-header">
+                    <el-tag :type="tier.tagType" effect="dark" size="small">{{ tier.label }}</el-tag>
+                    <span class="tier-progress">{{ tier.completedCount }}/{{ tier.chapters.length }} 已完成</span>
+                  </div>
+                  <div v-if="tierIdx > 0" class="tier-connector"></div>
+                  <div
+                    v-for="(chapter, index) in tier.chapters"
+                    :key="chapter.id"
+                    class="chapter-item"
+                    :class="{
+                      completed: isChapterCompleted(chapter.id),
+                      locked: chapter.unlocked === false
+                    }"
+                    @click="handleChapterClick(chapter)"
+                  >
+                    <div
+                      class="chapter-index"
+                      :style="chapter.unlocked === false ? {} : { background: tier.color + '20', color: tier.color }"
+                    >
+                      <el-icon v-if="chapter.unlocked === false"><Lock /></el-icon>
+                      <template v-else-if="isChapterCompleted(chapter.id)">
+                        <el-icon><Check /></el-icon>
+                      </template>
+                      <template v-else>{{ index + 1 }}</template>
+                    </div>
+                    <div class="chapter-info">
+                      <div class="chapter-title">{{ chapter.title }}</div>
+                      <div class="chapter-duration">{{ chapter.duration }}分钟</div>
+                    </div>
+                    <el-tag v-if="isChapterCompleted(chapter.id)" type="success" size="small" effect="plain">已完成</el-tag>
+                  </div>
                 </div>
-                <el-icon v-if="isChapterCompleted(chapter.id)"><Check /></el-icon>
-              </div>
+              </template>
             </div>
             <el-empty v-else description="暂无章节" />
           </el-card>
@@ -96,10 +117,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Clock, Document, Check } from '@element-plus/icons-vue'
+import { Clock, Document, Check, Lock } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
-import type { Course } from '@/types'
+import type { Course, Chapter } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -139,10 +161,43 @@ function getCategoryName(category: string) {
   return map[category] || category
 }
 
+const difficultyConfig: Record<number, { label: string; color: string; tagType: '' | 'success' | 'warning' | 'danger' }> = {
+  1: { label: '基础理论', color: '#10b981', tagType: 'success' },
+  2: { label: '案例分析', color: '#f59e0b', tagType: 'warning' },
+  3: { label: '高级实操', color: '#ef4444', tagType: 'danger' },
+}
+
+const difficultyTiers = computed(() => {
+  const groups: Record<number, Chapter[]> = { 1: [], 2: [], 3: [] }
+  course.value.chapters?.forEach(ch => {
+    const level = ch.difficultyLevel || 1
+    if (!groups[level]) groups[level] = []
+    groups[level].push(ch)
+  })
+  return [1, 2, 3].map(level => ({
+    level,
+    label: difficultyConfig[level]?.label || '未知',
+    color: difficultyConfig[level]?.color || '#6b7280',
+    tagType: difficultyConfig[level]?.tagType || '' as const,
+    chapters: groups[level] || [],
+    completedCount: (groups[level] || []).filter(ch => isChapterCompleted(ch.id)).length,
+  })).filter(t => t.chapters.length > 0)
+})
+
+function handleChapterClick(chapter: Chapter) {
+  if (chapter.unlocked === false) {
+    ElMessage.warning('请先完成前置章节')
+    return
+  }
+  router.push(`/courses/${course.value.id}/chapters/${chapter.id}`)
+}
+
 function handleStartLearning() {
-  const nextChapter = course.value.chapters?.find(c => !isChapterCompleted(c.id))
+  const nextChapter = course.value.chapters?.find(c => !isChapterCompleted(c.id) && c.unlocked !== false)
   if (nextChapter) {
     router.push(`/courses/${course.value.id}/chapters/${nextChapter.id}`)
+  } else {
+    ElMessage.info('所有可用章节已完成')
   }
 }
 
@@ -255,5 +310,37 @@ onMounted(async () => {
 
 .progress-container {
   text-align: center;
+}
+
+.difficulty-tier {
+  margin-bottom: 8px;
+}
+
+.tier-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.tier-progress {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.tier-connector {
+  width: 2px;
+  height: 16px;
+  background: #e5e7eb;
+  margin: 0 0 0 15px;
+}
+
+.chapter-item.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chapter-item.locked:hover {
+  background: transparent;
 }
 </style>

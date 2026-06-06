@@ -30,11 +30,35 @@ public class CourseService {
         return toCourseDetail(course);
     }
 
-    public Map<String, Object> getChapter(String courseId, String chapterId) {
+    public Map<String, Object> getCourseDetailForUser(String id, String userId) {
+        Course course = courseRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("课程不存在"));
+
+        final Set<String> completedIds = userId != null
+                ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
+                : new HashSet<>();
+
+        Map<String, Object> m = toCourseSummary(course);
+        m.put("chapters", course.getChapters().stream().map(ch -> {
+            Map<String, Object> cm = toChapterInfo(ch);
+            boolean unlocked = ch.getPrerequisiteId() == null
+                    || userId == null
+                    || completedIds.contains(ch.getPrerequisiteId());
+            cm.put("unlocked", unlocked);
+            return cm;
+        }).toList());
+        return m;
+    }
+
+    public Map<String, Object> getChapter(String courseId, String chapterId, String userId) {
         Chapter chapter = chapterRepo.findByIdAndCourseId(chapterId, courseId)
                 .orElseThrow(() -> new RuntimeException("章节不存在"));
 
         List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
+
+        final Set<String> completedIds = userId != null
+                ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
+                : new HashSet<>();
 
         Map<String, Object> result = new HashMap<>();
         result.put("chapter", toChapterInfo(chapter));
@@ -42,6 +66,11 @@ public class CourseService {
             Map<String, Object> m = new HashMap<>();
             m.put("id", ch.getId());
             m.put("title", ch.getTitle());
+            m.put("difficultyLevel", ch.getDifficultyLevel());
+            boolean unlocked = ch.getPrerequisiteId() == null
+                    || userId == null
+                    || completedIds.contains(ch.getPrerequisiteId());
+            m.put("unlocked", unlocked);
             return m;
         }).toList());
         return result;
@@ -51,6 +80,13 @@ public class CourseService {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         Course course = courseRepo.findById(req.getCourseId()).orElseThrow(() -> new RuntimeException("课程不存在"));
         Chapter chapter = chapterRepo.findById(req.getChapterId()).orElseThrow(() -> new RuntimeException("章节不存在"));
+
+        if (chapter.getPrerequisiteId() != null) {
+            boolean prereqMet = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, chapter.getPrerequisiteId());
+            if (!prereqMet) {
+                throw new RuntimeException("请先完成前置章节");
+            }
+        }
 
         UserProgress progress = progressRepo.findByUserIdAndChapterId(userId, req.getChapterId())
                 .orElse(new UserProgress());
@@ -116,6 +152,8 @@ public class CourseService {
         m.put("videoUrl", ch.getVideoUrl());
         m.put("duration", ch.getDuration());
         m.put("order", ch.getOrderNum());
+        m.put("difficultyLevel", ch.getDifficultyLevel());
+        m.put("prerequisiteId", ch.getPrerequisiteId());
         return m;
     }
 }

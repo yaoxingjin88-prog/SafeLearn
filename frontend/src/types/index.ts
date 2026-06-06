@@ -36,6 +36,9 @@ export interface Chapter {
   videoUrl?: string
   duration: number
   order: number
+  difficultyLevel?: number
+  prerequisiteId?: string
+  unlocked?: boolean
 }
 
 export interface UserProgress {
@@ -111,6 +114,8 @@ export interface TrainingScenario {
   difficulty: 'easy' | 'medium' | 'hard'
   timeLimit: number
   decisionPoints: DecisionPoint[]
+  prerequisiteChapterId?: string
+  unlocked?: boolean
 }
 
 export interface DecisionPoint {

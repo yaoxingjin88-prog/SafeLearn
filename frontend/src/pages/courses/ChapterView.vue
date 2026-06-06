@@ -41,11 +41,17 @@
                 v-for="(item, index) in chapters"
                 :key="item.id"
                 class="toc-item"
-                :class="{ active: item.id === chapter.id, completed: completed[item.id] }"
-                @click="switchChapter(item.id)"
+                :class="{ active: item.id === chapter.id, completed: completed[item.id], locked: item.unlocked === false }"
+                @click="handleTocClick(item)"
               >
-                <span class="toc-index">{{ index + 1 }}</span>
+                <span class="toc-index">
+                  <el-icon v-if="item.unlocked === false"><Lock /></el-icon>
+                  <template v-else>{{ index + 1 }}</template>
+                </span>
                 <span class="toc-title">{{ item.title }}</span>
+                <el-tag v-if="item.difficultyLevel" :type="getDifficultyTagType(item.difficultyLevel)" size="small" effect="plain">
+                  {{ getDifficultyLabel(item.difficultyLevel) }}
+                </el-tag>
                 <el-tag v-if="completed[item.id]" size="small" type="success">已完成</el-tag>
               </div>
             </div>
@@ -78,6 +84,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Lock } from '@element-plus/icons-vue'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
 
@@ -85,7 +92,7 @@ const route = useRoute()
 const router = useRouter()
 
 const chapter = ref({ id: '', title: '', content: '', videoUrl: '' })
-const chapters = ref<{ id: string; title: string }[]>([])
+const chapters = ref<{ id: string; title: string; difficultyLevel?: number; unlocked?: boolean }[]>([])
 const completed = ref<Record<string, boolean>>({})
 
 const currentIndex = computed(() => chapters.value.findIndex(c => c.id === chapter.value.id))
@@ -94,6 +101,24 @@ const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < c
 function switchChapter(id: string) {
   const courseId = route.params.courseId
   router.push(`/courses/${courseId}/chapters/${id}`)
+}
+
+function handleTocClick(item: { id: string; unlocked?: boolean }) {
+  if (item.unlocked === false) {
+    ElMessage.warning('请先完成前置章节')
+    return
+  }
+  switchChapter(item.id)
+}
+
+function getDifficultyLabel(level?: number) {
+  const map: Record<number, string> = { 1: '基础', 2: '案例', 3: '实操' }
+  return map[level || 1] || '基础'
+}
+
+function getDifficultyTagType(level?: number): '' | 'success' | 'warning' | 'danger' {
+  const map: Record<number, '' | 'success' | 'warning' | 'danger'> = { 1: 'success', 2: 'warning', 3: 'danger' }
+  return map[level || 1] || ''
 }
 
 async function handleComplete() {
@@ -211,5 +236,14 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
 .toc-item.active .toc-index {
   background: #3b82f6;
   color: white;
+}
+
+.toc-item.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toc-item.locked:hover {
+  background: transparent;
 }
 </style>

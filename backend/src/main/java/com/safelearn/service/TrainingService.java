@@ -6,6 +6,7 @@ import com.safelearn.entity.TrainingRecord;
 import com.safelearn.entity.User;
 import com.safelearn.repository.ScenarioRepository;
 import com.safelearn.repository.TrainingRecordRepository;
+import com.safelearn.repository.UserProgressRepository;
 import com.safelearn.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,21 @@ public class TrainingService {
     private final ScenarioRepository scenarioRepo;
     private final TrainingRecordRepository recordRepo;
     private final UserRepository userRepo;
+    private final UserProgressRepository progressRepo;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    public List<Map<String, Object>> getScenarios() {
-        return scenarioRepo.findAll().stream().map(this::toScenarioInfo).toList();
+    public List<Map<String, Object>> getScenarios(String userId) {
+        final Set<String> completedIds = userId != null
+                ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
+                : new HashSet<>();
+        return scenarioRepo.findAll().stream().map(s -> {
+            Map<String, Object> m = toScenarioInfo(s);
+            boolean unlocked = s.getPrerequisiteChapterId() == null
+                    || userId == null
+                    || completedIds.contains(s.getPrerequisiteChapterId());
+            m.put("unlocked", unlocked);
+            return m;
+        }).toList();
     }
 
     public Map<String, Object> getScenarioById(String id) {
@@ -35,6 +47,13 @@ public class TrainingService {
     public Map<String, Object> startTraining(String userId, String scenarioId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         Scenario scenario = scenarioRepo.findById(scenarioId).orElseThrow(() -> new RuntimeException("场景不存在"));
+
+        if (scenario.getPrerequisiteChapterId() != null) {
+            boolean prereqMet = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, scenario.getPrerequisiteChapterId());
+            if (!prereqMet) {
+                throw new RuntimeException("请先完成前置章节学习");
+            }
+        }
 
         TrainingRecord record = new TrainingRecord();
         record.setUser(user);
@@ -95,6 +114,7 @@ public class TrainingService {
         m.put("duration", s.getDuration());
         m.put("timeLimit", s.getDuration());
         m.put("difficulty", s.getDifficulty());
+        m.put("prerequisiteChapterId", s.getPrerequisiteChapterId());
         m.put("initialConditions", parseJson(s.getInitialConditions()));
         m.put("events", parseJson(s.getEvents()));
         m.put("decisionPoints", parseJson(s.getDecisionPoints()));

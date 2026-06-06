@@ -41,6 +41,9 @@ public class Scenario {
     @Column(length = 20)
     private String difficulty = "medium";
 
+    @Column(name = "prerequisite_chapter_id", columnDefinition = "CHAR(36)")
+    private String prerequisiteChapterId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

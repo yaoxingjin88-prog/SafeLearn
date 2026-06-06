@@ -38,6 +38,12 @@ public class Chapter {
     @Column(name = "order_num", nullable = false)
     private Integer orderNum;
 
+    @Column(name = "difficulty_level", nullable = false)
+    private Integer difficultyLevel = 1;
+
+    @Column(name = "prerequisite_id", columnDefinition = "CHAR(36)")
+    private String prerequisiteId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

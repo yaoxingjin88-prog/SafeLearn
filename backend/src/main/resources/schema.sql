@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS chapters (
     video_url VARCHAR(500),
     duration INT,
     order_num INT NOT NULL,
+    difficulty_level INT NOT NULL DEFAULT 1 COMMENT '1=基础, 2=案例分析, 3=高级实操',
+    prerequisite_id CHAR(36) DEFAULT NULL COMMENT '前置章节ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     INDEX idx_chapters_course (course_id)
@@ -72,6 +74,7 @@ CREATE TABLE IF NOT EXISTS scenarios (
     events JSON NOT NULL,
     duration INT NOT NULL,
     difficulty VARCHAR(20) DEFAULT 'medium',
+    prerequisite_chapter_id CHAR(36) DEFAULT NULL COMMENT '前置章节ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

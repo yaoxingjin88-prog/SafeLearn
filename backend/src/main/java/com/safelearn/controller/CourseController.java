@@ -25,13 +25,18 @@ public class CourseController {
     }
 
     @GetMapping("/courses/{id}")
-    public ApiResponse<Map<String, Object>> getCourseById(@PathVariable String id) {
-        return ApiResponse.success(courseService.getCourseById(id));
+    public ApiResponse<Map<String, Object>> getCourseById(Authentication auth, @PathVariable String id) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(courseService.getCourseDetailForUser(id, userId));
     }
 
     @GetMapping("/courses/{courseId}/chapters/{chapterId}")
-    public ApiResponse<Map<String, Object>> getChapter(@PathVariable String courseId, @PathVariable String chapterId) {
-        return ApiResponse.success(courseService.getChapter(courseId, chapterId));
+    public ApiResponse<Map<String, Object>> getChapter(
+            Authentication auth,
+            @PathVariable String courseId,
+            @PathVariable String chapterId) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(courseService.getChapter(courseId, chapterId, userId));
     }
 
     @PostMapping("/progress")

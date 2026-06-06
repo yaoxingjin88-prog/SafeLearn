@@ -17,8 +17,9 @@ public class TrainingController {
     private final TrainingService trainingService;
 
     @GetMapping("/scenarios")
-    public ApiResponse<List<Map<String, Object>>> getScenarios() {
-        return ApiResponse.success(trainingService.getScenarios());
+    public ApiResponse<List<Map<String, Object>>> getScenarios(Authentication auth) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(trainingService.getScenarios(userId));
     }
 
     @GetMapping("/scenarios/{id}")
