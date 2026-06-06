@@ -90,31 +90,31 @@ onMounted(async () => {
   records.value = recordsRes.data
 })
 
-function getDifficultyColor(difficulty: string) {
-  const map: Record<string, string> = {
-    easy: '#10b981',
-    medium: '#f59e0b',
-    hard: '#ef4444',
+function getDifficultyColor(difficulty: number) {
+  const map: Record<number, string> = {
+    1: '#10b981',
+    2: '#f59e0b',
+    3: '#ef4444',
   }
   return map[difficulty] || '#6b7280'
 }
 
-function getDifficultyType(difficulty: string) {
-  const map: Record<string, string> = {
-    easy: 'success',
-    medium: 'warning',
-    hard: 'danger',
+function getDifficultyType(difficulty: number): '' | 'success' | 'warning' | 'danger' {
+  const map: Record<number, '' | 'success' | 'warning' | 'danger'> = {
+    1: 'success',
+    2: 'warning',
+    3: 'danger',
   }
   return map[difficulty] || ''
 }
 
-function getDifficultyName(difficulty: string) {
-  const map: Record<string, string> = {
-    easy: '简单',
-    medium: '中等',
-    hard: '困难',
+function getDifficultyName(difficulty: number) {
+  const map: Record<number, string> = {
+    1: '基础',
+    2: '中级',
+    3: '高级',
   }
-  return map[difficulty] || difficulty
+  return map[difficulty] || '未知'
 }
 
 function getScoreClass(score: number) {

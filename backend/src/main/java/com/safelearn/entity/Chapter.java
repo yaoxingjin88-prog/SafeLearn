@@ -41,8 +41,11 @@ public class Chapter {
     @Column(name = "difficulty_level", nullable = false)
     private Integer difficultyLevel = 1;
 
-    @Column(name = "prerequisite_id", columnDefinition = "CHAR(36)")
-    private String prerequisiteId;
+    @Column(name = "prerequisite_ids", columnDefinition = "JSON")
+    private String prerequisiteIds;
+
+    @Column(name = "scenario_id", columnDefinition = "CHAR(36)")
+    private String scenarioId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

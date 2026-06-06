@@ -37,7 +37,9 @@ export interface Chapter {
   duration: number
   order: number
   difficultyLevel?: number
-  prerequisiteId?: string
+  difficultyLabel?: string
+  prerequisiteIds?: string[]
+  scenarioId?: string
   unlocked?: boolean
 }
 
@@ -46,6 +48,8 @@ export interface UserProgress {
   courseId: string
   chapterId: string
   progress: number
+  completed?: boolean
+  masteryLevel?: number
   completedAt?: string
   lastAccessAt: string
 }
@@ -111,10 +115,11 @@ export interface TrainingScenario {
   id: string
   name: string
   description: string
-  difficulty: 'easy' | 'medium' | 'hard'
+  difficulty: number
+  difficultyLabel?: string
   timeLimit: number
   decisionPoints: DecisionPoint[]
-  prerequisiteChapterId?: string
+  prerequisiteIds?: string[]
   unlocked?: boolean
 }
 

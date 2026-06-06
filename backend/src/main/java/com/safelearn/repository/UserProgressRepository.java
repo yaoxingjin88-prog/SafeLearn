@@ -24,6 +24,17 @@ public interface UserProgressRepository extends JpaRepository<UserProgress, Stri
     boolean existsByUserIdAndChapterIdAndCompletedTrue(
             @Param("userId") String userId, @Param("chapterId") String chapterId);
 
+    @Query("SELECT CASE WHEN COUNT(up) > 0 THEN true ELSE false END FROM UserProgress up " +
+           "WHERE up.user.id = :userId AND up.chapter.id = :chapterId AND up.completed = true " +
+           "AND (up.masteryLevel IS NULL OR up.masteryLevel >= :minMastery)")
+    boolean existsByUserIdAndChapterIdAndCompletedWithMastery(
+            @Param("userId") String userId, @Param("chapterId") String chapterId,
+            @Param("minMastery") int minMastery);
+
     @Query("SELECT up.chapter.id FROM UserProgress up WHERE up.user.id = :userId AND up.completed = true")
     List<String> findCompletedChapterIdsByUserId(@Param("userId") String userId);
+
+    @Query("SELECT up.chapter.id FROM UserProgress up WHERE up.user.id = :userId AND up.completed = true " +
+           "AND (up.masteryLevel IS NULL OR up.masteryLevel >= :minMastery)")
+    List<String> findQualifiedChapterIdsByUserId(@Param("userId") String userId, @Param("minMastery") int minMastery);
 }

@@ -38,6 +38,9 @@ public class UserProgress {
     @Column(nullable = false)
     private Boolean completed = false;
 
+    @Column(name = "mastery_level")
+    private Integer masteryLevel = 0;
+
     @Column(name = "last_access_at")
     @CreationTimestamp
     private LocalDateTime lastAccessAt;

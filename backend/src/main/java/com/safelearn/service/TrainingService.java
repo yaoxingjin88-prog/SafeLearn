@@ -1,5 +1,8 @@
 package com.safelearn.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safelearn.common.DifficultyLevel;
 import com.safelearn.dto.TrainingDecisionRequest;
 import com.safelearn.entity.Scenario;
 import com.safelearn.entity.TrainingRecord;
@@ -22,18 +25,20 @@ public class TrainingService {
     private final TrainingRecordRepository recordRepo;
     private final UserRepository userRepo;
     private final UserProgressRepository progressRepo;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
+
+    private static final int MASTERY_THRESHOLD = 60;
 
     public List<Map<String, Object>> getScenarios(String userId) {
         final Set<String> completedIds = userId != null
                 ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
                 : new HashSet<>();
+        final Set<String> qualifiedIds = userId != null
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                : new HashSet<>();
         return scenarioRepo.findAll().stream().map(s -> {
             Map<String, Object> m = toScenarioInfo(s);
-            boolean unlocked = s.getPrerequisiteChapterId() == null
-                    || userId == null
-                    || completedIds.contains(s.getPrerequisiteChapterId());
-            m.put("unlocked", unlocked);
+            m.put("unlocked", isScenarioUnlocked(s, userId, completedIds, qualifiedIds));
             return m;
         }).toList();
     }
@@ -48,10 +53,21 @@ public class TrainingService {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         Scenario scenario = scenarioRepo.findById(scenarioId).orElseThrow(() -> new RuntimeException("场景不存在"));
 
-        if (scenario.getPrerequisiteChapterId() != null) {
-            boolean prereqMet = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, scenario.getPrerequisiteChapterId());
-            if (!prereqMet) {
-                throw new RuntimeException("请先完成前置章节学习");
+        List<String> prereqIds = parsePrereqIds(scenario.getPrerequisiteIds());
+        if (!prereqIds.isEmpty()) {
+            for (String prereqId : prereqIds) {
+                if (scenario.getDifficulty() != null && scenario.getDifficulty() > DifficultyLevel.BASIC) {
+                    boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedWithMastery(
+                            userId, prereqId, MASTERY_THRESHOLD);
+                    if (!met) {
+                        throw new RuntimeException("请先完成前置章节并达到掌握度" + MASTERY_THRESHOLD + "%");
+                    }
+                } else {
+                    boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, prereqId);
+                    if (!met) {
+                        throw new RuntimeException("请先完成前置章节学习");
+                    }
+                }
             }
         }
 
@@ -106,6 +122,21 @@ public class TrainingService {
         return toRecordDetail(record);
     }
 
+    private boolean isScenarioUnlocked(Scenario s, String userId,
+                                       Set<String> completedIds, Set<String> qualifiedIds) {
+        if (userId == null) return true;
+        List<String> prereqIds = parsePrereqIds(s.getPrerequisiteIds());
+        if (prereqIds.isEmpty()) return true;
+        for (String prereqId : prereqIds) {
+            if (s.getDifficulty() != null && s.getDifficulty() > DifficultyLevel.BASIC) {
+                if (!qualifiedIds.contains(prereqId)) return false;
+            } else {
+                if (!completedIds.contains(prereqId)) return false;
+            }
+        }
+        return true;
+    }
+
     private Map<String, Object> toScenarioInfo(Scenario s) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", s.getId());
@@ -114,7 +145,8 @@ public class TrainingService {
         m.put("duration", s.getDuration());
         m.put("timeLimit", s.getDuration());
         m.put("difficulty", s.getDifficulty());
-        m.put("prerequisiteChapterId", s.getPrerequisiteChapterId());
+        m.put("difficultyLabel", DifficultyLevel.label(s.getDifficulty() != null ? s.getDifficulty() : 1));
+        m.put("prerequisiteIds", parsePrereqIds(s.getPrerequisiteIds()));
         m.put("initialConditions", parseJson(s.getInitialConditions()));
         m.put("events", parseJson(s.getEvents()));
         m.put("decisionPoints", parseJson(s.getDecisionPoints()));
@@ -139,6 +171,15 @@ public class TrainingService {
         m.put("decisions", parseJsonList(r.getDecisions()));
         m.put("feedback", r.getFeedback());
         return m;
+    }
+
+    private List<String> parsePrereqIds(String json) {
+        if (json == null || json.isBlank() || "null".equals(json)) return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private Object parseJson(String json) {

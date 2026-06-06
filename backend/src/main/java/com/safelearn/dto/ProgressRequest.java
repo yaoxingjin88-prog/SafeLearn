@@ -8,4 +8,5 @@ public class ProgressRequest {
     private String chapterId;
     private Integer progress;
     private Boolean completed;
+    private Integer masteryLevel;
 }

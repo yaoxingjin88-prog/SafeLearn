@@ -38,11 +38,11 @@ public class Scenario {
     @Column(nullable = false)
     private Integer duration;
 
-    @Column(length = 20)
-    private String difficulty = "medium";
+    @Column(nullable = false)
+    private Integer difficulty = 1;
 
-    @Column(name = "prerequisite_chapter_id", columnDefinition = "CHAR(36)")
-    private String prerequisiteChapterId;
+    @Column(name = "prerequisite_ids", columnDefinition = "JSON")
+    private String prerequisiteIds;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -41,8 +41,9 @@ CREATE TABLE IF NOT EXISTS chapters (
     video_url VARCHAR(500),
     duration INT,
     order_num INT NOT NULL,
-    difficulty_level INT NOT NULL DEFAULT 1 COMMENT '1=基础, 2=案例分析, 3=高级实操',
-    prerequisite_id CHAR(36) DEFAULT NULL COMMENT '前置章节ID',
+    difficulty_level INT NOT NULL DEFAULT 1 COMMENT '1=基础理论, 2=案例分析, 3=高级实操',
+    prerequisite_ids JSON DEFAULT NULL COMMENT '前置章节ID数组',
+    scenario_id CHAR(36) DEFAULT NULL COMMENT '关联的训练场景ID',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     INDEX idx_chapters_course (course_id)
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     chapter_id CHAR(36) NOT NULL,
     progress INT DEFAULT 0,
     completed TINYINT(1) DEFAULT 0,
+    mastery_level INT DEFAULT 0 COMMENT '掌握度评级(0-100)',
     last_access_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
@@ -72,9 +74,10 @@ CREATE TABLE IF NOT EXISTS scenarios (
     description TEXT,
     initial_conditions JSON NOT NULL,
     events JSON NOT NULL,
+    decision_points JSON,
     duration INT NOT NULL,
-    difficulty VARCHAR(20) DEFAULT 'medium',
-    prerequisite_chapter_id CHAR(36) DEFAULT NULL COMMENT '前置章节ID',
+    difficulty INT NOT NULL DEFAULT 1 COMMENT '1=基础, 2=中级, 3=高级',
+    prerequisite_ids JSON DEFAULT NULL COMMENT '前置章节ID数组',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
