@@ -29,6 +29,7 @@ const adminChildren: RouteRecordRaw[] = [
     meta: { title: '事故推演', icon: 'Warning' },
     children: [
       { path: 'scenarios', name: 'ScenarioList', component: () => import('@/pages/simulation/ScenarioList.vue'), meta: { title: '推演场景' } },
+      { path: 'replay/:sessionId', name: 'SimulationReplay', component: () => import('@/pages/simulation/SimulationReplay.vue'), meta: { title: '推演回放', hidden: true } },
       { path: ':id', name: 'SimulationView', component: () => import('@/pages/simulation/SimulationView.vue'), meta: { title: '推演演示', hidden: true } },
     ],
   },
@@ -99,6 +100,7 @@ const userChildren: RouteRecordRaw[] = [
     children: [
       { path: 'scenarios', name: 'UserScenarioList', component: () => import('@/pages/simulation/ScenarioList.vue'), meta: { title: '推演场景' } },
       { path: 'records', name: 'UserSimulationRecords', component: () => import('@/pages/simulation/SimulationRecords.vue'), meta: { title: '推演记录' } },
+      { path: 'replay/:sessionId', name: 'UserSimulationReplay', component: () => import('@/pages/simulation/SimulationReplay.vue'), meta: { title: '推演回放', hidden: true } },
       { path: ':id', name: 'UserSimulationView', component: () => import('@/pages/simulation/SimulationView.vue'), meta: { title: '推演演示', hidden: true } },
     ],
   },

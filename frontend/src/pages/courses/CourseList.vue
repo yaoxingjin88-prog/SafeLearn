@@ -1,33 +1,42 @@
 <template>
-  <div class="course-list">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">安全培训课程</h2>
-      <div class="flex items-center gap-3">
+  <div class="sl-page course-list">
+    <div class="sl-page-header">
+      <h2 class="sl-page-title">安全培训课程</h2>
+      <div class="header-actions">
         <el-button type="primary" plain @click="router.push(p('/courses/skill-tree'))">
           安全进阶路径
         </el-button>
-      <el-input
-        v-model="searchText"
-        placeholder="搜索课程..."
-        prefix-icon="Search"
-        style="width: 300px"
-      />
+        <el-input
+          v-model="searchText"
+          placeholder="搜索课程..."
+          prefix-icon="Search"
+          style="width: 300px"
+        />
       </div>
     </div>
 
-    <!-- 分类筛选 -->
-    <div class="mb-6">
-      <el-radio-group v-model="activeCategory">
-        <el-radio-button label="all">全部</el-radio-button>
-        <el-radio-button label="basic">基础知识</el-radio-button>
-        <el-radio-button label="battery">锂电池</el-radio-button>
-        <el-radio-button label="thermal">热失控</el-radio-button>
-        <el-radio-button label="fire">消防安全</el-radio-button>
-        <el-radio-button label="bms">BMS系统</el-radio-button>
-      </el-radio-group>
+    <div class="filter-toolbar sl-page-section">
+      <div class="category-filters">
+        <button
+          v-for="cat in categories"
+          :key="cat.value"
+          type="button"
+          class="category-pill"
+          :class="{ active: activeCategory === cat.value }"
+          @click="activeCategory = cat.value"
+        >
+          {{ cat.label }}
+        </button>
+      </div>
+      <div class="sort-control">
+        <span class="sort-label">排序：</span>
+        <el-select v-model="sortBy" class="sort-select" size="default">
+          <el-option label="最新发布" value="latest" />
+          <el-option label="最热学习" value="popular" />
+        </el-select>
+      </div>
     </div>
 
-    <!-- 课程列表 -->
     <el-skeleton v-if="loading" animated :rows="6" />
     <template v-else>
       <el-empty v-if="!filteredCourses.length" description="暂无课程" />
@@ -74,6 +83,16 @@ const router = useRouter()
 const { p } = useAppBase()
 const searchText = ref('')
 const activeCategory = ref('all')
+const sortBy = ref<'latest' | 'popular'>('latest')
+
+const categories = [
+  { label: '全部', value: 'all' },
+  { label: '基础知识', value: 'basic' },
+  { label: '锂电池', value: 'battery' },
+  { label: '热失控', value: 'thermal' },
+  { label: '消防安全', value: 'fire' },
+  { label: 'BMS系统', value: 'bms' },
+]
 
 const courses = ref<Course[]>([])
 const loading = ref(true)
@@ -95,7 +114,7 @@ onMounted(async () => {
 })
 
 const filteredCourses = computed(() => {
-  let result = courses.value
+  let result = [...courses.value]
   if (activeCategory.value !== 'all') {
     result = result.filter(c => c.category === activeCategory.value)
   }
@@ -105,6 +124,11 @@ const filteredCourses = computed(() => {
       c.title.toLowerCase().includes(search) ||
       c.description.toLowerCase().includes(search)
     )
+  }
+  if (sortBy.value === 'popular') {
+    result.sort((a, b) => (b.learnerCount || 0) - (a.learnerCount || 0))
+  } else {
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }
   return result
 })
@@ -130,15 +154,72 @@ function getCategoryName(category: string) {
   }
   return map[category] || category
 }
-
 </script>
 
 <style scoped>
-.course-list {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.category-pill {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #f3f4f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.4;
+}
+
+.category-pill:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.category-pill.active {
+  background: #2b5aed;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(43, 90, 237, 0.25);
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sort-label {
+  font-size: 14px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.sort-select {
+  width: 130px;
 }
 
 .course-card {
@@ -199,5 +280,16 @@ function getCategoryName(category: string) {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+@media (max-width: 768px) {
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sort-control {
+    justify-content: flex-end;
+  }
 }
 </style>

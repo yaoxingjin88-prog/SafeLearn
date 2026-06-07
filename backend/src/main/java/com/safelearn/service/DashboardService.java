@@ -1,5 +1,6 @@
 package com.safelearn.service;
 
+import com.safelearn.deduction.repository.SimulationSessionRepository;
 import com.safelearn.entity.*;
 import com.safelearn.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -18,20 +19,26 @@ public class DashboardService {
     private final ChapterRepository chapterRepo;
     private final UserProgressRepository progressRepo;
     private final TrainingRecordRepository recordRepo;
+    private final SimulationSessionRepository simulationSessionRepo;
     private final ScenarioRepository scenarioRepo;
     private final UserRepository userRepo;
 
     public Map<String, Object> getStats(String userId) {
         long courseCount = courseRepo.findByStatusOrderByCreatedAtDesc("published").size();
         long completedCount = progressRepo.countByUserIdAndCompletedTrue(userId);
-        long simulationCount = recordRepo.countByUserId(userId);
+        long simulationCount = simulationSessionRepo.countByUserIdAndStatus(userId, "completed");
+        long trainingCount = recordRepo.countByUserId(userId);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("courseCount", courseCount);
         stats.put("completedCount", completedCount);
         stats.put("simulationCount", simulationCount);
-        Double avg = recordRepo.avgCompletedScoreByUserId(userId);
-        stats.put("avgScore", avg != null ? (int) Math.round(avg) : 0);
+        stats.put("trainingCount", trainingCount);
+        Double dedAvg = simulationSessionRepo.avgTotalScoreByUserId(userId);
+        Double trainAvg = recordRepo.avgCompletedScoreByUserId(userId);
+        int avgScore = dedAvg != null ? (int) Math.round(dedAvg)
+                : (trainAvg != null ? (int) Math.round(trainAvg) : 0);
+        stats.put("avgScore", avgScore);
         return stats;
     }
 
@@ -48,7 +55,13 @@ public class DashboardService {
                     return duration * (p.getProgress() != null ? p.getProgress() : 0) / 100;
                 })
                 .sum();
-        Double avg = recordRepo.avgCompletedScoreByUserId(userId);
+        Double dedAvg = simulationSessionRepo.avgTotalScoreByUserId(userId);
+        Double trainAvg = recordRepo.avgCompletedScoreByUserId(userId);
+        int avgScore = dedAvg != null ? (int) Math.round(dedAvg)
+                : (trainAvg != null ? (int) Math.round(trainAvg) : 0);
+        long deductionCount = simulationSessionRepo.countByUserIdAndStatus(userId, "completed");
+        long deductionSuccess = simulationSessionRepo.findByUserIdOrderByStartedAtDesc(userId).stream()
+                .filter(s -> "success".equals(s.getOutcome())).count();
 
         long pendingMandatory = publishedCourses.stream()
                 .mapToLong(course -> countIncompleteChapters(userId, course.getId()))
@@ -61,11 +74,16 @@ public class DashboardService {
         overview.put("studyHours", Math.round(studyMinutes / 60.0 * 10) / 10.0);
         overview.put("completedCourses", countCompletedCourses(userId, publishedCourses));
         overview.put("completedChapters", completedChapters);
-        overview.put("avgScore", avg != null ? (int) Math.round(avg) : 0);
+        overview.put("avgScore", avgScore);
         overview.put("pendingMandatory", pendingMandatory);
+        overview.put("deductionCount", deductionCount);
+        overview.put("deductionSuccessRate", deductionCount == 0 ? 0
+                : Math.round(deductionSuccess * 1000.0 / deductionCount) / 10.0);
+        overview.put("deductionAvgScore", dedAvg != null ? Math.round(dedAvg * 10) / 10.0 : 0);
         overview.put("continueLearning", buildContinueLearning(userId, allProgress));
         overview.put("mandatoryTasks", buildMandatoryTasks(userId));
         overview.put("recommendedCourses", buildRecommendedCourses(userId, publishedCourses));
+        overview.put("recentDeductions", buildRecentDeductions(userId));
         return overview;
     }
 
@@ -254,6 +272,23 @@ public class DashboardService {
                     m.put("tag", course.getCategory().equals("thermal") ? "3D 互动" : "视频课程");
                     m.put("meta", (course.getTotalDuration() != null ? course.getTotalDuration() : 0) + "分钟 · "
                             + chapters.size() + "章节");
+                    return m;
+                }).toList();
+    }
+
+    private List<Map<String, Object>> buildRecentDeductions(String userId) {
+        return simulationSessionRepo.findByUserIdOrderByStartedAtDesc(userId).stream()
+                .filter(s -> "completed".equals(s.getStatus()))
+                .limit(5)
+                .map(s -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("sessionId", s.getId());
+                    m.put("scenarioId", s.getScenarioId());
+                    m.put("outcome", s.getOutcome());
+                    m.put("totalScore", s.getTotalScore());
+                    m.put("rating", s.getRating());
+                    m.put("finishedAt", s.getFinishedAt() != null ? s.getFinishedAt().toString() : null);
+                    scenarioRepo.findById(s.getScenarioId()).ifPresent(sc -> m.put("scenarioName", sc.getName()));
                     return m;
                 }).toList();
     }

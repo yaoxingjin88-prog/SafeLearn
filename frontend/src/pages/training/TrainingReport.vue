@@ -1,5 +1,5 @@
 <template>
-  <div class="training-report">
+  <div class="sl-page training-report">
     <el-page-header @back="$router.back()">
       <template #content>
         <span class="text-lg font-bold">训练报告</span>
@@ -148,13 +148,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.training-report {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .report-header {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
 <template>
-  <div class="training-view" v-if="currentDecisionPoint">
+  <div class="sl-page training-view" v-if="currentDecisionPoint">
     <el-page-header @back="$router.back()">
       <template #content>
         <span class="text-lg font-bold">{{ scenario.name }}</span>
@@ -69,6 +69,11 @@
       </div>
     </div>
   </div>
+  <div v-else-if="loadError" class="loading-container">
+    <el-empty :description="loadError">
+      <el-button type="primary" @click="router.back()">返回训练列表</el-button>
+    </el-empty>
+  </div>
   <div v-else class="loading-container">
     <el-icon class="is-loading" :size="40"><Loading /></el-icon>
     <p>加载中...</p>
@@ -79,6 +84,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Warning, Timer, Loading } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { useAppBase } from '@/composables/useAppBase'
 
@@ -91,6 +97,7 @@ const scenario = ref<any>({
 })
 
 const recordId = ref('')
+const loadError = ref('')
 const currentStep = ref(1)
 const selectedOption = ref('')
 const showResult = ref(false)
@@ -118,6 +125,38 @@ const resultTitle = computed(() => {
 
 const resultType = computed(() => isCorrect.value ? 'success' : 'error')
 
+function normalizeDecisionPoints(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+function normalizeScenario(data: any) {
+  const decisionPoints = normalizeDecisionPoints(data?.decisionPoints).map((dp: any) => ({
+    ...dp,
+    timePressure: dp.timePressure ?? 30,
+    options: Array.isArray(dp.options) ? dp.options : [],
+  }))
+  return {
+    ...data,
+    decisionPoints,
+    timeLimit: data.timeLimit ?? data.duration ?? 60,
+  }
+}
+
+function getDecisionTimeLimit() {
+  const dp = currentDecisionPoint.value
+  if (!dp) return 30
+  return dp.timePressure ?? scenario.value.timeLimit ?? 30
+}
+
 function getSelectedScore() {
   const option = currentDecisionPoint.value.options.find((o: any) => o.id === selectedOption.value)
   return option?.score || 0
@@ -143,7 +182,7 @@ function selectOption(optionId: string) {
   decisions.value.push({
     decisionPointId: currentDecisionPoint.value.id,
     optionId,
-    responseTime: currentDecisionPoint.value.timePressure - timeLeft.value,
+    responseTime: Math.max(0, getDecisionTimeLimit() - timeLeft.value),
     score: option?.score || 0,
   })
 
@@ -176,14 +215,17 @@ async function nextDecision() {
 }
 
 function startTimer() {
-  timeLeft.value = currentDecisionPoint.value.timePressure
+  const dp = currentDecisionPoint.value
+  if (!dp) return
+  stopTimer()
+  timeLeft.value = getDecisionTimeLimit()
   timerInterval = window.setInterval(() => {
     if (timeLeft.value > 0) {
       timeLeft.value--
     } else {
       stopTimer()
-      // 时间到，自动选择错误答案
-      selectOption(currentDecisionPoint.value.options.find((o: any) => !o.correct)?.id || '')
+      const fallback = dp.options?.find((o: any) => !o.correct)?.id
+      if (fallback) selectOption(fallback)
     }
   }, 1000)
 }
@@ -197,13 +239,22 @@ function stopTimer() {
 
 onMounted(async () => {
   const id = route.params.id as string
-  const [scenarioRes, startRes] = await Promise.all([
-    request.get(`/training/scenarios/${id}`),
-    request.post('/training/start', { scenarioId: id }),
-  ])
-  scenario.value = scenarioRes.data
-  recordId.value = startRes.data.recordId
-  startTimer()
+  try {
+    const [scenarioRes, startRes] = await Promise.all([
+      request.get(`/training/scenarios/${id}`),
+      request.post('/training/start', { scenarioId: id }),
+    ])
+    scenario.value = normalizeScenario(scenarioRes.data)
+    recordId.value = startRes.data.recordId
+
+    if (!scenario.value.decisionPoints.length) {
+      loadError.value = '该训练场景暂无决策题目，请联系管理员配置'
+      return
+    }
+    startTimer()
+  } catch {
+    loadError.value = '加载训练场景失败，请稍后重试'
+  }
 })
 
 onUnmounted(() => {
@@ -212,13 +263,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.training-view {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .training-content {
   max-width: 800px;
   margin: 0 auto;

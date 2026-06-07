@@ -1,9 +1,11 @@
 package com.safelearn.service;
 
+import com.safelearn.deduction.entity.SimulationSession;
 import com.safelearn.entity.AccidentCase;
 import com.safelearn.entity.TrainingRecord;
 import com.safelearn.entity.User;
 import com.safelearn.repository.*;
+import com.safelearn.deduction.repository.SimulationSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class AdminService {
     private final UserRepository userRepo;
     private final CourseRepository courseRepo;
     private final TrainingRecordRepository recordRepo;
+    private final SimulationSessionRepository simulationSessionRepo;
     private final UserProgressRepository progressRepo;
     private final ChapterRepository chapterRepo;
     private final AccidentCaseRepository caseRepo;
@@ -61,12 +64,18 @@ public class AdminService {
     public Map<String, Object> getStats() {
         long totalUsers = userRepo.count();
         long totalCourses = courseRepo.findByStatusOrderByCreatedAtDesc("published").size();
-        long totalSimulations = recordRepo.count();
+        long totalSimulations = simulationSessionRepo.count();
+        long totalTrainings = recordRepo.count();
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalUsers", totalUsers);
         stats.put("totalCourses", totalCourses);
         stats.put("totalSimulations", totalSimulations);
-        stats.put("avgScore", roundAvg(recordRepo.avgCompletedScore()));
+        stats.put("totalTrainings", totalTrainings);
+        Double dedAvg = simulationSessionRepo.findAll().stream()
+                .filter(s -> s.getTotalScore() != null)
+                .mapToInt(SimulationSession::getTotalScore)
+                .average().orElse(0);
+        stats.put("avgScore", dedAvg > 0 ? (int) Math.round(dedAvg) : roundAvg(recordRepo.avgCompletedScore()));
         return stats;
     }
 
@@ -129,11 +138,12 @@ public class AdminService {
             int year = month.getYear();
             int monthValue = month.getMonthValue();
 
-            List<TrainingRecord> monthRecords = recordRepo.findAll().stream()
+            long monthSims = simulationSessionRepo.findAll().stream()
+                    .filter(s -> isInMonth(s.getStartedAt(), year, monthValue))
+                    .count();
+            simulationCounts.add(monthSims);
+            trainingUsers.add(recordRepo.findAll().stream()
                     .filter(r -> isInMonth(r.getStartTime(), year, monthValue))
-                    .toList();
-            simulationCounts.add((long) monthRecords.size());
-            trainingUsers.add(monthRecords.stream()
                     .map(r -> r.getUser().getId())
                     .distinct()
                     .count());

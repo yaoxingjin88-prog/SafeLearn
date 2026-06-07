@@ -1,6 +1,8 @@
 <template>
-  <div class="training-records">
-    <h2 class="page-title">训练记录</h2>
+  <div class="sl-page training-records">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">训练记录</h2>
+    </div>
     <el-card v-loading="loading">
       <el-table :data="records" style="width: 100%">
         <el-table-column prop="scenarioName" label="训练场景" min-width="200" />
@@ -55,18 +57,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.training-records {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-</style>

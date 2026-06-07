@@ -1,6 +1,8 @@
 <template>
-  <div class="data-screen">
-    <h2 class="text-2xl font-bold mb-6">数据大屏</h2>
+  <div class="sl-page data-screen">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">数据大屏</h2>
+    </div>
 
     <el-row :gutter="20">
       <!-- 统计卡片 -->
@@ -242,13 +244,6 @@ function initCharts() {
 </script>
 
 <style scoped>
-.data-screen {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .stat-card {
   display: flex;
   align-items: center;

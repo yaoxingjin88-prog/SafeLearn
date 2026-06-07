@@ -1,7 +1,7 @@
 <template>
-  <div class="case-list">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">事故案例库</h2>
+  <div class="sl-page case-list">
+    <div class="sl-page-header">
+      <h2 class="sl-page-title">事故案例库</h2>
       <el-input
         v-model="searchText"
         placeholder="搜索案例..."
@@ -10,15 +10,26 @@
       />
     </div>
 
-    <!-- 分类筛选 -->
-    <div class="mb-6">
-      <el-radio-group v-model="activeType">
-        <el-radio-button label="all">全部</el-radio-button>
-        <el-radio-button label="fire">火灾</el-radio-button>
-        <el-radio-button label="explosion">爆炸</el-radio-button>
-        <el-radio-button label="thermal_runaway">热失控</el-radio-button>
-        <el-radio-button label="gas_leak">气体泄漏</el-radio-button>
-      </el-radio-group>
+    <div class="filter-toolbar sl-page-section">
+      <div class="category-filters">
+        <button
+          v-for="type in caseTypes"
+          :key="type.value"
+          type="button"
+          class="category-pill"
+          :class="{ active: activeType === type.value }"
+          @click="activeType = type.value"
+        >
+          {{ type.label }}
+        </button>
+      </div>
+      <div class="sort-control">
+        <span class="sort-label">排序：</span>
+        <el-select v-model="sortBy" class="sort-select" size="default">
+          <el-option label="最新发布" value="latest" />
+          <el-option label="最热学习" value="popular" />
+        </el-select>
+      </div>
     </div>
 
     <!-- 案例列表 -->
@@ -66,6 +77,23 @@ const { p } = useAppBase()
 
 const searchText = ref('')
 const activeType = ref('all')
+const sortBy = ref<'latest' | 'popular'>('latest')
+
+const caseTypes = [
+  { label: '全部', value: 'all' },
+  { label: '火灾', value: 'fire' },
+  { label: '爆炸', value: 'explosion' },
+  { label: '热失控', value: 'thermal_runaway' },
+  { label: '气体泄漏', value: 'gas_leak' },
+]
+
+const severityWeight: Record<string, number> = {
+  critical: 4,
+  severe: 4,
+  major: 3,
+  moderate: 2,
+  minor: 1,
+}
 
 const cases = ref<AccidentCase[]>([])
 const loading = ref(true)
@@ -84,7 +112,7 @@ onMounted(async () => {
 })
 
 const filteredCases = computed(() => {
-  let result = cases.value
+  let result = [...cases.value]
   if (activeType.value !== 'all') {
     result = result.filter(c => c.type === activeType.value)
   }
@@ -94,6 +122,11 @@ const filteredCases = computed(() => {
       c.title.toLowerCase().includes(search) ||
       c.description.toLowerCase().includes(search)
     )
+  }
+  if (sortBy.value === 'popular') {
+    result.sort((a, b) => (severityWeight[b.severity] || 0) - (severityWeight[a.severity] || 0))
+  } else {
+    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
   return result
 })
@@ -114,6 +147,7 @@ function getSeverityName(severity: string) {
     moderate: '中等',
     major: '严重',
     critical: '特别严重',
+    severe: '特别严重',
   }
   return map[severity] || severity
 }
@@ -141,11 +175,74 @@ function getTypeName(type: string) {
 </script>
 
 <style scoped>
-.case-list {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
+.filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.category-pill {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #f3f4f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.4;
+}
+
+.category-pill:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.category-pill.active {
+  background: #2b5aed;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(43, 90, 237, 0.25);
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sort-label {
+  font-size: 14px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.sort-select {
+  width: 130px;
+}
+
+@media (max-width: 768px) {
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sort-control {
+    justify-content: flex-end;
+  }
 }
 
 .case-card {

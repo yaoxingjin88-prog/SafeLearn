@@ -143,3 +143,6 @@ CREATE TABLE IF NOT EXISTS qa_records (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_qa_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 事故推演引擎表（详见 deduction_schema.sql）
+-- simulation_sessions, simulation_event_logs, simulation_decisions, simulation_snapshots, simulation_score_reports

@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-page" v-loading="loading">
+  <div class="sl-page dashboard-page" v-loading="loading">
     <section class="welcome-section">
       <h1 class="welcome-title">{{ greeting }}，{{ overview.displayName }}！</h1>
       <p class="welcome-sub">
@@ -24,7 +24,12 @@
 
     <section class="middle-row">
       <div class="continue-card" v-if="overview.continueLearning">
-        <div class="continue-bg" />
+        <div class="continue-player-deco" aria-hidden="true">
+          <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="5" />
+            <path d="M48 38 L48 82 L84 60 Z" fill="currentColor" />
+          </svg>
+        </div>
         <div class="continue-content">
           <el-tag effect="dark" type="info" class="continue-tag">上次学到</el-tag>
           <h2 class="continue-title">《{{ overview.continueLearning.courseTitle }}》</h2>
@@ -69,6 +74,45 @@
         </div>
         <el-empty v-else description="暂无必修任务" :image-size="80" />
       </div>
+    </section>
+
+    <section v-if="overview.deductionCount > 0" class="deduction-section">
+      <div class="recommend-header">
+        <h3>推演训练成绩</h3>
+        <el-button link type="primary" @click="router.push(p('/simulation/records'))">查看全部</el-button>
+      </div>
+      <div class="deduction-stats">
+        <div class="ded-stat">
+          <div class="ded-value">{{ overview.deductionCount }}</div>
+          <div class="ded-label">完成推演</div>
+        </div>
+        <div class="ded-stat">
+          <div class="ded-value">{{ overview.deductionAvgScore || '--' }}</div>
+          <div class="ded-label">平均得分</div>
+        </div>
+        <div class="ded-stat">
+          <div class="ded-value">{{ overview.deductionSuccessRate || 0 }}%</div>
+          <div class="ded-label">受控率</div>
+        </div>
+      </div>
+      <el-table v-if="overview.recentDeductions?.length" :data="overview.recentDeductions" size="small" class="mt-4">
+        <el-table-column prop="scenarioName" label="场景" min-width="160" />
+        <el-table-column prop="totalScore" label="得分" width="70" />
+        <el-table-column prop="outcome" label="结果" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.outcome === 'success' ? 'success' : 'danger'" size="small">
+              {{ row.outcome === 'success' ? '受控' : '扩大' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80">
+          <template #default="{ row }">
+            <el-button type="primary" link size="small" @click="router.push(p(`/simulation/replay/${row.sessionId}`))">
+              回放
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
     </section>
 
     <section class="recommend-section">
@@ -124,6 +168,10 @@ const overview = reactive<any>({
   continueLearning: null,
   mandatoryTasks: [],
   recommendedCourses: [],
+  deductionCount: 0,
+  deductionAvgScore: 0,
+  deductionSuccessRate: 0,
+  recentDeductions: [],
 })
 
 const greeting = computed(() => {
@@ -161,12 +209,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.dashboard-page {
-  width: 100%;
-  min-height: 100%;
-  padding: 24px;
-  box-sizing: border-box;
-}
 .welcome-section { margin-bottom: 24px; }
 .welcome-title { font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 8px; }
 .welcome-sub { color: #6b7280; font-size: 14px; }
@@ -179,14 +221,54 @@ onMounted(async () => {
 .stat-accent { position: absolute; right: 0; top: 0; bottom: 0; width: 4px; }
 .middle-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; margin-bottom: 24px; }
 .continue-card { position: relative; border-radius: 16px; overflow: hidden; min-height: 280px; background: linear-gradient(135deg, #2b5aed 0%, #4f7df3 50%, #6b93f7 100%); color: #fff; }
-.continue-bg { position: absolute; right: -20px; bottom: -20px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+.continue-player-deco {
+  position: absolute;
+  top: -28px;
+  right: -32px;
+  width: 180px;
+  height: 180px;
+  color: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  z-index: 0;
+}
+.continue-player-deco svg {
+  width: 100%;
+  height: 100%;
+}
 .continue-content { position: relative; padding: 28px; z-index: 1; }
-.continue-tag { background: rgba(255, 255, 255, 0.2) !important; border: none !important; color: #fff !important; margin-bottom: 16px; }
-.continue-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; line-height: 1.4; }
-.continue-chapter { font-size: 14px; opacity: 0.9; margin-bottom: 20px; }
-.continue-btn { background: #fff !important; color: #2b5aed !important; border: none !important; font-weight: 600; margin-bottom: 24px; }
-.continue-progress { max-width: 360px; }
-.progress-meta { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; opacity: 0.95; }
+.continue-tag {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 500;
+  height: auto !important;
+  padding: 6px 14px !important;
+  margin-bottom: 18px;
+}
+.continue-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+  line-height: 1.45;
+}
+.continue-chapter {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+.continue-btn { background: #fff !important; color: #2b5aed !important; border: none !important; font-weight: 600; font-size: 15px; margin-bottom: 28px; }
+.continue-progress { max-width: 420px; }
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 10px;
+}
 .continue-progress :deep(.el-progress-bar__outer) { background: rgba(255, 255, 255, 0.25); }
 .tasks-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04); }
 .tasks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -199,6 +281,12 @@ onMounted(async () => {
 .task-body { flex: 1; min-width: 0; }
 .task-title { font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task-deadline { font-size: 12px; color: #9ca3af; }
+.deduction-section { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04); margin-bottom: 20px; }
+.deduction-stats { display: flex; gap: 24px; margin-bottom: 8px; }
+.ded-stat { text-align: center; min-width: 80px; }
+.ded-value { font-size: 24px; font-weight: 700; color: #2b5aed; }
+.ded-label { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+.mt-4 { margin-top: 16px; }
 .recommend-section { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04); }
 .recommend-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .recommend-header h3 { font-size: 16px; font-weight: 700; }
@@ -212,5 +300,6 @@ onMounted(async () => {
 @media (max-width: 1100px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .middle-row { grid-template-columns: 1fr; }
+  .continue-player-deco { width: 120px; height: 120px; top: -16px; right: -20px; opacity: 0.5; }
 }
 </style>

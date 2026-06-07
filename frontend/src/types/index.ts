@@ -62,6 +62,7 @@ export interface Course {
   progress?: number
   status?: string
   chapterCount?: number
+  learnerCount?: number
   createdAt: string
   updatedAt: string
 }
@@ -85,6 +86,7 @@ export interface UserProgress {
   userId: string
   courseId: string
   chapterId: string
+  chapterTitle?: string
   progress: number
   completed?: boolean
   masteryLevel?: number

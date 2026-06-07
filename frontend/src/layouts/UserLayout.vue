@@ -1,6 +1,6 @@
 <template>
   <el-container class="user-layout">
-    <el-aside :width="collapsed ? '72px' : '240px'" class="user-aside">
+    <el-aside :width="collapsed ? '72px' : '240px'" class="user-aside" :class="{ 'is-collapsed': collapsed }">
       <div class="brand" @click="$router.push('/user/dashboard')">
         <img src="@/assets/logo.svg" class="brand-logo" alt="Logo" />
         <span v-if="!collapsed" class="brand-name">储安云</span>
@@ -46,6 +46,24 @@
           </el-sub-menu>
         </el-menu>
       </el-scrollbar>
+
+      <div class="sidebar-user">
+        <el-dropdown trigger="click" placement="top-start">
+          <div class="sidebar-user-inner" :class="{ collapsed }">
+            <el-avatar :size="40" class="sidebar-avatar">{{ displayInitial }}</el-avatar>
+            <div v-if="!collapsed" class="sidebar-user-text">
+              <div class="sidebar-user-name">{{ displayName }}</div>
+              <div class="sidebar-user-dept">{{ displayDepartment }}</div>
+            </div>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>{{ userStore.userInfo?.company || '储能企业' }}</el-dropdown-item>
+              <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </el-aside>
 
     <el-container class="main-wrap">
@@ -73,18 +91,6 @@
           <el-badge :value="3" :max="9" class="notify-badge">
             <el-button circle :icon="Bell" />
           </el-badge>
-          <el-dropdown>
-            <div class="user-info">
-              <el-avatar :size="36">{{ displayInitial }}</el-avatar>
-              <span class="user-name">{{ displayName }}</span>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item disabled>{{ userStore.userInfo?.company || '储能企业' }}</el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
         </div>
       </el-header>
 
@@ -106,6 +112,7 @@ import {
   Monitor, Reading, Warning, Cpu, Document, ChatDotRound, Setting,
   Fold, Expand, Search, Bell, Sunny,
 } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores'
 import request from '@/api/request'
 
@@ -121,6 +128,7 @@ const displayName = ref('')
 const activeMenu = computed(() => route.path)
 const isAdmin = computed(() => userStore.role === 'admin')
 const displayInitial = computed(() => (displayName.value || '用').charAt(0))
+const displayDepartment = computed(() => userStore.userInfo?.department || '生产安全部')
 
 const userMenus = [
   {
@@ -177,12 +185,24 @@ function handleSearch() {
   router.push({ path: '/user/courses/list', query: { keyword: q } })
 }
 
-function handleLogout() {
-  userStore.logout()
-  router.push('/user/login')
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出当前账号吗？', '退出登录', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    userStore.logout()
+    router.push('/user/login')
+  } catch {
+    // 用户取消
+  }
 }
 
 onMounted(async () => {
+  if (!userStore.userInfo) {
+    try { await userStore.getUserInfo() } catch { /* ignore */ }
+  }
   try {
     const res = await request.get('/dashboard/overview')
     streakDays.value = res.data.streakDays || 0
@@ -211,10 +231,16 @@ onMounted(async () => {
   height: 64px;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   padding: 0 20px;
   gap: 10px;
   cursor: pointer;
   border-bottom: 1px solid #eef0f4;
+}
+
+.user-aside.is-collapsed .brand {
+  justify-content: center;
+  padding: 0;
 }
 
 .brand-logo {
@@ -229,6 +255,69 @@ onMounted(async () => {
 
 .menu-scroll {
   flex: 1;
+  min-height: 0;
+}
+
+.sidebar-user {
+  flex-shrink: 0;
+  border-top: 1px solid #eef0f4;
+  padding: 16px;
+}
+
+.user-aside.is-collapsed .sidebar-user {
+  padding: 16px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar-user-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 4px;
+  transition: background 0.2s;
+}
+
+.sidebar-user-inner:hover {
+  background: #f5f7fa;
+}
+
+.sidebar-user-inner.collapsed {
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.sidebar-avatar {
+  flex-shrink: 0;
+  background: #2b5aed;
+  color: #fff;
+  font-weight: 600;
+}
+
+.sidebar-user-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-dept {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-menu {
@@ -247,6 +336,43 @@ onMounted(async () => {
   background: #eef3ff !important;
   color: #2b5aed !important;
   font-weight: 600;
+}
+
+/* 折叠态：图标与悬停/选中背景居中对齐 */
+.user-menu.el-menu--collapse {
+  width: 100%;
+  padding: 12px 0;
+}
+
+.user-menu.el-menu--collapse :deep(.el-menu-item),
+.user-menu.el-menu--collapse :deep(.el-sub-menu__title) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  margin: 0 auto 4px;
+  padding: 0 !important;
+}
+
+.user-menu.el-menu--collapse :deep(.el-menu-tooltip__trigger) {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0 !important;
+  left: auto !important;
+  top: auto !important;
+  position: relative !important;
+}
+
+.user-menu.el-menu--collapse :deep(.el-menu-item .el-icon),
+.user-menu.el-menu--collapse :deep(.el-sub-menu__title .el-icon) {
+  margin: 0 !important;
+}
+
+.user-menu.el-menu--collapse :deep(.el-sub-menu__icon-arrow) {
+  display: none;
 }
 
 .main-wrap {
@@ -304,21 +430,8 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
-}
-
 .user-main {
-  padding: 24px;
+  padding: 0;
   background: #f5f7fa;
 }
 

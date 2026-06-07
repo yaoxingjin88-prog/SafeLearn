@@ -1,6 +1,8 @@
 <template>
-  <div class="dashboard">
-    <h2 class="text-2xl font-bold mb-6">工作台</h2>
+  <div class="sl-page dashboard">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">工作台</h2>
+    </div>
 
     <el-row :gutter="20" class="mb-6">
       <el-col :span="6">
@@ -123,7 +125,6 @@ onMounted(async () => {
 .dashboard {
   width: 100%;
   height: calc(100vh - 60px);
-  padding: 24px;
   box-sizing: border-box;
   overflow-y: auto;
 }

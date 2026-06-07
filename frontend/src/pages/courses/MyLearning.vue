@@ -1,6 +1,8 @@
 <template>
-  <div class="my-learning">
-    <h2 class="page-title">我的学习</h2>
+  <div class="sl-page my-learning">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">我的学习</h2>
+    </div>
     <el-card v-loading="loading">
       <el-table :data="records" style="width: 100%">
         <el-table-column prop="courseTitle" label="课程" min-width="200" />
@@ -35,6 +37,14 @@ const { p } = useAppBase()
 const loading = ref(true)
 const records = ref<any[]>([])
 
+function resolveChapterTitle(
+  chapterId: string,
+  chapterTitle: string | undefined,
+  chapterMap: Map<string, string>,
+) {
+  return chapterTitle || chapterMap.get(chapterId) || '未知章节'
+}
+
 async function load() {
   loading.value = true
   try {
@@ -42,13 +52,19 @@ async function load() {
     const courses = coursesRes.data.items || coursesRes.data
     const all: any[] = []
     for (const course of courses) {
-      const progressRes = await courseApi.getProgress(course.id)
+      const [progressRes, detailRes] = await Promise.all([
+        courseApi.getProgress(course.id),
+        courseApi.getById(course.id),
+      ])
+      const chapterMap = new Map(
+        (detailRes.data.chapters || []).map(ch => [ch.id, ch.title]),
+      )
       for (const p of progressRes.data || []) {
         all.push({
           courseId: course.id,
           courseTitle: course.title,
           chapterId: p.chapterId,
-          chapterTitle: p.chapterId,
+          chapterTitle: resolveChapterTitle(p.chapterId, p.chapterTitle, chapterMap),
           progress: p.progress,
           completed: p.completed,
           masteryLevel: p.masteryLevel,
@@ -67,18 +83,3 @@ function goChapter(row: any) {
 
 onMounted(load)
 </script>
-
-<style scoped>
-.my-learning {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-</style>

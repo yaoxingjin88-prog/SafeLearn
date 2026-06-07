@@ -130,6 +130,7 @@ public class CourseService {
             m.put("userId", userId);
             m.put("courseId", courseId);
             m.put("chapterId", up.getChapter() != null ? up.getChapter().getId() : null);
+            m.put("chapterTitle", up.getChapter() != null ? up.getChapter().getTitle() : null);
             m.put("progress", up.getProgress());
             m.put("completed", up.getCompleted());
             m.put("masteryLevel", up.getMasteryLevel());
@@ -252,6 +253,7 @@ public class CourseService {
         m.put("status", c.getStatus());
         m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
         m.put("updatedAt", c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : null);
+        m.put("learnerCount", progressRepo.countDistinctUsersByCourseId(c.getId()));
         m.put("chapters", c.getChapters() != null ? c.getChapters().stream().map(ch -> {
             Map<String, Object> cm = new HashMap<>();
             cm.put("id", ch.getId());

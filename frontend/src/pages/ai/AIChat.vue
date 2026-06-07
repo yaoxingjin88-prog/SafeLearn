@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-chat">
+  <div class="sl-page ai-chat">
     <el-card class="chat-card">
       <template #header>
         <div class="flex items-center gap-2">
@@ -180,13 +180,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ai-chat {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .chat-card {
   height: calc(100vh - 300px);
   display: flex;

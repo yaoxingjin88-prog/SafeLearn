@@ -1,6 +1,8 @@
 <template>
-  <div class="ai-history">
-    <h2 class="page-title">问答历史</h2>
+  <div class="sl-page ai-history">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">问答历史</h2>
+    </div>
     <el-card v-loading="loading">
       <div v-for="item in records" :key="item.id" class="history-item">
         <div class="question">
@@ -53,19 +55,6 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ai-history {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
 .history-item {
   padding: 16px 0;
   border-bottom: 1px solid #f3f4f6;

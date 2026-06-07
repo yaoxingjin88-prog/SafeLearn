@@ -1,5 +1,5 @@
 <template>
-  <div class="case-detail">
+  <div class="sl-page case-detail">
     <el-page-header @back="$router.back()">
       <template #content>
         <span class="text-lg font-bold">{{ caseData.title }}</span>
@@ -160,13 +160,6 @@ function getTimelineType(type: string) {
 </script>
 
 <style scoped>
-.case-detail {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .case-header {
   display: flex;
   gap: 12px;

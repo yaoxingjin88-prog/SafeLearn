@@ -102,6 +102,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore, useUserStore } from '@/stores'
 import { Fold, Expand } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,9 +120,18 @@ const menuRoutes = computed(() => {
   return mainRoute?.children || []
 })
 
-function handleLogout() {
-  userStore.logout()
-  router.push('/login')
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出当前账号吗？', '退出登录', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    userStore.logout()
+    router.push('/login')
+  } catch {
+    // 用户取消
+  }
 }
 </script>
 

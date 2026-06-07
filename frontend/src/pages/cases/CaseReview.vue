@@ -1,6 +1,8 @@
 <template>
-  <div class="case-review">
-    <h2 class="page-title">案例复盘</h2>
+  <div class="sl-page case-review">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">案例复盘</h2>
+    </div>
     <el-row :gutter="20" v-loading="loading">
       <el-col :span="12" v-for="item in cases" :key="item.id">
         <el-card class="review-card" shadow="hover" @click="router.push(p(`/cases/${item.id}`))">
@@ -56,19 +58,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.case-review {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
 .review-card {
   margin-bottom: 20px;
   cursor: pointer;

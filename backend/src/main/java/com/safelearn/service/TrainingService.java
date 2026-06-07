@@ -203,8 +203,22 @@ public class TrainingService {
         m.put("prerequisiteIds", parsePrereqIds(s.getPrerequisiteIds()));
         m.put("initialConditions", parseJson(s.getInitialConditions()));
         m.put("events", parseJson(s.getEvents()));
-        m.put("decisionPoints", parseJson(s.getDecisionPoints()));
+        m.put("decisionPoints", getDecisionPoints(s));
         return m;
+    }
+
+    private List<Map<String, Object>> parseDecisionPoints(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> getDecisionPoints(Scenario scenario) {
+        return parseDecisionPoints(scenario.getDecisionPoints());
     }
 
     private Map<String, Object> toRecordInfo(TrainingRecord r) {
@@ -260,15 +274,6 @@ public class TrainingService {
                 return new ArrayList<>();
             }
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> getDecisionPoints(Scenario scenario) {
-        Object parsed = parseJson(scenario.getDecisionPoints());
-        if (parsed instanceof List<?> list) {
-            return (List<Map<String, Object>>) list;
-        }
-        return List.of();
     }
 
     @SuppressWarnings("unchecked")

@@ -1,5 +1,5 @@
 <template>
-  <div class="chapter-view">
+  <div class="sl-page chapter-view">
     <el-page-header @back="$router.back()">
       <template #content>
         <span class="text-lg font-bold">{{ chapter.title || '章节学习' }}</span>
@@ -185,13 +185,6 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
 </script>
 
 <style scoped>
-.chapter-view {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .video-container {
   margin-bottom: 24px;
   border-radius: 8px;

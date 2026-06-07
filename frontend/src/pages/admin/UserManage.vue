@@ -1,7 +1,7 @@
 <template>
-  <div class="user-manage">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">用户管理</h2>
+  <div class="sl-page user-manage">
+    <div class="sl-page-header">
+      <h2 class="sl-page-title">用户管理</h2>
       <el-button type="primary" @click="showAddDialog">
         <el-icon><Plus /></el-icon>
         添加用户
@@ -160,10 +160,4 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.user-manage {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
 </style>

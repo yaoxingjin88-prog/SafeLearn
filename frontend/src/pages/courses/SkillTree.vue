@@ -1,20 +1,18 @@
 <template>
-  <div class="skill-tree-page">
-    <div class="page-header">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-2xl font-bold">安全进阶路径</h2>
-          <p class="text-gray-500 mt-1">按阶段解锁课程，构建完整的安全知识体系</p>
-        </div>
-        <el-button @click="router.push(p('/courses/list'))">
-          <el-icon><ArrowLeft /></el-icon>
-          返回课程列表
-        </el-button>
+  <div class="sl-page skill-tree-page">
+    <div class="sl-page-header sl-page-header--stacked">
+      <div>
+        <h2 class="sl-page-title">安全进阶路径</h2>
+        <p class="sl-page-desc">按阶段解锁课程，构建完整的安全知识体系</p>
       </div>
+      <el-button @click="router.push(p('/courses/list'))">
+        <el-icon><ArrowLeft /></el-icon>
+        返回课程列表
+      </el-button>
     </div>
 
     <!-- 进度概览 -->
-    <div class="progress-overview mb-6">
+    <div class="progress-overview sl-page-section">
       <el-row :gutter="20">
         <el-col :span="8">
           <div class="progress-card basic">
@@ -423,21 +421,6 @@ function getProgressPercentage(level: DifficultyLevel): number {
 </script>
 
 <style scoped>
-.skill-tree-page {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.progress-overview {
-  margin-bottom: 24px;
-}
-
 .progress-card {
   display: flex;
   align-items: center;

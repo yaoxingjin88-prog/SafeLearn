@@ -1,5 +1,5 @@
 <template>
-  <div class="course-detail">
+  <div class="sl-page course-detail">
     <el-page-header @back="$router.back()">
       <template #content>
         <span class="text-lg font-bold">{{ course.title || '课程详情' }}</span>
@@ -229,13 +229,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.course-detail {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .course-header {
   display: flex;
   gap: 24px;

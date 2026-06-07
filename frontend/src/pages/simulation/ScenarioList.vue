@@ -1,6 +1,8 @@
 <template>
-  <div class="scenario-list">
-    <h2 class="text-2xl font-bold mb-6">事故推演场景</h2>
+  <div class="sl-page scenario-list">
+    <div class="sl-page-head">
+      <h2 class="sl-page-title">事故推演场景</h2>
+    </div>
 
     <el-row :gutter="20">
       <el-col :span="8" v-for="scenario in scenarios" :key="scenario.id">
@@ -70,13 +72,6 @@ function getDifficultyName(difficulty: string) {
 </script>
 
 <style scoped>
-.scenario-list {
-  width: 100%;
-  min-height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
 .scenario-card {
   margin-bottom: 20px;
   transition: all 0.3s;

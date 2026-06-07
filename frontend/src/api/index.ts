@@ -1,6 +1,7 @@
 export { authApi } from './auth'
 export { courseApi } from './course'
 export { simulationApi } from './simulation'
+export { deductionApi } from './deduction'
 export { trainingApi } from './training'
 export { caseApi } from './case'
 export { aiApi } from './ai'
