@@ -216,6 +216,7 @@ const userMenus: NavMenu[] = [
     title: '事故推演',
     icon: Warning,
     children: [
+      { path: '/user/timeline-deduction/hub', title: '时间轴推演', icon: Guide },
       { path: '/user/simulation/scenarios', title: '推演场景', icon: VideoPlay },
       { path: '/user/simulation/records', title: '推演记录', icon: Tickets },
     ],

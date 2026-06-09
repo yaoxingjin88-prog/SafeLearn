@@ -532,3 +532,73 @@ INSERT IGNORE INTO chapter_quizzes (id, chapter_id, title, questions, pass_score
   {"id":"q19","type":"single","question":"大型储能舱推荐使用什么灭火方案？","options":[{"id":"a","text":"干粉灭火器","correct":false},{"id":"b","text":"全氟己酮或组合式气体灭火","correct":true},{"id":"c","text":"泡沫灭火系统","correct":false},{"id":"d","text":"二氧化碳灭火器","correct":false}],"explanation":"大型储能舱推荐使用全氟己酮或组合式气体灭火方案。"},
   {"id":"q20","type":"single","question":"消防系统设计的首要原则是什么？","options":[{"id":"a","text":"成本最低","correct":false},{"id":"b","text":"早期发现、快速响应","correct":true},{"id":"c","text":"设备最少","correct":false},{"id":"d","text":"维护最简单","correct":false}],"explanation":"消防系统设计的首要原则是早期发现、快速响应，最大限度减少损失。"}
 ]', 60, 15, NOW());
+
+-- ========== 时间轴事故推演 ==========
+CREATE TABLE IF NOT EXISTS td_sessions (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    scenario_id CHAR(36) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'running',
+    current_phase VARCHAR(32),
+    current_node_key VARCHAR(64),
+    branch_path VARCHAR(64) DEFAULT 'standard',
+    outcome VARCHAR(32),
+    risk_index INT DEFAULT 0,
+    engine_state JSON,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    INDEX idx_td_sessions_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS td_scores (
+    id CHAR(36) PRIMARY KEY,
+    session_id CHAR(36) NOT NULL UNIQUE,
+    total_score INT NOT NULL,
+    risk_identification INT DEFAULT 0,
+    decision_making INT DEFAULT 0,
+    emergency_response INT DEFAULT 0,
+    accident_analysis INT DEFAULT 0,
+    ai_comment TEXT,
+    strengths_json JSON,
+    weaknesses_json JSON,
+    recommendations_json JSON,
+    recommended_courses_json JSON,
+    fishbone_json JSON,
+    five_why_json JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ========== 时间轴事故推演 ==========
+CREATE TABLE IF NOT EXISTS td_sessions (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    scenario_id CHAR(36) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'running',
+    current_phase VARCHAR(32),
+    current_node_key VARCHAR(64),
+    branch_path VARCHAR(64) DEFAULT 'standard',
+    outcome VARCHAR(32),
+    risk_index INT DEFAULT 0,
+    engine_state JSON,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    INDEX idx_td_sessions_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS td_scores (
+    id CHAR(36) PRIMARY KEY,
+    session_id CHAR(36) NOT NULL UNIQUE,
+    total_score INT NOT NULL,
+    risk_identification INT DEFAULT 0,
+    decision_making INT DEFAULT 0,
+    emergency_response INT DEFAULT 0,
+    accident_analysis INT DEFAULT 0,
+    ai_comment TEXT,
+    strengths_json JSON,
+    weaknesses_json JSON,
+    recommendations_json JSON,
+    recommended_courses_json JSON,
+    fishbone_json JSON,
+    five_why_json JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -92,6 +92,15 @@ const userChildren: RouteRecordRaw[] = [
     ],
   },
   {
+    path: 'timeline-deduction',
+    redirect: '/user/timeline-deduction/hub',
+    meta: { title: '时间轴推演' },
+    children: [
+      { path: 'hub', name: 'TimelineDeductionHub', component: () => import('@/pages/timeline-deduction/TimelineHub.vue'), meta: { title: '时间轴推演' } },
+      { path: 'run/:code', name: 'TimelineDeductionRun', component: () => import('@/pages/timeline-deduction/TimelineRun.vue'), meta: { title: '推演进行中', hidden: true } },
+    ],
+  },
+  {
     path: 'training',
     redirect: '/user/training/scenarios',
     meta: { title: '应急训练' },

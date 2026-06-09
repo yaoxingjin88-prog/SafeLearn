@@ -36,12 +36,18 @@
     <el-skeleton v-if="loading" animated :rows="6" />
     <template v-else>
       <el-empty v-if="!filteredCases.length" description="暂无案例" />
-      <el-row v-else :gutter="20">
-        <el-col :span="8" v-for="caseItem in filteredCases" :key="caseItem.id">
-          <el-card class="case-card" shadow="hover" @click="router.push(p(`/cases/${caseItem.id}`))">
+      <div v-else class="case-grid">
+        <el-card
+          v-for="caseItem in filteredCases"
+          :key="caseItem.id"
+          class="case-card"
+          shadow="hover"
+          @click="router.push(p(`/cases/${caseItem.id}`))"
+        >
+          <div class="case-card-body">
             <div class="case-header">
               <div class="case-tags">
-                <el-tag :type="getSeverityType(caseItem.severity)">
+                <el-tag :type="getSeverityType(caseItem.severity)" size="small">
                   {{ getSeverityName(caseItem.severity) }}
                 </el-tag>
                 <el-tag v-if="progressMap[caseItem.id]?.completed" type="success" size="small" effect="plain">
@@ -53,14 +59,21 @@
             <h3 class="case-title">{{ caseItem.title }}</h3>
             <p class="case-location">
               <el-icon><Location /></el-icon>
-              {{ caseItem.location }}
+              <span>{{ caseItem.location }}</span>
             </p>
             <p class="case-desc">{{ caseItem.description }}</p>
-            <div v-if="caseItem.timeline?.length" class="timeline-preview">
-              <div v-for="(evt, idx) in caseItem.timeline.slice(0, 3)" :key="idx" class="timeline-preview-item">
-                <span class="tp-time">{{ evt.time }}</span>
-                <span class="tp-title">{{ evt.title }}</span>
-              </div>
+            <div class="timeline-preview">
+              <template v-if="caseItem.timeline?.length">
+                <div
+                  v-for="(evt, idx) in caseItem.timeline.slice(0, 3)"
+                  :key="idx"
+                  class="timeline-preview-item"
+                >
+                  <span class="tp-time">{{ evt.time }}</span>
+                  <span class="tp-title">{{ evt.title }}</span>
+                </div>
+              </template>
+              <div v-else class="timeline-preview-empty">暂无时间线摘要</div>
             </div>
             <div class="case-meta">
               <el-tag :type="getTypeType(caseItem.type)" size="small">
@@ -75,9 +88,9 @@
                 {{ progressMap[caseItem.id]?.completed ? '再次复盘' : '复盘引导' }}
               </el-button>
             </div>
-          </el-card>
-        </el-col>
-      </el-row>
+          </div>
+        </el-card>
+      </div>
     </template>
   </div>
 </template>
@@ -282,33 +295,76 @@ function getTypeName(type: string) {
   }
 }
 
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1200px) {
+  .case-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .case-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .case-card {
-  margin-bottom: 20px;
+  width: 100%;
+  min-width: 0;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .case-card:hover {
   transform: translateY(-4px);
 }
 
+.case-card :deep(.el-card__body) {
+  height: 100%;
+  padding: 18px 20px;
+}
+
+.case-card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
 .case-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 12px;
+  min-width: 0;
 }
 
 .case-tags {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .timeline-preview {
   border-left: 2px solid #e5e7eb;
   padding-left: 10px;
   margin-bottom: 12px;
+  min-height: 72px;
+  flex-shrink: 0;
+}
+
+.timeline-preview-empty {
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.6;
 }
 
 .timeline-preview-item {
@@ -334,22 +390,37 @@ function getTypeName(type: string) {
 .case-date {
   font-size: 13px;
   color: #9ca3af;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .case-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   margin-bottom: 8px;
   color: #1f2937;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .case-location {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   font-size: 13px;
   color: #6b7280;
   margin-bottom: 12px;
+  min-width: 0;
+}
+
+.case-location span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .case-desc {
@@ -358,8 +429,10 @@ function getTypeName(type: string) {
   margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .case-meta {
@@ -367,5 +440,7 @@ function getTypeName(type: string) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
 }
 </style>

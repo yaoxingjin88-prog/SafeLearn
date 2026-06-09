@@ -3,13 +3,17 @@
     <!-- 顶部返回栏 -->
     <div class="detail-topbar">
       <button class="back-btn" @click="$router.back()">
-        <el-icon><ArrowLeft /></el-icon>
+        <el-icon>
+          <ArrowLeft />
+        </el-icon>
         返回案例列表
       </button>
       <div class="topbar-actions">
         <el-tag v-if="caseProgress.completed" type="success" effect="plain" round>已复盘</el-tag>
         <el-button type="primary" @click="openGuide">
-          <el-icon><Reading /></el-icon>
+          <el-icon>
+            <Reading />
+          </el-icon>
           {{ caseProgress.completed ? '查看 / 再次复盘' : '开始复盘引导' }}
         </el-button>
         <FavoriteButton v-if="caseData.id" :link="false" target-type="case" :target-id="caseData.id" />
@@ -20,7 +24,9 @@
     <div class="overview-card">
       <!-- 现场示意图占位 -->
       <div class="scene-visual" :class="`scene-${caseData.type}`">
-        <el-icon :size="72"><component :is="typeIcon(caseData.type)" /></el-icon>
+        <el-icon :size="72">
+          <component :is="typeIcon(caseData.type)" />
+        </el-icon>
         <span class="scene-badge" :style="{ background: severityColor(caseData.severity) }">
           {{ getSeverityName(caseData.severity) }}
         </span>
@@ -38,30 +44,43 @@
         </div>
         <h1 class="overview-title">{{ caseData.title }}</h1>
         <div class="overview-meta">
-          <span><el-icon><Location /></el-icon> {{ caseData.location }}</span>
-          <span><el-icon><Calendar /></el-icon> {{ caseData.date }}</span>
-          <span v-if="caseData.studyMinutes"><el-icon><Clock /></el-icon> 建议学习 {{ caseData.studyMinutes }} 分钟</span>
+          <span><el-icon>
+              <Location />
+            </el-icon> {{ caseData.location }}</span>
+          <span><el-icon>
+              <Calendar />
+            </el-icon> {{ caseData.date }}</span>
+          <span v-if="caseData.studyMinutes"><el-icon>
+              <Clock />
+            </el-icon> 建议学习 {{ caseData.studyMinutes }} 分钟</span>
         </div>
         <p class="overview-desc">{{ caseData.description }}</p>
 
         <!-- 关键数据大数字 -->
         <div class="key-stats">
           <div class="key-stat">
-            <div class="key-icon loss"><el-icon><Money /></el-icon></div>
+            <div class="key-icon loss"><el-icon>
+                <Money />
+              </el-icon></div>
             <div>
-              <div class="key-value">{{ caseData.lossAmount ? caseData.lossAmount : '—' }}<span class="key-unit" v-if="caseData.lossAmount">万元</span></div>
+              <div class="key-value">{{ caseData.lossAmount ? caseData.lossAmount : '—' }}<span class="key-unit"
+                  v-if="caseData.lossAmount">万元</span></div>
               <div class="key-label">直接经济损失</div>
             </div>
           </div>
           <div class="key-stat">
-            <div class="key-icon people"><el-icon><User /></el-icon></div>
+            <div class="key-icon people"><el-icon>
+                <User />
+              </el-icon></div>
             <div>
               <div class="key-value sm">{{ caseData.casualties || '—' }}</div>
               <div class="key-label">人员伤亡</div>
             </div>
           </div>
           <div class="key-stat">
-            <div class="key-icon time"><el-icon><Timer /></el-icon></div>
+            <div class="key-icon time"><el-icon>
+                <Timer />
+              </el-icon></div>
             <div>
               <div class="key-value">{{ timelineSpan }}</div>
               <div class="key-label">处置历时</div>
@@ -78,32 +97,34 @@
         <el-card class="section-card">
           <template #header>
             <div class="section-header">
-              <span class="section-title"><el-icon><Histogram /></el-icon> 事故时间线</span>
+              <span class="section-title"><el-icon>
+                  <Histogram />
+                </el-icon> 事故时间线</span>
             </div>
           </template>
 
           <!-- 阶段图例 -->
           <div class="phase-legend">
             <span class="legend-item"><i class="dot" style="background:#f59e0b"></i>预警</span>
-            <el-icon class="legend-arrow"><Right /></el-icon>
+            <el-icon class="legend-arrow">
+              <Right />
+            </el-icon>
             <span class="legend-item"><i class="dot" style="background:#ef4444"></i>发生 / 扩大</span>
-            <el-icon class="legend-arrow"><Right /></el-icon>
+            <el-icon class="legend-arrow">
+              <Right />
+            </el-icon>
             <span class="legend-item"><i class="dot" style="background:#3b82f6"></i>处置</span>
-            <el-icon class="legend-arrow"><Right /></el-icon>
+            <el-icon class="legend-arrow">
+              <Right />
+            </el-icon>
             <span class="legend-item"><i class="dot" style="background:#10b981"></i>控制</span>
           </div>
 
           <el-timeline class="case-timeline">
-            <el-timeline-item
-              v-for="(event, idx) in caseData.timeline"
-              :key="event.id"
-              :timestamp="event.time"
-              :color="phaseColor(event.type)"
-              :hollow="!isKeyEvent(event, idx)"
-              size="large"
-              placement="top"
-            >
-              <div class="timeline-event" :class="{ key: isKeyEvent(event, idx) }" :style="isKeyEvent(event, idx) ? { borderLeftColor: phaseColor(event.type) } : {}">
+            <el-timeline-item v-for="(event, idx) in caseData.timeline" :key="event.id" :timestamp="event.time"
+              :color="phaseColor(event.type)" :hollow="!isKeyEvent(event, idx)" size="large" placement="top">
+              <div class="timeline-event" :class="{ key: isKeyEvent(event, idx) }"
+                :style="isKeyEvent(event, idx) ? { borderLeftColor: phaseColor(event.type) } : {}">
                 <div class="event-head">
                   <span class="event-phase" :style="{ background: phaseBg(event.type), color: phaseColor(event.type) }">
                     {{ phaseLabel(event.type) }}
@@ -120,7 +141,9 @@
         <el-card class="section-card">
           <template #header>
             <div class="section-header">
-              <span class="section-title"><el-icon><Connection /></el-icon> 原因分析</span>
+              <span class="section-title"><el-icon>
+                  <Connection />
+                </el-icon> 原因分析</span>
               <el-tag v-if="caseData.responsibleParty" type="danger" effect="dark" round size="small">
                 责任方：{{ caseData.responsibleParty }}
               </el-tag>
@@ -132,7 +155,8 @@
               <div class="cause-tag">直接原因</div>
               <p>{{ caseData.directCause }}</p>
             </div>
-            <div class="cause-connector" v-if="caseData.directCause && (caseData.indirectCause || caseData.rootCause)"></div>
+            <div class="cause-connector" v-if="caseData.directCause && (caseData.indirectCause || caseData.rootCause)">
+            </div>
             <div v-if="caseData.indirectCause" class="cause-card indirect">
               <div class="cause-tag">间接原因</div>
               <p>{{ caseData.indirectCause }}</p>
@@ -150,7 +174,9 @@
         <el-card class="section-card">
           <template #header>
             <div class="section-header">
-              <span class="section-title"><el-icon><MagicStick /></el-icon> 经验教训</span>
+              <span class="section-title"><el-icon>
+                  <MagicStick />
+                </el-icon> 经验教训</span>
             </div>
           </template>
           <ol v-if="caseData.lessons?.length" class="lessons-list">
@@ -168,32 +194,42 @@
         <!-- 事故概况卡片组 -->
         <el-card class="section-card">
           <template #header>
-            <span class="section-title sm"><el-icon><Document /></el-icon> 事故概况</span>
+            <span class="section-title sm"><el-icon>
+                <Document />
+              </el-icon> 事故概况</span>
           </template>
           <div class="profile-grid">
             <div class="profile-item">
-              <div class="profile-icon" style="background:#fef2f2;color:#ef4444"><el-icon><Warning /></el-icon></div>
+              <div class="profile-icon" style="background:#fef2f2;color:#ef4444"><el-icon>
+                  <Warning />
+                </el-icon></div>
               <div>
                 <div class="profile-label">事故类型</div>
                 <div class="profile-value">{{ getTypeName(caseData.type) }}</div>
               </div>
             </div>
             <div class="profile-item">
-              <div class="profile-icon" style="background:#fff7ed;color:#f59e0b"><el-icon><CircleClose /></el-icon></div>
+              <div class="profile-icon" style="background:#fff7ed;color:#f59e0b"><el-icon>
+                  <CircleClose />
+                </el-icon></div>
               <div>
                 <div class="profile-label">严重程度</div>
                 <div class="profile-value">{{ getSeverityName(caseData.severity) }}</div>
               </div>
             </div>
             <div class="profile-item">
-              <div class="profile-icon" style="background:#eff6ff;color:#3b82f6"><el-icon><Location /></el-icon></div>
+              <div class="profile-icon" style="background:#eff6ff;color:#3b82f6"><el-icon>
+                  <Location />
+                </el-icon></div>
               <div>
                 <div class="profile-label">发生地点</div>
                 <div class="profile-value">{{ caseData.location }}</div>
               </div>
             </div>
             <div class="profile-item">
-              <div class="profile-icon" style="background:#f0fdf4;color:#10b981"><el-icon><Calendar /></el-icon></div>
+              <div class="profile-icon" style="background:#f0fdf4;color:#10b981"><el-icon>
+                  <Calendar />
+                </el-icon></div>
               <div>
                 <div class="profile-label">发生日期</div>
                 <div class="profile-value">{{ caseData.date }}</div>
@@ -209,12 +245,8 @@
                 <span>{{ item.label }}</span>
                 <span class="loss-amount">{{ item.amount }}</span>
               </div>
-              <el-progress
-                :percentage="lossPercent(item.amount)"
-                :show-text="false"
-                :stroke-width="8"
-                :color="lossColor(idx)"
-              />
+              <el-progress :percentage="lossPercent(item.amount)" :show-text="false" :stroke-width="8"
+                :color="lossColor(idx)" />
             </div>
           </div>
         </el-card>
@@ -222,15 +254,12 @@
         <!-- 相关案例推荐 -->
         <el-card v-if="relatedCases.length" class="section-card">
           <template #header>
-            <span class="section-title sm"><el-icon><Files /></el-icon> 相关案例</span>
+            <span class="section-title sm"><el-icon>
+                <Files />
+              </el-icon> 相关案例</span>
           </template>
           <div class="related-list">
-            <div
-              v-for="item in relatedCases"
-              :key="item.id"
-              class="related-item"
-              @click="goToCase(item.id)"
-            >
+            <div v-for="item in relatedCases" :key="item.id" class="related-item" @click="goToCase(item.id)">
               <span class="related-sev" :style="{ background: severityColor(item.severity) }"></span>
               <div class="related-body">
                 <div class="related-title">{{ item.title }}</div>
@@ -239,27 +268,28 @@
                   <span>{{ item.location }}</span>
                 </div>
               </div>
-              <el-icon class="related-arrow"><ArrowRight /></el-icon>
+              <el-icon class="related-arrow">
+                <ArrowRight />
+              </el-icon>
             </div>
           </div>
         </el-card>
 
         <!-- 学习笔记 -->
-        <NotePanel
-          v-if="caseData.id"
-          class="section-card"
-          target-type="case"
-          :target-id="caseData.id"
-        />
+        <NotePanel v-if="caseData.id" class="section-card" target-type="case" :target-id="caseData.id" />
 
         <!-- 相关资料 -->
         <el-card class="section-card">
           <template #header>
-            <span class="section-title sm"><el-icon><Link /></el-icon> 相关资料</span>
+            <span class="section-title sm"><el-icon>
+                <Link />
+              </el-icon> 相关资料</span>
           </template>
           <div class="reference-list">
             <div v-for="(ref, index) in caseData.references" :key="index" class="reference-item">
-              <el-icon><Document /></el-icon>
+              <el-icon>
+                <Document />
+              </el-icon>
               <span>{{ ref }}</span>
             </div>
             <div v-if="!caseData.references.length" class="text-gray-400 text-sm">暂无相关资料</div>
@@ -270,35 +300,27 @@
 
     <!-- 底部学习闭环 -->
     <div class="learning-footer">
-      <el-button
-        class="footer-nav"
-        :disabled="!prevCaseId"
-        @click="prevCaseId && goToCase(prevCaseId)"
-      >
-        <el-icon><ArrowLeft /></el-icon> 上一案例
+      <el-button class="footer-nav" :disabled="!prevCaseId" @click="prevCaseId && goToCase(prevCaseId)">
+        <el-icon>
+          <ArrowLeft />
+        </el-icon> 上一案例
       </el-button>
       <div class="footer-center">
         <el-button class="footer-review" type="primary" @click="openGuide">
-          <el-icon><Reading /></el-icon> 复盘引导
+          <el-icon>
+            <Reading />
+          </el-icon> 复盘引导
         </el-button>
       </div>
-      <el-button
-        class="footer-nav"
-        :disabled="!nextCaseId"
-        @click="nextCaseId && goToCase(nextCaseId)"
-      >
-        下一案例 <el-icon><ArrowRight /></el-icon>
+      <el-button class="footer-nav" :disabled="!nextCaseId" @click="nextCaseId && goToCase(nextCaseId)">
+        下一案例 <el-icon>
+          <ArrowRight />
+        </el-icon>
       </el-button>
     </div>
 
-    <CaseReviewGuide
-      v-model="guideVisible"
-      :case-id="caseData.id"
-      :case-title="caseData.title"
-      :case-data="caseData"
-      @completed="onGuideCompleted"
-      @progress="onGuideProgress"
-    />
+    <CaseReviewGuide v-model="guideVisible" :case-id="caseData.id" :case-title="caseData.title" :case-data="caseData"
+      @completed="onGuideCompleted" @progress="onGuideProgress" />
   </div>
 </template>
 
@@ -541,10 +563,21 @@ function lossColor(idx: number) {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
 }
 
-.scene-fire { background: linear-gradient(135deg, #ef4444, #f97316); }
-.scene-explosion { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-.scene-thermal_runaway { background: linear-gradient(135deg, #f97316, #ef4444); }
-.scene-gas_leak { background: linear-gradient(135deg, #14b8a6, #3b82f6); }
+.scene-fire {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+}
+
+.scene-explosion {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.scene-thermal_runaway {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+}
+
+.scene-gas_leak {
+  background: linear-gradient(135deg, #14b8a6, #3b82f6);
+}
 
 .scene-badge {
   position: absolute;
@@ -635,9 +668,17 @@ function lossColor(idx: number) {
   flex-shrink: 0;
 }
 
-.key-icon.loss { background: linear-gradient(135deg, #ef4444, #f97316); }
-.key-icon.people { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-.key-icon.time { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+.key-icon.loss {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+}
+
+.key-icon.people {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+
+.key-icon.time {
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+}
 
 .key-value {
   font-size: 24px;
@@ -793,20 +834,33 @@ function lossColor(idx: number) {
   background: #fffbeb;
   border-color: #f59e0b;
 }
-.cause-card.direct .cause-tag { color: #b45309; }
+
+.cause-card.direct .cause-tag {
+  color: #b45309;
+}
 
 .cause-card.indirect {
   background: #fff7ed;
   border-color: #f97316;
 }
-.cause-card.indirect .cause-tag { color: #c2410c; }
+
+.cause-card.indirect .cause-tag {
+  color: #c2410c;
+}
 
 .cause-card.root {
   background: #fef2f2;
   border-color: #ef4444;
 }
-.cause-card.root .cause-tag { color: #b91c1c; }
-.cause-card.root p { font-weight: 500; color: #1f2937; }
+
+.cause-card.root .cause-tag {
+  color: #b91c1c;
+}
+
+.cause-card.root p {
+  font-weight: 500;
+  color: #1f2937;
+}
 
 .cause-connector {
   width: 2px;
@@ -1047,10 +1101,12 @@ function lossColor(idx: number) {
   .overview-card {
     flex-direction: column;
   }
+
   .scene-visual {
     width: 100%;
     height: 140px;
   }
+
   .learning-footer {
     padding: 12px 16px;
     flex-wrap: wrap;

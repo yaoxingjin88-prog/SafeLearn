@@ -1,0 +1,13 @@
+{
+  "id": "td-beijing-416",
+  "code": "beijing_416",
+  "title": "北京丰台 4·16 储能电站事故推演",
+  "subtitle": "从异常预警到热失控扩散的沉浸式决策训练",
+  "caseRef": "003",
+  "location": "北京市丰台区某储能电站",
+  "accidentDate": "2021-04-16",
+  "durationMinutes": 45,
+  "difficulty": "advanced",
+  "phases": ["normal", "warning", "thermal_runaway", "spread", "explosion", "debrief"],
+  "decisionCount": 3
+}
