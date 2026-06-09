@@ -2,66 +2,37 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores'
 
-/** 管理端业务路由（原系统，保持不变） */
+/** 管理端路由：工作台 + 学员端配置 + 系统管理 */
 const adminChildren: RouteRecordRaw[] = [
   {
     path: 'dashboard',
     name: 'Dashboard',
     component: () => import('@/pages/dashboard/DashboardPage.vue'),
-    meta: { title: '工作台', icon: 'Monitor' },
+    meta: { title: '首页', icon: 'Monitor' },
   },
+  // 旧版业务路径重定向至学员端
+  { path: 'courses/:pathMatch(.*)*', redirect: to => `/user/courses/${to.params.pathMatch}` },
+  { path: 'courses', redirect: '/user/courses/list' },
+  { path: 'simulation/:pathMatch(.*)*', redirect: to => `/user/simulation/${to.params.pathMatch}` },
+  { path: 'simulation', redirect: '/user/simulation/scenarios' },
+  { path: 'training/:pathMatch(.*)*', redirect: to => `/user/training/${to.params.pathMatch}` },
+  { path: 'training', redirect: '/user/training/scenarios' },
+  { path: 'cases/:pathMatch(.*)*', redirect: to => `/user/cases/${to.params.pathMatch}` },
+  { path: 'cases', redirect: '/user/cases/list' },
+  { path: 'ai', redirect: '/user/ai/chat' },
   {
-    path: 'courses',
-    name: 'Courses',
-    redirect: '/courses/list',
-    meta: { title: '安全培训', icon: 'Reading' },
+    path: 'admin/learning',
+    name: 'AdminLearning',
+    redirect: '/admin/learning/courses',
+    meta: { title: '学员端配置', roles: ['admin'] },
     children: [
-      { path: 'list', name: 'CourseList', component: () => import('@/pages/courses/CourseList.vue'), meta: { title: '课程列表' } },
-      { path: 'skill-tree', name: 'SkillTree', component: () => import('@/pages/courses/SkillTree.vue'), meta: { title: '安全进阶路径' } },
-      { path: ':id', name: 'CourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
-      { path: ':courseId/chapters/:chapterId', name: 'ChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
-      { path: ':courseId/chapters/:chapterId/quiz', name: 'QuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
-      { path: 'quiz/result/:attemptId', name: 'QuizResult', component: () => import('@/pages/courses/QuizResult.vue'), meta: { title: '测验结果', hidden: true } },
-      { path: 'wrong-questions', name: 'WrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本', hidden: true } },
+      {
+        path: 'courses',
+        name: 'LearningCourseConfig',
+        component: () => import('@/pages/admin/CourseManage.vue'),
+        meta: { title: '课程配置' },
+      },
     ],
-  },
-  {
-    path: 'simulation',
-    name: 'Simulation',
-    redirect: '/simulation/scenarios',
-    meta: { title: '事故推演', icon: 'Warning' },
-    children: [
-      { path: 'scenarios', name: 'ScenarioList', component: () => import('@/pages/simulation/ScenarioList.vue'), meta: { title: '推演场景' } },
-      { path: 'replay/:sessionId', name: 'SimulationReplay', component: () => import('@/pages/simulation/SimulationReplay.vue'), meta: { title: '推演回放', hidden: true } },
-      { path: ':id', name: 'SimulationView', component: () => import('@/pages/simulation/SimulationView.vue'), meta: { title: '推演演示', hidden: true } },
-    ],
-  },
-  {
-    path: 'training',
-    name: 'Training',
-    redirect: '/training/scenarios',
-    meta: { title: '应急训练', icon: 'Cpu' },
-    children: [
-      { path: 'scenarios', name: 'TrainingScenarioList', component: () => import('@/pages/training/TrainingScenarioList.vue'), meta: { title: '训练场景' } },
-      { path: 'records/:id', name: 'TrainingReport', component: () => import('@/pages/training/TrainingReport.vue'), meta: { title: '训练报告', hidden: true } },
-      { path: ':id', name: 'TrainingView', component: () => import('@/pages/training/TrainingView.vue'), meta: { title: '训练进行中', hidden: true } },
-    ],
-  },
-  {
-    path: 'cases',
-    name: 'Cases',
-    redirect: '/cases/list',
-    meta: { title: '事故案例', icon: 'Document' },
-    children: [
-      { path: 'list', name: 'CaseList', component: () => import('@/pages/cases/CaseList.vue'), meta: { title: '案例列表' } },
-      { path: ':id', name: 'CaseDetail', component: () => import('@/pages/cases/CaseDetail.vue'), meta: { title: '案例详情', hidden: true } },
-    ],
-  },
-  {
-    path: 'ai',
-    name: 'AI',
-    component: () => import('@/pages/ai/AIChat.vue'),
-    meta: { title: 'AI安全问答', icon: 'ChatDotRound' },
   },
   {
     path: 'admin',
@@ -70,8 +41,8 @@ const adminChildren: RouteRecordRaw[] = [
     meta: { title: '系统管理', icon: 'Setting', roles: ['admin'] },
     children: [
       { path: 'users', name: 'UserManage', component: () => import('@/pages/admin/UserManage.vue'), meta: { title: '用户管理' } },
-      { path: 'courses', name: 'CourseManage', component: () => import('@/pages/admin/CourseManage.vue'), meta: { title: '课程管理' } },
-      { path: 'data', name: 'DataScreen', component: () => import('@/pages/admin/DataScreen.vue'), meta: { title: '数据大屏' } },
+      { path: 'courses', redirect: '/admin/learning/courses' },
+      { path: 'data', redirect: '/dashboard' },
     ],
   },
 ]
@@ -102,11 +73,11 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'list', name: 'UserCourseList', component: () => import('@/pages/courses/CourseList.vue'), meta: { title: '课程列表' } },
       { path: 'skill-tree', name: 'UserSkillTree', component: () => import('@/pages/courses/SkillTree.vue'), meta: { title: '安全进阶路径' } },
       { path: 'my-learning', name: 'UserMyLearning', component: () => import('@/pages/courses/MyLearning.vue'), meta: { title: '我的学习' } },
+      { path: 'wrong-questions', name: 'UserWrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本' } },
       { path: ':id', name: 'UserCourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
       { path: ':courseId/chapters/:chapterId', name: 'UserChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
       { path: ':courseId/chapters/:chapterId/quiz', name: 'UserQuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
       { path: 'quiz/result/:attemptId', name: 'UserQuizResult', component: () => import('@/pages/courses/QuizResult.vue'), meta: { title: '测验结果', hidden: true } },
-      { path: 'wrong-questions', name: 'UserWrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本', hidden: true } },
     ],
   },
   {
@@ -136,8 +107,8 @@ const userChildren: RouteRecordRaw[] = [
     redirect: '/user/cases/list',
     meta: { title: '事故案例' },
     children: [
-      { path: 'list', name: 'UserCaseList', component: () => import('@/pages/cases/CaseList.vue'), meta: { title: '案例列表' } },
-      { path: 'review', name: 'UserCaseReview', component: () => import('@/pages/cases/CaseReview.vue'), meta: { title: '案例复盘' } },
+      { path: 'list', name: 'UserCaseList', component: () => import('@/pages/cases/CaseList.vue'), meta: { title: '案例库' } },
+      { path: 'review', redirect: '/user/cases/list' },
       { path: ':id', name: 'UserCaseDetail', component: () => import('@/pages/cases/CaseDetail.vue'), meta: { title: '案例详情', hidden: true } },
     ],
   },

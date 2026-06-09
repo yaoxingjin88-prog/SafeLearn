@@ -164,7 +164,7 @@ com.safelearn.deduction
 
 ## 5. MySQL 表设计
 
-见 `backend/src/main/resources/deduction_schema.sql`
+见 `backend/src/main/resources/safelearn.sql`（事故推演引擎表章节）
 
 ---
 
@@ -256,7 +256,7 @@ DeductionEngine.onSceneEvent(event)
 | `frontend/src/simulation/scenarios/singleBatteryThermalRunaway.ts` | 场景配置 |
 | `frontend/src/composables/useDeductionEngine.ts` | Vue 组合式 API |
 | `backend/.../deduction/*` | Spring Boot 模块 |
-| `backend/src/main/resources/deduction_schema.sql` | 数据库 DDL |
+| `backend/src/main/resources/safelearn.sql` | 数据库 DDL + 初始数据 |
 
 ### 本地运行
 
@@ -264,5 +264,5 @@ DeductionEngine.onSceneEvent(event)
 # 前端
 cd frontend && npm install && npm run dev
 
-# 后端：执行 deduction_schema.sql 后重启 Spring Boot
+# 后端：执行 safelearn.sql 或重启 Spring Boot 自动初始化
 ```

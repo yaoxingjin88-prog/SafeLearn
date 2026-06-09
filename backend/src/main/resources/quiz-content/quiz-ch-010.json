@@ -1,0 +1,12 @@
+{
+  "title": "测验：热扩散与阻断措施",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"电池舱内热扩散是指？","options":[{"id":"a","text":"热量在相邻单体间传递形成多米诺效应","correct":true},{"id":"b","text":"电流在并联支路间均匀分配","correct":false},{"id":"c","text":"冷却液在管路中循环","correct":false},{"id":"d","text":"数据在BMS节点间传输","correct":false}],"explanation":"热扩散指热失控热量通过传导、对流、辐射传递至相邻单体，可能引发连锁反应。"},
+    {"id":"q2","type":"multiple","question":"影响热扩散速度的因素包括？（多选）","options":[{"id":"a","text":"单体间距与模组紧凑程度","correct":true},{"id":"b","text":"是否有防火隔热垫","correct":true},{"id":"c","text":"电池标称容量大小","correct":false},{"id":"d","text":"舱内通风是否加剧供氧","correct":true}],"explanation":"间距、隔热、冷却和通风都会影响热扩散速度；标称容量非直接因素。"},
+    {"id":"q3","type":"single","question":"模组间防火隔热材料典型耐火时间要求是？","options":[{"id":"a","text":"≥15分钟","correct":false},{"id":"b","text":"≥30分钟","correct":false},{"id":"c","text":"≥1小时","correct":true},{"id":"d","text":"≥8小时","correct":false}],"explanation":"工程上模组间防火隔离材料耐火时间通常要求≥1h。"},
+    {"id":"q4","type":"truefalse","question":"发现单体温度异常持续上升时，应优先切断该簇充放电并加强冷却。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"运行期阻断应先BMS保护切电、全功率冷却，必要时手动断断路器。"},
+    {"id":"q5","type":"single","question":"分区灭火的设计目的是？","options":[{"id":"a","text":"按簇/模组划分灭火分区，实现局部启动","correct":true},{"id":"b","text":"全站统一延迟喷洒","correct":false},{"id":"c","text":"取消气体灭火仅用通风","correct":false},{"id":"d","text":"减少探测器数量","correct":false}],"explanation":"分区灭火可局部启动，避免整舱误喷并提高处置针对性。"}
+  ]
+}

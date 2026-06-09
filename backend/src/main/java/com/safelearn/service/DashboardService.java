@@ -453,40 +453,90 @@ public class DashboardService {
     }
 
     private Map<String, Object> buildContinueLearning(String userId, List<UserProgress> progressList) {
-        Optional<UserProgress> latest = progressList.stream()
-                .filter(p -> !Boolean.TRUE.equals(p.getCompleted()))
-                .filter(p -> p.getProgress() != null && p.getProgress() > 0)
-                .findFirst();
+        List<UserProgress> sorted = progressList.stream()
+                .sorted(Comparator.comparing(
+                        UserProgress::getLastAccessAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
 
-        if (latest.isEmpty()) {
-            return courseRepo.findByStatusOrderByCreatedAtDesc("published").stream().findFirst()
-                    .map(course -> {
-                        List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(course.getId());
-                        Chapter first = chapters.isEmpty() ? null : chapters.get(0);
-                        Map<String, Object> m = new HashMap<>();
-                        m.put("courseId", course.getId());
-                        m.put("chapterId", first != null ? first.getId() : null);
-                        m.put("courseTitle", course.getTitle());
-                        m.put("chapterTitle", first != null ? first.getTitle() : "开始学习");
-                        m.put("progress", 0);
-                        m.put("remainingMinutes", first != null && first.getDuration() != null ? first.getDuration() : 30);
-                        return m;
-                    }).orElse(null);
+        if (!sorted.isEmpty()) {
+            UserProgress mostRecent = sorted.get(0);
+            if (!Boolean.TRUE.equals(mostRecent.getCompleted())) {
+                return toContinueLearningMap(mostRecent);
+            }
+            Course course = mostRecent.getCourse();
+            Chapter lastChapter = mostRecent.getChapter();
+            if (course != null && lastChapter != null) {
+                Optional<Chapter> next = findNextIncompleteChapter(userId, course.getId(), lastChapter.getId());
+                if (next.isPresent()) {
+                    int progress = progressRepo.findByUserIdAndChapterId(userId, next.get().getId())
+                            .map(p -> p.getProgress() != null ? p.getProgress() : 0)
+                            .orElse(0);
+                    return toContinueLearningMap(course, next.get(), progress);
+                }
+            }
+            Optional<UserProgress> inProgress = sorted.stream()
+                    .filter(p -> !Boolean.TRUE.equals(p.getCompleted()))
+                    .findFirst();
+            if (inProgress.isPresent()) {
+                return toContinueLearningMap(inProgress.get());
+            }
+            return findFirstIncompleteChapter(userId).orElse(null);
         }
 
-        UserProgress p = latest.get();
-        Chapter chapter = p.getChapter();
-        Course course = p.getCourse();
-        int duration = chapter != null && chapter.getDuration() != null ? chapter.getDuration() : 30;
-        int progress = p.getProgress() != null ? p.getProgress() : 0;
-        int remaining = Math.max(1, duration * (100 - progress) / 100);
+        return findFirstIncompleteChapter(userId).orElse(null);
+    }
 
-        Map<String, Object> m = new HashMap<>();
+    private Optional<Map<String, Object>> findFirstIncompleteChapter(String userId) {
+        for (Course course : courseRepo.findByStatusOrderByCreatedAtDesc("published")) {
+            for (Chapter ch : chapterRepo.findByCourseIdOrderByOrderNumAsc(course.getId())) {
+                if (!progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, ch.getId())) {
+                    int progress = progressRepo.findByUserIdAndChapterId(userId, ch.getId())
+                            .map(p -> p.getProgress() != null ? p.getProgress() : 0)
+                            .orElse(0);
+                    return Optional.of(toContinueLearningMap(course, ch, progress));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Chapter> findNextIncompleteChapter(String userId, String courseId, String afterChapterId) {
+        List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
+        boolean passed = false;
+        for (Chapter ch : chapters) {
+            if (!passed) {
+                if (ch.getId().equals(afterChapterId)) passed = true;
+                continue;
+            }
+            if (!progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, ch.getId())) {
+                return Optional.of(ch);
+            }
+        }
+        for (Chapter ch : chapters) {
+            if (!progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, ch.getId())) {
+                return Optional.of(ch);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Map<String, Object> toContinueLearningMap(UserProgress p) {
+        return toContinueLearningMap(p.getCourse(), p.getChapter(),
+                p.getProgress() != null ? p.getProgress() : 0);
+    }
+
+    private Map<String, Object> toContinueLearningMap(Course course, Chapter chapter, int progress) {
+        int duration = chapter != null && chapter.getDuration() != null ? chapter.getDuration() : 30;
+        int pct = Math.min(100, Math.max(0, progress));
+        int remaining = pct >= 100 ? 0 : Math.max(1, duration * (100 - pct) / 100);
+
+        Map<String, Object> m = new LinkedHashMap<>();
         m.put("courseId", course != null ? course.getId() : null);
         m.put("chapterId", chapter != null ? chapter.getId() : null);
         m.put("courseTitle", course != null ? course.getTitle() : "");
-        m.put("chapterTitle", chapter != null ? chapter.getTitle() : "");
-        m.put("progress", progress);
+        m.put("chapterTitle", chapter != null ? chapter.getTitle() : "开始学习");
+        m.put("progress", pct);
         m.put("remainingMinutes", remaining);
         return m;
     }

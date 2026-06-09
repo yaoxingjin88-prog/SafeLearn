@@ -3,7 +3,7 @@
     <!-- 优化后的头部区域 -->
     <header class="course-header">
       <div class="header-left">
-        <button class="back-btn" @click="$router.back()">
+        <button class="back-btn" @click="backToCourseList">
           <el-icon><ArrowLeft /></el-icon>
         </button>
         <div class="header-title-area">
@@ -283,7 +283,7 @@
                 v-for="related in relatedCourses"
                 :key="related.id"
                 class="related-item"
-                @click="router.push(p(`/courses/${related.id}`))"
+                @click="switchCourse(related.id)"
               >
                 <div class="related-cover">
                   <img :src="related.coverImage || '/images/default-course.svg'" alt="cover" />
@@ -353,12 +353,14 @@ import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
 import { useAppBase } from '@/composables/useAppBase'
+import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
 import type { Course, Chapter } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const { p } = useAppBase()
+const { backToCourseList, switchCourse, goToChapter } = useCourseNavigation()
 
 const course = ref<Course>({
   id: '',
@@ -476,20 +478,20 @@ function handleChapterClick(chapter: Chapter) {
     ElMessage.warning('请先完成前置章节')
     return
   }
-  router.push(p(`/courses/${course.value.id}/chapters/${chapter.id}`))
+  goToChapter(course.value.id, chapter.id)
 }
 
 function startLearning() {
   const nextChapter = course.value.chapters?.find(c => !isChapterCompleted(c.id) && c.unlocked !== false)
   if (nextChapter) {
-    router.push(p(`/courses/${course.value.id}/chapters/${nextChapter.id}`))
+    goToChapter(course.value.id, nextChapter.id)
   } else {
     ElMessage.info('所有可用章节已完成')
   }
 }
 
 function startChapter(chapter: Chapter) {
-  router.push(p(`/courses/${course.value.id}/chapters/${chapter.id}`))
+  goToChapter(course.value.id, chapter.id)
 }
 
 function shareCourse() {

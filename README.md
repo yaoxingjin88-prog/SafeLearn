@@ -79,7 +79,7 @@ SafeLearn/
 CREATE DATABASE safelearn DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-启动后端后会自动建表并初始化数据（`schema.sql` + `data.sql`）。
+启动后端后会自动建表并初始化数据（`backend/src/main/resources/safelearn.sql`）。
 
 ### 启动后端
 

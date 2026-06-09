@@ -1,0 +1,12 @@
+{
+  "title": "测验：热失控概述",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"什么是电池热失控？","options":[{"id":"a","text":"电池温度缓慢下降","correct":false},{"id":"b","text":"电池温度不可控上升的现象","correct":true},{"id":"c","text":"电池电压突然升高","correct":false},{"id":"d","text":"电池容量逐渐衰减","correct":false}],"explanation":"热失控是电池温度不可控上升的现象，可能导致起火或爆炸。"},
+    {"id":"q2","type":"multiple","question":"热失控可能导致哪些后果？（多选）","options":[{"id":"a","text":"起火","correct":true},{"id":"b","text":"爆炸","correct":true},{"id":"c","text":"电池容量增加","correct":false},{"id":"d","text":"有毒气体释放","correct":true}],"explanation":"热失控可能导致起火、爆炸、有毒气体释放等严重后果。"},
+    {"id":"q3","type":"single","question":"热失控的根本原因是什么？","options":[{"id":"a","text":"电池过充","correct":false},{"id":"b","text":"电池内部化学反应失控","correct":true},{"id":"c","text":"外部高温","correct":false},{"id":"d","text":"电池老化","correct":false}],"explanation":"热失控的根本原因是电池内部化学反应失控，导致温度持续升高。"},
+    {"id":"q4","type":"truefalse","question":"热失控是储能电站最常见的安全事故类型之一。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"热失控确实是储能电站最常见的安全事故类型之一，是安全管理的重点。"},
+    {"id":"q5","type":"single","question":"预防热失控的关键措施是什么？","options":[{"id":"a","text":"增加电池数量","correct":false},{"id":"b","text":"完善BMS监控和预警","correct":true},{"id":"c","text":"降低充电电压","correct":false},{"id":"d","text":"减少放电深度","correct":false}],"explanation":"预防热失控的关键措施是完善BMS监控和预警系统，实现早期发现和处置。"}
+  ]
+}

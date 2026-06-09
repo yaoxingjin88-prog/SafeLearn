@@ -1,0 +1,12 @@
+{
+  "title": "测验：消防系统概述",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"multiple","question":"储能电站常用的消防系统类型有哪些？（多选）","options":[{"id":"a","text":"气体灭火系统","correct":true},{"id":"b","text":"水喷雾系统","correct":true},{"id":"c","text":"干粉灭火系统","correct":false},{"id":"d","text":"泡沫灭火系统","correct":false}],"explanation":"储能电站常用气体灭火系统和水喷雾系统，干粉和泡沫系统不常用于储能电站。"},
+    {"id":"q2","type":"single","question":"气体灭火系统的主要优势是什么？","options":[{"id":"a","text":"成本最低","correct":false},{"id":"b","text":"不导电、不留残留","correct":true},{"id":"c","text":"灭火速度最快","correct":false},{"id":"d","text":"维护最简单","correct":false}],"explanation":"气体灭火系统的主要优势是不导电、灭火后不留残留，适合电气设备。"},
+    {"id":"q3","type":"truefalse","question":"水喷雾系统可以直接用于扑灭锂电池火灾。","options":[{"id":"a","text":"正确","correct":false},{"id":"b","text":"错误","correct":true}],"explanation":"锂电池火灾不能直接用水扑灭，可能导致触电或火势扩大。需要使用专用灭火剂。"},
+    {"id":"q4","type":"single","question":"大型储能舱推荐使用什么灭火方案？","options":[{"id":"a","text":"干粉灭火器","correct":false},{"id":"b","text":"全氟己酮或组合式气体灭火","correct":true},{"id":"c","text":"泡沫灭火系统","correct":false},{"id":"d","text":"二氧化碳灭火器","correct":false}],"explanation":"大型储能舱推荐使用全氟己酮或组合式气体灭火方案。"},
+    {"id":"q5","type":"single","question":"消防系统设计的首要原则是什么？","options":[{"id":"a","text":"成本最低","correct":false},{"id":"b","text":"早期发现、快速响应","correct":true},{"id":"c","text":"设备最少","correct":false},{"id":"d","text":"维护最简单","correct":false}],"explanation":"消防系统设计的首要原则是早期发现、快速响应，最大限度减少损失。"}
+  ]
+}

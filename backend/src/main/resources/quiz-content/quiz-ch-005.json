@@ -1,0 +1,12 @@
+{
+  "title": "测验：热失控诱因与预防",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"multiple","question":"热失控的电滥用诱因包括哪些？（多选）","options":[{"id":"a","text":"过充","correct":true},{"id":"b","text":"过放","correct":true},{"id":"c","text":"冷却系统故障","correct":false},{"id":"d","text":"外部短路","correct":true}],"explanation":"电滥用包括过充、过放、外部短路和过流；冷却故障属于热滥用。"},
+    {"id":"q2","type":"single","question":"过充导致热失控的主要机理是？","options":[{"id":"a","text":"锂枝晶生长刺穿隔膜","correct":true},{"id":"b","text":"铜箔溶解引发内短路","correct":false},{"id":"c","text":"隔膜制造缺陷","correct":false},{"id":"d","text":"电池外壳变形","correct":false}],"explanation":"过充导致锂枝晶生长，可能刺穿隔膜引发内短路和热失控。"},
+    {"id":"q3","type":"single","question":"机械滥用主要指？","options":[{"id":"a","text":"环境温度过高","correct":false},{"id":"b","text":"运输安装中的挤压碰撞","correct":true},{"id":"c","text":"BMS阈值设置不当","correct":false},{"id":"d","text":"电解液水分超标","correct":false}],"explanation":"机械滥用指运输、安装过程中的挤压、碰撞导致外壳变形或密封失效。"},
+    {"id":"q4","type":"truefalse","question":"簇内单体压差持续大于50mV是诱因排查清单中的检查项之一。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"压差过大可能反映均衡失效或单体异常，是重要排查指标。"},
+    {"id":"q5","type":"single","question":"运行监控环节的关键预防措施是？","options":[{"id":"a","text":"BMS阈值定期校验，24h温度/电压监控","correct":true},{"id":"b","text":"减少电池模组数量","correct":false},{"id":"c","text":"关闭冷却系统节能","correct":false},{"id":"d","text":"延长充电时间","correct":false}],"explanation":"运行期应确保BMS阈值准确并持续监控温度电压，及时发现异常。"}
+  ]
+}

@@ -2,7 +2,7 @@ package com.safelearn.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -42,6 +42,6 @@ public class UserProgress {
     private Integer masteryLevel = 0;
 
     @Column(name = "last_access_at")
-    @CreationTimestamp
+    @UpdateTimestamp
     private LocalDateTime lastAccessAt;
 }

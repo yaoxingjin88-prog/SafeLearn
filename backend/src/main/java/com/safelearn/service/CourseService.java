@@ -8,7 +8,9 @@ import com.safelearn.entity.*;
 import com.safelearn.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -57,9 +59,14 @@ public class CourseService {
         return m;
     }
 
+    @Transactional
     public Map<String, Object> getChapter(String courseId, String chapterId, String userId) {
         Chapter chapter = chapterRepo.findByIdAndCourseId(chapterId, courseId)
                 .orElseThrow(() -> new RuntimeException("章节不存在"));
+
+        if (userId != null) {
+            touchChapterAccess(userId, courseId, chapter);
+        }
 
         List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
 
@@ -107,8 +114,16 @@ public class CourseService {
             }
         }
 
-        UserProgress progress = progressRepo.findByUserIdAndChapterId(userId, req.getChapterId())
-                .orElse(new UserProgress());
+        Optional<UserProgress> existing = progressRepo.findByUserIdAndChapterId(userId, req.getChapterId());
+        if (existing.isPresent() && Boolean.TRUE.equals(existing.get().getCompleted())
+                && Boolean.TRUE.equals(req.getCompleted())) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("alreadyCompleted", true);
+            return result;
+        }
+
+        UserProgress progress = existing.orElse(new UserProgress());
         progress.setUser(user);
         progress.setCourse(course);
         progress.setChapter(chapter);
@@ -117,6 +132,7 @@ public class CourseService {
         if (req.getMasteryLevel() != null) {
             progress.setMasteryLevel(req.getMasteryLevel());
         }
+        progress.setLastAccessAt(LocalDateTime.now());
         progressRepo.save(progress);
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -301,5 +317,26 @@ public class CourseService {
         m.put("prerequisiteIds", parsePrereqIds(ch.getPrerequisiteIds()));
         m.put("scenarioId", ch.getScenarioId());
         return m;
+    }
+
+    /** 记录章节访问时间，供工作台「上次学到」使用 */
+    private void touchChapterAccess(String userId, String courseId, Chapter chapter) {
+        User user = userRepo.findById(userId).orElse(null);
+        Course course = courseRepo.findById(courseId).orElse(null);
+        if (user == null || course == null) return;
+
+        UserProgress progress = progressRepo.findByUserIdAndChapterId(userId, chapter.getId())
+                .orElseGet(() -> {
+                    UserProgress p = new UserProgress();
+                    p.setUser(user);
+                    p.setCourse(course);
+                    p.setChapter(chapter);
+                    p.setProgress(0);
+                    p.setCompleted(false);
+                    p.setMasteryLevel(0);
+                    return p;
+                });
+        progress.setLastAccessAt(LocalDateTime.now());
+        progressRepo.save(progress);
     }
 }

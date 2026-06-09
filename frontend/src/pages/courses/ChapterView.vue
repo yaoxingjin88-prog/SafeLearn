@@ -3,7 +3,7 @@
     <!-- 优化后的头部区域 -->
     <header class="chapter-header">
       <div class="header-left">
-        <button class="back-btn" @click="$router.back()">
+        <button class="back-btn" @click="backToCourseDetail(route.params.courseId as string)">
           <el-icon><ArrowLeft /></el-icon>
         </button>
         <div class="header-title-area">
@@ -112,7 +112,25 @@
 
           <!-- 操作按钮卡片 -->
           <el-card class="sidebar-card action-card">
-            <div class="action-buttons">
+            <div v-if="isCurrentChapterCompleted" class="completed-status">
+              <div class="completed-banner">
+                <el-icon class="completed-icon"><CircleCheck /></el-icon>
+                <div class="completed-text">
+                  <span class="completed-title">已完成本章学习</span>
+                  <span v-if="masteryLevel > 0" class="completed-meta">掌握度 {{ masteryLevel }}%</span>
+                  <span v-else-if="quizBestScore > 0" class="completed-meta">测验得分 {{ quizBestScore }} 分</span>
+                </div>
+              </div>
+              <el-button
+                class="action-btn secondary-btn"
+                @click="handleNext"
+                :disabled="!hasNext"
+              >
+                <el-icon><ArrowRight /></el-icon>
+                下一章
+              </el-button>
+            </div>
+            <div v-else class="action-buttons">
               <el-button
                 v-if="hasQuiz"
                 type="primary"
@@ -254,18 +272,23 @@ import request from '@/api/request'
 import { courseApi } from '@/api/course'
 import { checkQuizExists } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
+import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import NotePanel from '@/components/learning/NotePanel.vue'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { p } = useAppBase()
+const { backToCourseDetail, switchChapter: navSwitchChapter } = useCourseNavigation()
 
 const loading = ref(true)
 const chapter = ref({ id: '', title: '', content: '', videoUrl: '' })
 const chapters = ref<{ id: string; title: string; difficultyLevel?: number; unlocked?: boolean }[]>([])
 const completed = ref<Record<string, boolean>>({})
 const hasQuiz = ref(false)
+const quizPassed = ref(false)
+const quizBestScore = ref(0)
+const masteryLevel = ref(0)
 const searchText = ref('')
 const notifications = ref(3)
 const learningStreak = ref(5)
@@ -301,10 +324,10 @@ function handleScroll() {
 
 const currentIndex = computed(() => chapters.value.findIndex(c => c.id === chapter.value.id))
 const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < chapters.value.length - 1)
+const isCurrentChapterCompleted = computed(() => !!completed.value[chapter.value.id])
 
 function switchChapter(id: string) {
-  const courseId = route.params.courseId
-  router.push(p(`/courses/${courseId}/chapters/${id}`))
+  navSwitchChapter(route.params.courseId as string, id)
 }
 
 function handleTocClick(item: { id: string; unlocked?: boolean }) {
@@ -337,24 +360,38 @@ async function handleComplete() {
   const courseId = route.params.courseId as string
   const chapterId = route.params.chapterId as string
 
+  if (isCurrentChapterCompleted.value) {
+    return
+  }
+
   // 检查是否有测验
   if (hasQuiz.value) {
     try {
       await ElMessageBox.confirm(
         '本章包含测验，完成测验可获得掌握度评分。是否现在参加测验？',
         '章节测验',
-        { confirmButtonText: '参加测验', cancelButtonText: '直接完成', type: 'info' }
+        {
+          confirmButtonText: '参加测验',
+          cancelButtonText: '直接完成',
+          distinguishCancelAndClose: true,
+          type: 'info',
+        }
       )
-      // 跳转到测验页面
       router.push(p(`/courses/${courseId}/chapters/${chapterId}/quiz`))
       return
-    } catch {
-      // 用户选择直接完成，继续执行
+    } catch (action) {
+      // 仅「直接完成」按钮继续完成；点 X / Esc 关闭弹窗则取消操作
+      if (action !== 'cancel') return
     }
   }
 
   try {
     const res = await courseApi.updateProgress({ courseId, chapterId, progress: 100, completed: true })
+    if (res.data?.alreadyCompleted) {
+      completed.value[chapterId] = true
+      chapterProgress.value = 100
+      return
+    }
     completed.value[chapterId] = true
     chapterProgress.value = 100
     ElMessage.success('已完成本章学习')
@@ -372,6 +409,9 @@ async function handleComplete() {
 }
 
 function goToQuiz() {
+  if (isCurrentChapterCompleted.value || quizPassed.value) {
+    return
+  }
   const courseId = route.params.courseId as string
   const chapterId = route.params.chapterId as string
   router.push(p(`/courses/${courseId}/chapters/${chapterId}/quiz`))
@@ -406,12 +446,20 @@ async function loadChapter() {
     chapters.value = chapterRes.data.chapters
     keywords.value = extractKeywords(chapter.value.content || '')
     hasQuiz.value = quizRes.data?.exists || false
+    quizPassed.value = quizRes.data?.quizPassed || false
+    quizBestScore.value = quizRes.data?.bestScore || 0
+    masteryLevel.value = quizRes.data?.masteryLevel || 0
     const progressMap: Record<string, boolean> = {}
     for (const item of progressRes.data || []) {
       if (item.completed) progressMap[item.chapterId] = true
       if (item.chapterId === chapterId) {
         chapterProgress.value = item.progress || 0
+        if (item.masteryLevel) masteryLevel.value = item.masteryLevel
       }
+    }
+    if (quizRes.data?.chapterCompleted) {
+      progressMap[chapterId] = true
+      chapterProgress.value = 100
     }
     completed.value = progressMap
     await nextTick()
@@ -706,6 +754,46 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
 /* 操作按钮优化 */
 .action-card {
   background: #f9fafb;
+}
+
+.completed-status {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.completed-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+}
+
+.completed-icon {
+  font-size: 22px;
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.completed-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.completed-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.completed-meta {
+  font-size: 12px;
+  color: #047857;
 }
 
 .action-buttons {

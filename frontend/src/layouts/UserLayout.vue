@@ -2,47 +2,57 @@
   <el-container class="user-layout">
     <el-aside :width="collapsed ? '72px' : '240px'" class="user-aside" :class="{ 'is-collapsed': collapsed }">
       <div class="brand" @click="$router.push('/user/dashboard')">
-        <img src="@/assets/logo.svg" class="brand-logo" alt="Logo" />
+        <img src="@/assets/logo.png" class="brand-logo" alt="Logo" />
         <span v-if="!collapsed" class="brand-name">储安云</span>
       </div>
 
       <el-scrollbar class="menu-scroll">
         <el-menu
+          ref="menuRef"
           :default-active="activeMenu"
+          :default-openeds="defaultOpeneds"
           :collapse="collapsed"
           :collapse-transition="false"
+          unique-opened
           router
           class="user-menu"
         >
-          <el-menu-item index="/user/dashboard">
-            <el-icon><Monitor /></el-icon>
+          <el-menu-item index="/user/dashboard" class="nav-top-item">
+            <el-icon class="nav-top-icon"><Monitor /></el-icon>
             <template #title>工作台</template>
           </el-menu-item>
 
           <template v-for="menu in userMenus" :key="menu.path">
-            <el-sub-menu v-if="menu.children?.length" :index="menu.path">
+            <el-sub-menu v-if="menu.children?.length" :index="menu.path" class="nav-group">
               <template #title>
-                <el-icon><component :is="menu.icon" /></el-icon>
-                <span>{{ menu.title }}</span>
+                <el-icon class="nav-top-icon"><component :is="menu.icon" /></el-icon>
+                <span class="nav-top-label">{{ menu.title }}</span>
               </template>
               <el-menu-item
                 v-for="child in menu.children"
                 :key="child.path"
                 :index="child.path"
+                class="nav-sub-item"
               >
-                {{ child.title }}
+                <el-icon v-if="child.icon" class="nav-sub-icon"><component :is="child.icon" /></el-icon>
+                <template #title>{{ child.title }}</template>
               </el-menu-item>
             </el-sub-menu>
           </template>
 
-          <el-sub-menu v-if="isAdmin" index="/admin">
+          <el-sub-menu v-if="isAdmin" index="/admin" class="nav-group nav-admin">
             <template #title>
-              <el-icon><Setting /></el-icon>
-              <span>系统管理</span>
+              <el-icon class="nav-top-icon"><Setting /></el-icon>
+              <span class="nav-top-label">系统管理</span>
             </template>
-            <el-menu-item index="/admin/users">用户管理</el-menu-item>
-            <el-menu-item index="/admin/courses">课程管理</el-menu-item>
-            <el-menu-item index="/admin/data">数据大屏</el-menu-item>
+            <el-menu-item index="/admin/learning/courses" class="nav-sub-item">
+              <el-icon class="nav-sub-icon"><EditPen /></el-icon>
+              <template #title>课程配置</template>
+            </el-menu-item>
+            <el-menu-item index="/admin/users" class="nav-sub-item">
+              <el-icon class="nav-sub-icon"><User /></el-icon>
+              <template #title>用户管理</template>
+            </el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-scrollbar>
@@ -94,6 +104,18 @@
         </div>
       </el-header>
 
+      <div v-if="breadcrumbs.length" class="breadcrumb-bar">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item
+            v-for="(item, index) in breadcrumbs"
+            :key="`${item.path ?? item.title}-${index}`"
+            :to="item.path ? { path: item.path } : undefined"
+          >
+            {{ item.title }}
+          </el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
+
       <el-main class="user-main">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -106,14 +128,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Reading, Warning, Cpu, Document, ChatDotRound, Setting,
   Fold, Expand, Search, Bell, Sunny,
+  List, Guide, Notebook, Calendar, Star, Medal,
+  VideoPlay, Tickets, Files, Clock,
+  User, Collection, DocumentChecked, EditPen,
 } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import type { Component } from 'vue'
+import { ElMessageBox, type MenuInstance } from 'element-plus'
 import { useUserStore } from '@/stores'
+import { useBreadcrumbs } from '@/composables/useBreadcrumbs'
 import request from '@/api/request'
 
 const route = useRoute()
@@ -124,24 +151,64 @@ const collapsed = ref(false)
 const searchText = ref('')
 const streakDays = ref(0)
 const displayName = ref('')
+const menuRef = ref<MenuInstance>()
 
-const activeMenu = computed(() => route.path)
+/** 详情页高亮所属菜单项 */
+function resolveActiveMenu(path: string): string {
+  const allChildren = userMenus.flatMap(m => m.children ?? [])
+  const exact = allChildren.find(c => c.path === path)
+  if (exact) return exact.path
+
+  if (path.startsWith('/user/courses/')) {
+    if (path.includes('/chapters/') || path.includes('/quiz')) {
+      return '/user/courses/my-learning'
+    }
+    return '/user/courses/list'
+  }
+  if (path.startsWith('/user/simulation/')) return '/user/simulation/scenarios'
+  if (path.startsWith('/user/training/')) return '/user/training/scenarios'
+  if (path.startsWith('/user/cases/')) return '/user/cases/list'
+  if (path.startsWith('/user/ai/')) return '/user/ai/chat'
+  if (path.startsWith('/user/learning/')) return path
+  if (path.startsWith('/admin/learning')) return '/admin/learning/courses'
+  if (path.startsWith('/admin/')) return '/admin/users'
+
+  return path
+}
+
+const activeMenu = computed(() => resolveActiveMenu(route.path))
+
 const isAdmin = computed(() => userStore.role === 'admin')
 const displayInitial = computed(() => (displayName.value || '用').charAt(0))
 const displayDepartment = computed(() => userStore.userInfo?.department || '生产安全部')
 
-const userMenus = [
+interface NavChild {
+  path: string
+  title: string
+  icon: Component
+}
+
+interface NavMenu {
+  path: string
+  title: string
+  icon: Component
+  children: NavChild[]
+}
+
+/**
+ * 菜单按学员学习流程排列：
+ * 工作台 → 理论培训 → 事故推演 → 应急训练 → 案例学习 → AI 辅助 → 学习中心
+ */
+const userMenus: NavMenu[] = [
   {
     path: '/user/courses',
     title: '安全培训',
     icon: Reading,
     children: [
-      { path: '/user/courses/list', title: '课程列表' },
-      { path: '/user/courses/skill-tree', title: '安全进阶路径' },
-      { path: '/user/courses/my-learning', title: '我的学习' },
-      { path: '/user/learning/calendar', title: '学习日历' },
-      { path: '/user/learning/favorites', title: '我的收藏' },
-      { path: '/user/learning/certificates', title: '我的证书' },
+      { path: '/user/courses/list', title: '课程列表', icon: List },
+      { path: '/user/courses/skill-tree', title: '安全进阶路径', icon: Guide },
+      { path: '/user/courses/my-learning', title: '我的学习', icon: Notebook },
+      { path: '/user/courses/wrong-questions', title: '错题本', icon: DocumentChecked },
     ],
   },
   {
@@ -149,8 +216,8 @@ const userMenus = [
     title: '事故推演',
     icon: Warning,
     children: [
-      { path: '/user/simulation/scenarios', title: '推演场景' },
-      { path: '/user/simulation/records', title: '推演记录' },
+      { path: '/user/simulation/scenarios', title: '推演场景', icon: VideoPlay },
+      { path: '/user/simulation/records', title: '推演记录', icon: Tickets },
     ],
   },
   {
@@ -158,8 +225,8 @@ const userMenus = [
     title: '应急训练',
     icon: Cpu,
     children: [
-      { path: '/user/training/scenarios', title: '训练场景' },
-      { path: '/user/training/records', title: '训练记录' },
+      { path: '/user/training/scenarios', title: '训练场景', icon: VideoPlay },
+      { path: '/user/training/records', title: '训练记录', icon: Tickets },
     ],
   },
   {
@@ -167,8 +234,7 @@ const userMenus = [
     title: '事故案例',
     icon: Document,
     children: [
-      { path: '/user/cases/list', title: '案例列表' },
-      { path: '/user/cases/review', title: '案例复盘' },
+      { path: '/user/cases/list', title: '案例库', icon: Files },
     ],
   },
   {
@@ -176,11 +242,74 @@ const userMenus = [
     title: 'AI安全问答',
     icon: ChatDotRound,
     children: [
-      { path: '/user/ai/chat', title: '智能问答' },
-      { path: '/user/ai/history', title: '问答历史' },
+      { path: '/user/ai/chat', title: '智能问答', icon: ChatDotRound },
+      { path: '/user/ai/history', title: '问答历史', icon: Clock },
+    ],
+  },
+  {
+    path: '/user/learning',
+    title: '学习中心',
+    icon: Collection,
+    children: [
+      { path: '/user/learning/calendar', title: '学习日历', icon: Calendar },
+      { path: '/user/learning/favorites', title: '我的收藏', icon: Star },
+      { path: '/user/learning/certificates', title: '我的证书', icon: Medal },
     ],
   },
 ]
+
+const breadcrumbMenus = computed(() => {
+  const menus = userMenus.map(m => ({
+    path: m.path,
+    title: m.title,
+    children: m.children?.map(c => ({ path: c.path, title: c.title })),
+  }))
+  if (isAdmin.value) {
+    menus.push({
+      path: '/admin',
+      title: '系统管理',
+      children: [
+        { path: '/admin/learning/courses', title: '课程配置' },
+        { path: '/admin/users', title: '用户管理' },
+      ],
+    })
+  }
+  return menus
+})
+
+const { breadcrumbs } = useBreadcrumbs(breadcrumbMenus, [
+  { path: '/user/dashboard', title: '工作台' },
+])
+
+/** 手风琴：根据当前路由确定应展开的一级分组 */
+function resolveOpenIndex(path: string): string | null {
+  const active = resolveActiveMenu(path)
+  for (const menu of userMenus) {
+    if (menu.children?.some(c => c.path === active)) {
+      return menu.path
+    }
+  }
+  if (isAdmin.value && (active.startsWith('/admin/learning') || active.startsWith('/admin/'))) {
+    return '/admin'
+  }
+  return null
+}
+
+const defaultOpeneds = computed(() => {
+  const index = resolveOpenIndex(route.path)
+  return index ? [index] : []
+})
+
+watch(
+  () => [route.path, collapsed.value] as const,
+  async () => {
+    if (collapsed.value) return
+    await nextTick()
+    const index = resolveOpenIndex(route.path)
+    if (index) menuRef.value?.open(index)
+  },
+  { immediate: true },
+)
 
 function handleSearch() {
   const q = searchText.value.trim()
@@ -324,21 +453,226 @@ onMounted(async () => {
 }
 
 .user-menu {
+  --nav-active-bg: #e8efff;
+  --nav-active-color: #1d4ed8;
+  --nav-indicator: #2b5aed;
+  --nav-sub-indent: 12px;
+  --nav-expand-duration: 0.32s;
+  --nav-expand-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --el-menu-base-level-padding: 8px;
+  --el-menu-level-padding: 0px;
   border-right: none;
   padding: 12px 8px;
 }
 
-.user-menu :deep(.el-menu-item),
+/* 丝滑展开：只过渡高度/纵向内边距，不过渡水平位移 */
+.user-menu :deep(.el-collapse-transition-enter-active),
+.user-menu :deep(.el-collapse-transition-leave-active) {
+  transition:
+    max-height var(--nav-expand-duration) var(--nav-expand-ease),
+    padding-top var(--nav-expand-duration) var(--nav-expand-ease),
+    padding-bottom var(--nav-expand-duration) var(--nav-expand-ease) !important;
+}
+
+.user-menu :deep(.el-menu--inline .el-menu-item) {
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+/* 一级菜单：工作台 + 分组标题 */
+.user-menu :deep(.nav-top-item),
 .user-menu :deep(.el-sub-menu__title) {
   border-radius: 10px;
   margin-bottom: 4px;
-  height: 44px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+  transition: background 0.28s var(--nav-expand-ease), color 0.22s ease;
 }
 
-.user-menu :deep(.el-menu-item.is-active) {
-  background: #eef3ff !important;
-  color: #2b5aed !important;
+.user-menu :deep(.nav-top-icon) {
+  font-size: 18px;
+  color: #4b5563;
+}
+
+.user-menu :deep(.nav-top-label) {
   font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.user-menu :deep(.el-sub-menu__title:hover),
+.user-menu :deep(.nav-top-item:hover) {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* 一级菜单展开箭头 */
+.user-menu :deep(.el-sub-menu__icon-arrow) {
+  right: 10px;
+  margin-top: -6px;
+  font-size: 11px;
+  color: #9ca3af;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
+}
+
+.user-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title .el-sub-menu__icon-arrow) {
+  transform: rotate(180deg);
+  color: var(--nav-active-color);
+}
+
+.user-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: var(--nav-active-color);
+}
+
+.user-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title) {
+  background: #f1f5f9 !important;
+  color: #1e40af;
+  transition: background 0.28s var(--nav-expand-ease), color 0.22s ease;
+}
+
+.user-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title .nav-top-icon) {
+  color: var(--nav-active-color);
+}
+
+.user-menu :deep(.el-sub-menu) {
+  margin-bottom: 6px;
+}
+
+/* 学习中心与个人成长类入口，与上方实战模块略作分隔 */
+.user-menu :deep(.nav-group:last-of-type:not(.nav-admin)) {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.user-menu :deep(.nav-group.nav-admin) {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eef0f4;
+}
+
+/* 二级菜单容器：缩进始终固定，展开时背景/边框渐变 */
+.user-menu :deep(.nav-group > .el-menu) {
+  margin: 2px 4px 8px var(--nav-sub-indent);
+  padding: 6px 8px 8px 10px;
+  border-radius: 8px;
+  border-left: 2px solid transparent;
+  background: transparent !important;
+  box-shadow: none;
+  overflow: hidden;
+  transition:
+    background-color 0.28s var(--nav-expand-ease),
+    border-color 0.28s var(--nav-expand-ease),
+    box-shadow 0.28s var(--nav-expand-ease);
+}
+
+.user-menu :deep(.nav-group.is-opened > .el-menu) {
+  border-left-color: #dbeafe;
+  background: #f8fafc !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* 展开后子项轻微淡入 */
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item) {
+  animation: nav-sub-reveal 0.36s var(--nav-expand-ease) both;
+}
+
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(1)) { animation-delay: 0.04s; }
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(2)) { animation-delay: 0.07s; }
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(3)) { animation-delay: 0.10s; }
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(4)) { animation-delay: 0.13s; }
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(5)) { animation-delay: 0.16s; }
+.user-menu :deep(.nav-group.is-opened > .el-menu .nav-sub-item:nth-child(6)) { animation-delay: 0.19s; }
+
+@keyframes nav-sub-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-menu :deep(.el-sub-menu .el-menu) {
+  background: transparent !important;
+}
+
+/* 二级菜单项：固定内边距，避免 EP 按层级动态计算导致位移 */
+.user-menu :deep(.nav-sub-item) {
+  height: 38px !important;
+  line-height: 38px !important;
+  margin-bottom: 2px;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  font-size: 13px;
+  font-weight: 400;
+  color: #64748b;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.user-menu :deep(.nav-sub-item:hover) {
+  background: #eef2ff !important;
+  color: #334155 !important;
+}
+
+.user-menu :deep(.nav-sub-icon) {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-right: 8px;
+  vertical-align: middle;
+  transition: color 0.18s;
+}
+
+.user-menu :deep(.nav-sub-item:hover .nav-sub-icon) {
+  color: #64748b;
+}
+
+/* 选中态 */
+.user-menu :deep(.nav-top-item.is-active) {
+  position: relative;
+  background: var(--nav-active-bg) !important;
+  color: var(--nav-active-color) !important;
+}
+
+.user-menu :deep(.nav-sub-item.is-active) {
+  position: relative;
+  background: #fff !important;
+  color: var(--nav-active-color) !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(43, 90, 237, 0.08);
+}
+
+.user-menu :deep(.nav-top-item.is-active)::before,
+.user-menu :deep(.nav-sub-item.is-active)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  background: var(--nav-indicator);
+  border-radius: 0 3px 3px 0;
+}
+
+.user-menu :deep(.nav-top-item.is-active)::before {
+  height: 22px;
+}
+
+.user-menu :deep(.nav-sub-item.is-active)::before {
+  left: -2px;
+  height: 16px;
+}
+
+.user-menu :deep(.nav-sub-item.is-active .nav-sub-icon) {
+  color: var(--nav-active-color) !important;
+}
+
+.user-menu :deep(.nav-top-item.is-active .nav-top-icon) {
+  color: var(--nav-active-color) !important;
 }
 
 /* 折叠态：图标与悬停/选中背景居中对齐 */
@@ -353,8 +687,14 @@ onMounted(async () => {
   justify-content: center;
   align-items: center;
   width: 44px;
+  height: 44px !important;
   margin: 0 auto 4px;
   padding: 0 !important;
+}
+
+.user-menu.el-menu--collapse :deep(.el-menu-item.is-active)::before {
+  left: 0;
+  height: 28px;
 }
 
 .user-menu.el-menu--collapse :deep(.el-menu-tooltip__trigger) {
@@ -390,6 +730,27 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+}
+
+.breadcrumb-bar {
+  background: #fff;
+  padding: 10px 24px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.breadcrumb-bar :deep(.el-breadcrumb__inner) {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.breadcrumb-bar :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
+  color: #111827;
+  font-weight: 500;
+}
+
+.breadcrumb-bar :deep(.el-breadcrumb__inner.is-link:hover) {
+  color: #2b5aed;
 }
 
 .header-left {

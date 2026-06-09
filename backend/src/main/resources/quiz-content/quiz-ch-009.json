@@ -1,0 +1,12 @@
+{
+  "title": "测验：BMS告警策略与响应",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"磷酸铁锂电池单体温度达到55℃时，典型告警动作是？","options":[{"id":"a","text":"仅记录通知值班员","correct":false},{"id":"b","text":"降功率50%，加强监控","correct":true},{"id":"c","text":"立即切断充放电","correct":false},{"id":"d","text":"启动消防喷洒","correct":false}],"explanation":"55℃为告警级，应降功率并加强监控；60℃以上才切断充放电。"},
+    {"id":"q2","type":"single","question":"簇内压差≥50mV持续10分钟应如何处理？","options":[{"id":"a","text":"告警并检查均衡","correct":true},{"id":"b","text":"忽略，属正常波动","correct":false},{"id":"c","text":"立即更换全部电池","correct":false},{"id":"d","text":"加大充电电流","correct":false}],"explanation":"持续压差过大需告警并检查均衡系统是否正常工作。"},
+    {"id":"q3","type":"multiple","question":"标准告警响应SOP包括哪些步骤？（多选）","options":[{"id":"a","text":"接收确认告警级别与位置","correct":true},{"id":"b","text":"研判趋势排除传感器故障","correct":true},{"id":"c","text":"无需记录直接恢复运行","correct":false},{"id":"d","text":"一级以上告警24h内提交分析报告","correct":true}],"explanation":"SOP要求接收、研判、处置、记录、复盘；一级以上需24h内分析报告。"},
+    {"id":"q4","type":"truefalse","question":"BMS告警阈值设置原则是「宁可误报，不可漏报」。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"安全相关告警应偏向保守，避免漏报导致错过处置窗口。"},
+    {"id":"q5","type":"single","question":"温度读数跳变最可能的原因是？","options":[{"id":"a","text":"温度传感器接触不良","correct":true},{"id":"b","text":"电池容量正常衰减","correct":false},{"id":"c","text":"PCS效率下降","correct":false},{"id":"d","text":"消防系统误动作","correct":false}],"explanation":"传感器接触不良会导致读数跳变，应先排查接线与传感器。"}
+  ]
+}

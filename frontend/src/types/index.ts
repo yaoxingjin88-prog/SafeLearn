@@ -50,13 +50,26 @@ export interface SkillTreeData {
   connections: SkillTreeConnection[]
 }
 
+// 课程分类
+export interface CourseCategory {
+  id: string
+  code: string
+  name: string
+  tagType?: string
+  sortOrder: number
+  enabled: boolean
+  courseCount?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 // 课程相关
 export interface Course {
   id: string
   title: string
   description: string
   coverImage: string
-  category: 'basic' | 'battery' | 'thermal' | 'fire' | 'bms' | 'case'
+  category: string
   chapters: Chapter[]
   totalDuration: number
   progress?: number

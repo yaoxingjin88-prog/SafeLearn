@@ -42,7 +42,7 @@
       <el-empty v-if="!filteredCourses.length" description="暂无课程" />
       <el-row v-else :gutter="20">
         <el-col :span="6" v-for="course in filteredCourses" :key="course.id">
-          <el-card class="course-card" shadow="hover" @click="router.push(p(`/courses/${course.id}`))">
+          <el-card class="course-card" shadow="hover" @click="goToCourse(course.id)">
             <div class="course-cover">
               <img :src="course.coverImage || '/images/default-course.svg'" alt="cover" />
               <el-tag class="course-tag" :type="getCategoryType(course.category)">
@@ -75,34 +75,33 @@ import { useRoute, useRouter } from 'vue-router'
 import { Clock, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
+import { categoryApi } from '@/api/category'
 import { useAppBase } from '@/composables/useAppBase'
-import type { Course } from '@/types'
+import { useCourseNavigation } from '@/composables/useCourseNavigation'
+import type { Course, CourseCategory } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const { p } = useAppBase()
+const { goToCourse } = useCourseNavigation()
 const searchText = ref('')
 const activeCategory = ref('all')
 const sortBy = ref<'latest' | 'popular'>('latest')
 
-const categories = [
+const categoryList = ref<CourseCategory[]>([])
+
+const categories = computed(() => [
   { label: '全部', value: 'all' },
-  { label: '基础知识', value: 'basic' },
-  { label: '锂电池', value: 'thermal' },
-  { label: '消防安全', value: 'fire' },
-  { label: 'BMS系统', value: 'bms' },
-]
+  ...categoryList.value.map(c => ({ label: c.name, value: c.code })),
+])
 
 const courses = ref<Course[]>([])
 const loading = ref(true)
 
-onMounted(async () => {
-  if (route.query.keyword) {
-    searchText.value = String(route.query.keyword)
-  }
+async function loadCourses() {
   loading.value = true
   try {
-    const params: any = {}
+    const params: Record<string, string> = {}
     if (activeCategory.value !== 'all') {
       params.category = activeCategory.value
     }
@@ -117,6 +116,19 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  if (route.query.keyword) {
+    searchText.value = String(route.query.keyword)
+  }
+  try {
+    const res = await categoryApi.getList()
+    categoryList.value = res.data || []
+  } catch {
+    categoryList.value = []
+  }
+  await loadCourses()
 })
 
 const filteredCourses = computed(() => {
@@ -140,25 +152,12 @@ const filteredCourses = computed(() => {
 })
 
 function getCategoryType(category: string) {
-  const map: Record<string, string> = {
-    basic: '',
-    battery: 'success',
-    thermal: 'danger',
-    fire: 'warning',
-    bms: 'info',
-  }
-  return map[category] || ''
+  const tag = categoryList.value.find(c => c.code === category)?.tagType
+  return tag || undefined
 }
 
 function getCategoryName(category: string) {
-  const map: Record<string, string> = {
-    basic: '基础',
-    battery: '锂电池',
-    thermal: '热失控',
-    fire: '消防',
-    bms: 'BMS',
-  }
-  return map[category] || category
+  return categoryList.value.find(c => c.code === category)?.name || category
 }
 </script>
 

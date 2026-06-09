@@ -20,7 +20,8 @@ public interface UserProgressRepository extends JpaRepository<UserProgress, Stri
     @Query("SELECT up FROM UserProgress up WHERE up.user.id = :userId ORDER BY up.lastAccessAt DESC")
     List<UserProgress> findRecentByUserId(@Param("userId") String userId);
 
-    @Query("SELECT up FROM UserProgress up JOIN FETCH up.chapter JOIN FETCH up.course WHERE up.user.id = :userId")
+    @Query("SELECT up FROM UserProgress up JOIN FETCH up.chapter JOIN FETCH up.course " +
+           "WHERE up.user.id = :userId ORDER BY up.lastAccessAt DESC")
     List<UserProgress> findByUserIdWithDetails(@Param("userId") String userId);
 
     @Query("SELECT CASE WHEN COUNT(up) > 0 THEN true ELSE false END FROM UserProgress up " +

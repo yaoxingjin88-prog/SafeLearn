@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>储安云 - 智能安全培训与事故模拟系统</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        techCyan: '#00f2fe',
+                        techBlue: '#4facfe',
+                        techRed: '#ff4b5c',
+                        techDark: '#080c14'
+                    },
+                    boxShadow: {
+                        'neon-cyan': '0 0 15px rgba(0, 242, 254, 0.4), 0 0 30px rgba(0, 242, 254, 0.2)',
+                        'neon-red': '0 0 15px rgba(255, 75, 92, 0.4), 0 0 30px rgba(255, 75, 92, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 科技风格动画定义 */
+        @keyframes cyber-pulse {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        @keyframes float-slow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+        @keyframes rotate-clockwise {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes rotate-counter {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+        @keyframes scan-line {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        @keyframes grid-drift {
+            0% { background-position: 0 0; }
+            100% { background-position: 40px 40px; }
+        }
+
+        .animate-pulse-cyber { animation: cyber-pulse 4s infinite ease-in-out; }
+        .animate-float { animation: float-slow 6s infinite ease-in-out; }
+        .animate-rotate-cw { animation: rotate-clockwise 20s infinite linear; }
+        .animate-rotate-ccw { animation: rotate-counter 15s infinite linear; }
+        
+        .cyber-grid {
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: grid-drift 20s linear infinite;
+        }
+
+        .cyber-grid-red {
+            background-image: 
+                linear-gradient(rgba(255, 75, 92, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 75, 92, 0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: grid-drift 20s linear infinite;
+        }
+
+        .scan-bar {
+            background: linear-gradient(180deg, transparent, rgba(0, 242, 254, 0.4), transparent);
+            animation: scan-line 3s infinite linear;
+        }
+
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080c14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-techDark text-slate-100 overflow-x-hidden min-h-screen font-sans">
+
+    <div id="app" class="relative min-h-screen flex items-center justify-center p-4 md:p-8 overflow-hidden select-none">
+        
+        <!-- ================= BACKGROUND EFFECT ================= -->
+        <!-- 动态流光背景网格 -->
+        <div :class="[isAdmin ? 'cyber-grid-red' : 'cyber-grid', 'absolute inset-0 transition-all duration-700 z-0']"></div>
+        
+        <!-- 环境霓虹晕光 -->
+        <div class="absolute -top-40 -left-40 w-96 h-96 rounded-full filter blur-[120px] transition-all duration-700 opacity-30"
+             :class="isAdmin ? 'bg-red-600' : 'bg-cyan-500'"></div>
+        <div class="absolute -bottom-40 -right-40 w-96 h-96 rounded-full filter blur-[120px] transition-all duration-700 opacity-20"
+             :class="isAdmin ? 'bg-orange-600' : 'bg-blue-600'"></div>
+
+        <!-- 全局系统扫光 -->
+        <div v-if="isScanning" class="scan-bar absolute left-0 right-0 h-24 z-50 pointer-events-none"></div>
+
+        <!-- ================= MAIN CONTAINER ================= -->
+        <div v-if="!isLoggedIn" class="w-full max-w-6xl bg-slate-900/40 backdrop-blur-xl border rounded-3xl overflow-hidden shadow-2xl flex flex-col lg:flex-row transition-all duration-700 z-10"
+             :class="isAdmin ? 'border-red-500/20 shadow-red-950/20' : 'border-cyan-500/20 shadow-cyan-950/20'">
+            
+            <!-- LEFT AREA: VISION & PRODUCT HIGHLIGHT -->
+            <div class="w-full lg:w-7/12 p-8 lg:p-12 flex flex-col justify-between relative border-b lg:border-b-0 lg:border-r"
+                 :class="isAdmin ? 'border-red-500/20' : 'border-cyan-500/20'">
+                
+                <!-- 顶部科技标识与状态 -->
+                <div class="flex items-center justify-between z-10">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-3 w-3 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                  :class="isAdmin ? 'bg-red-400' : 'bg-cyan-400'"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3"
+                                  :class="isAdmin ? 'bg-red-500' : 'bg-cyan-500'"></span>
+                        </span>
+                        <span class="text-xs tracking-widest uppercase text-slate-400 font-mono">
+                            System Status: Ready
+                        </span>
+                    </div>
+                    <span class="text-xs font-mono text-slate-400 bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
+                        V3.4.2-Secure
+                    </span>
+                </div>
+
+                <!-- 中部：3D核心电池储能装置 (SVG实现) -->
+                <div class="my-10 flex flex-col items-center justify-center text-center z-10">
+                    <div class="relative w-48 h-48 flex items-center justify-center animate-float">
+                        <!-- 外层轨道圈 -->
+                        <svg class="absolute w-full h-full animate-rotate-cw" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="46" fill="none" 
+                                    :stroke="isAdmin ? '#ff4b5c' : '#00f2fe'" 
+                                    stroke-width="1.5" stroke-dasharray="10 15 30 10" opacity="0.6"/>
+                        </svg>
+                        <svg class="absolute w-5/6 h-5/6 animate-rotate-ccw" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="44" fill="none" 
+                                    :stroke="isAdmin ? '#f97316' : '#3b82f6'" 
+                                    stroke-dasharray="40 10 5 15" stroke-width="1" opacity="0.4" />
+                        </svg>
+
+                        <!-- 内圈核心电池容器 -->
+                        <div class="w-32 h-32 rounded-full flex flex-col items-center justify-center bg-slate-950/80 border relative overflow-hidden"
+                             :class="isAdmin ? 'border-red-500/30 shadow-neon-red' : 'border-cyan-500/30 shadow-neon-cyan'">
+                            <!-- 液体/能量起伏效果 -->
+                            <div class="absolute bottom-0 left-0 right-0 w-full rounded-t-lg transition-all duration-1000 ease-in-out"
+                                 :class="[isAdmin ? 'bg-gradient-to-t from-red-600/30 to-red-400/10' : 'bg-gradient-to-t from-cyan-600/30 to-cyan-400/10']"
+                                 :style="{ height: currentCharge + '%' }">
+                            </div>
+                            
+                            <!-- 电池/闪电图标 -->
+                            <svg class="w-16 h-16 relative z-10 drop-shadow-[0_0_10px_rgba(0,242,254,0.6)]" 
+                                 :class="isAdmin ? 'text-red-400' : 'text-cyan-400'"
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                      d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span class="text-xs font-mono font-bold mt-1 relative z-10" :class="isAdmin ? 'text-red-300' : 'text-cyan-300'">
+                                {{ currentCharge }}% CAPACITY
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 储安云标题 -->
+                    <div class="mt-6 space-y-2">
+                        <h1 class="text-4xl md:text-5xl font-black tracking-wider transition-all duration-700"
+                            :class="[isAdmin ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400' : 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500']"
+                            style="filter: drop-shadow(0 2px 10px rgba(0,242,254,0.1));">
+                            储安云
+                        </h1>
+                        <p class="text-slate-400 text-sm tracking-widest font-light">
+                            储能电站安全培训与事故模拟系统
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 底部：三大核心模块展示 (高科技卡片) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 z-10">
+                    <div v-for="(module, index) in featureModules" :key="index"
+                         class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-all duration-300 group cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 rounded-lg bg-slate-900 group-hover:bg-cyan-950/50 group-hover:text-cyan-400 text-slate-400 transition-colors"
+                                 v-html="module.svg"></div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">{{ module.title }}</h4>
+                                <p class="text-[10px] text-slate-500 mt-0.5">{{ module.desc }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT AREA: LOGIN PANEL -->
+            <div class="w-full lg:w-5/12 p-8 lg:p-12 flex flex-col justify-between bg-slate-950/60 relative">
+                
+                <!-- 顶部快捷切换角色 -->
+                <div class="flex justify-end mb-8">
+                    <button @click="toggleRole" 
+                            class="px-4 py-1.5 rounded-full text-xs font-mono transition-all duration-300 border flex items-center gap-1.5"
+                            :class="isAdmin ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        切换至：{{ isAdmin ? '学员登录' : '管理员终端' }}
+                    </button>
+                </div>
+
+                <!-- 表单主体 -->
+                <div class="my-auto space-y-6">
+                    <div class="space-y-2">
+                        <h2 class="text-2xl font-bold tracking-wide" :class="isAdmin ? 'text-red-400' : 'text-cyan-400'">
+                            {{ isAdmin ? '管理员应急终端' : '学员安全入口' }}
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            {{ isAdmin ? '请使用高级管理密钥或凭证进行鉴权' : '欢迎回来，请输入您的学习及实操考试账号' }}
+                        </p>
+                    </div>
+
+                    <!-- 登录表单 -->
+                    <form @submit.prevent="handleLogin" class="space-y-4">
+                        <!-- 用户名 -->
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase tracking-wider font-mono text-slate-500">USERNAME / 用户名</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </span>
+                                <input type="text" v-model="form.username" required
+                                       class="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all duration-300"
+                                       :class="isAdmin ? 'focus:border-red-500 focus:ring-red-500/50' : 'focus:border-cyan-500 focus:ring-cyan-500/50'"
+                                       placeholder="请输入用户名/邮箱">
+                            </div>
+                        </div>
+
+                        <!-- 密码 -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center">
+                                <label class="text-[10px] uppercase tracking-wider font-mono text-slate-500">PASSWORD / 密码</label>
+                                <a href="#" class="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors">忘记密码?</a>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </span>
+                                <input :type="showPassword ? 'text' : 'password'" v-model="form.password" required
+                                       class="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-10 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-300"
+                                       :class="isAdmin ? 'focus:border-red-500 focus:ring-red-500/50' : 'focus:border-cyan-500 focus:ring-cyan-500/50'"
+                                       placeholder="请输入账户安全密码">
+                                <button type="button" @click="showPassword = !showPassword" 
+                                        class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300">
+                                    <svg v-if="showPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 安全人机验证 & 记住我 -->
+                        <div class="flex items-center justify-between text-xs py-1">
+                            <label class="flex items-center gap-2 cursor-pointer text-slate-400">
+                                <input type="checkbox" v-model="form.remember" 
+                                       class="rounded bg-slate-900 border-slate-800 text-cyan-500 focus:ring-0 focus:ring-offset-0">
+                                <span>安全保持登录</span>
+                            </label>
+                            <span class="text-slate-500 font-mono">SECURE LINK ✔</span>
+                        </div>
+
+                        <!-- 登录按钮 -->
+                        <button type="submit" :disabled="loading"
+                                class="w-full py-3.5 px-4 rounded-xl font-bold tracking-wider text-sm transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2"
+                                :class="[
+                                    isAdmin 
+                                        ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white hover:shadow-neon-red hover:from-red-500 hover:to-orange-400' 
+                                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 hover:shadow-neon-cyan hover:from-cyan-400 hover:to-blue-500'
+                                ]">
+                            <span v-if="loading" class="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></span>
+                            <span v-else>{{ isAdmin ? '验证高级授权凭证 →' : '进入云平台 →' }}</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 快捷演示账号与辅助工具 -->
+                <div class="mt-8 pt-6 border-t border-slate-800/60 space-y-3 text-xs">
+                    <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Demo Account / 快捷填入</p>
+                            <p class="text-slate-300 font-mono mt-0.5" v-if="!isAdmin">zhanggong / admin123</p>
+                            <p class="text-slate-300 font-mono mt-0.5" v-else>super_admin / admin888</p>
+                        </div>
+                        <button @click="fillDemoCredentials" 
+                                class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700/50">
+                            自动填充
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between text-slate-500">
+                        <span>没有实操证书？<a href="#" class="text-cyan-400 hover:underline">申请系统备案</a></span>
+                        <a href="#" class="hover:text-slate-300 flex items-center gap-0.5">
+                            技术服务中心 
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= POST-LOGIN CONSOLE (DEMO DASHBOARD) ================= -->
+        <div v-else class="w-full max-w-6xl bg-slate-950/80 border border-cyan-500/20 rounded-3xl overflow-hidden shadow-2xl p-6 md:p-8 z-10 transition-all duration-700">
+            <!-- 控制台头部 -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-6 mb-6 gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-slate-950">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-xl font-bold tracking-wider text-cyan-300">储安云控制台 (培训实操端)</h2>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">ONLINE</span>
+                        </div>
+                        <p class="text-xs text-slate-400">电站编号：#ST-2026-X8, 安全状态良好</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">当前操作员：{{ form.username }}</p>
+                        <p class="text-[10px] text-slate-500 font-mono">客户端：{{ clientIp }}</p>
+                    </div>
+                    <button @click="logout" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-red-500/30 hover:text-red-400 transition-all text-xs font-bold">
+                        安全注销
+                    </button>
+                </div>
+            </div>
+
+            <!-- 数据监测卡片网格 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <!-- 核心储能 -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-mono">CORE CAPACITY / 总容量</p>
+                        <h3 class="text-2xl font-black text-cyan-400 font-mono mt-1">4,280 kWh</h3>
+                    </div>
+                    <div class="text-cyan-500">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                </div>
+                <!-- 系统温度 -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-mono">BATTERY TEMP / 电池温度</p>
+                        <h3 class="text-2xl font-black text-emerald-400 font-mono mt-1">26.4 ℃</h3>
+                    </div>
+                    <div class="text-emerald-500">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                </div>
+                <!-- 漏电与气体传感器 -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-mono">GAS DETECT / 消防可燃气监测</p>
+                        <h3 class="text-2xl font-black text-emerald-400 font-mono mt-1">NORMAL</h3>
+                    </div>
+                    <div class="text-emerald-500">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                </div>
+                <!-- 实操学时 -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-mono">PRACTICE HOURS / 个人学时</p>
+                        <h3 class="text-2xl font-black text-blue-400 font-mono mt-1">24.5 小时</h3>
+                    </div>
+                    <div class="text-blue-500">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主控制台功能区 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 实操培训课程列表 -->
+                <div class="lg:col-span-2 p-5 bg-slate-900/40 border border-slate-800 rounded-2xl space-y-4">
+                    <h3 class="text-sm font-bold tracking-wider text-slate-300">培训实训系统列表</h3>
+                    
+                    <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                        <div v-for="(course, idx) in trainingCourses" :key="idx" 
+                             class="p-4 bg-slate-900/80 border border-slate-800 rounded-xl hover:border-cyan-500/30 transition-all flex justify-between items-center group">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-slate-100">{{ course.name }}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-mono border"
+                                          :class="course.type === '3D演习' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'">
+                                        {{ course.type }}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-400">{{ course.desc }}</p>
+                            </div>
+                            <button class="px-4 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500 hover:text-slate-950 text-cyan-400 transition-all text-xs font-bold">
+                                开始演练
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 突发应急态势与AI安全助手 -->
+                <div class="p-5 bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold tracking-wider text-slate-300">AI 安全决策助手</h3>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">智能决策</span>
+                        </div>
+                        
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                <span class="text-cyan-400 font-bold font-mono">Q:</span> 电池热失控初期该如何处理？
+                            </p>
+                            <div class="h-px bg-slate-800"></div>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                <span class="text-emerald-400 font-bold">AI 助手:</span> 1. 立即切断异常电池模组回路；2. 启用PACK级七氟丙烷气体灭火系统；3. 排气系统打开防止可燃气体集聚；4. 紧急上报应急指挥系统，派消防队介入。
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-800/60">
+                        <button class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl text-slate-950 font-bold text-xs hover:shadow-neon-cyan transition-all">
+                            呼叫 AI 事故沙盘推演
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MOCK POPUPS (SYSTEM ALERTS) ================= -->
+        <div v-if="alert.show" class="fixed inset-0 flex items-center justify-center z-50 p-4">
+            <!-- 遮罩层 -->
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+            <!-- 警示框 -->
+            <div class="w-full max-w-sm bg-slate-900 border rounded-2xl shadow-2xl p-6 z-10 text-center space-y-4"
+                 :class="alert.isError ? 'border-red-500/30 shadow-red-950/20' : 'border-cyan-500/30 shadow-cyan-950/20'">
+                <div class="mx-auto w-12 h-12 rounded-full flex items-center justify-center"
+                     :class="alert.isError ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500'">
+                    <svg v-if="alert.isError" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <svg v-else class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-base font-bold text-slate-100">{{ alert.title }}</h3>
+                    <p class="text-xs text-slate-400">{{ alert.desc }}</p>
+                </div>
+                <button @click="alert.show = false" 
+                        class="w-full py-2.5 rounded-xl font-bold text-xs tracking-wider transition-all"
+                        :class="alert.isError ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-cyan-500 text-slate-950 hover:bg-cyan-400'">
+                    确定
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vue 3 App Scripts -->
+    <script>
+        const { createApp, ref, reactive, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            setup() {
+                const isAdmin = ref(false);
+                const loading = ref(false);
+                const isScanning = ref(false);
+                const isLoggedIn = ref(false);
+                const showPassword = ref(false);
+                const currentCharge = ref(78); // 初始电量数值
+                const clientIp = ref('127.0.0.1');
+
+                // 表单数据
+                const form = reactive({
+                    username: '',
+                    password: '',
+                    remember: true
+                });
+
+                // 弹出提示框状态
+                const alert = reactive({
+                    show: false,
+                    title: '',
+                    desc: '',
+                    isError: false
+                });
+
+                // 三大系统模块数据
+                const featureModules = [
+                    {
+                        title: '阶段式安全培训',
+                        desc: '精细化微课学习路径',
+                        svg: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`
+                    },
+                    {
+                        title: '3D 事故热失控演练',
+                        desc: '高还原实操模拟考评',
+                        svg: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>`
+                    },
+                    {
+                        title: 'AI 应急安全问答',
+                        desc: '全天候智能事故排险辅助',
+                        svg: `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>`
+                    }
+                ];
+
+                // 控制台演习课程
+                const trainingCourses = [
+                    { name: '储能电站集装箱消防安全第一课', desc: '七氟丙烷灭火系统实操及自动感温联动控制。', type: '基础必修' },
+                    { name: '磷酸铁锂电池单体过充与爆燃处理', desc: '全景模拟，练习在多层烟雾与气体泄漏时启动排烟排爆系统。', type: '3D演习' },
+                    { name: '突发性高压并网逆变器接地故障排查', desc: '在3D事故空间里根据提示查找异常电压漏电位置。', type: '3D演习' },
+                    { name: '热失控初期的PACK级水喷淋阻断实操', desc: '应对微弱温升及烟感报警，执行精确电磁阀开闭训练。', type: '高级进阶' }
+                ];
+
+                // 定时更新电量
+                let chargeInterval = null;
+                onMounted(() => {
+                    chargeInterval = setInterval(() => {
+                        // 电量在75%-99%之间起伏波动，模拟电站充放电实时数据
+                        if (currentCharge.value >= 99) {
+                            currentCharge.value = 75;
+                        } else {
+                            currentCharge.value += 1;
+                        }
+                    }, 5000);
+
+                    // 模拟生成客户端 IP
+                    clientIp.value = `10.134.${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 254) + 1}`;
+                });
+
+                onUnmounted(() => {
+                    if (chargeInterval) clearInterval(chargeInterval);
+                });
+
+                // 一键自动填充演示凭证
+                const fillDemoCredentials = () => {
+                    if (isAdmin.value) {
+                        form.username = 'super_admin';
+                        form.password = 'admin888';
+                    } else {
+                        form.username = 'zhanggong';
+                        form.password = 'admin123';
+                    }
+                };
+
+                // 切换学员/管理员模式
+                const toggleRole = () => {
+                    isAdmin.value = !isAdmin.value;
+                    form.username = '';
+                    form.password = '';
+                };
+
+                // 登录校验与科技动效流程
+                const handleLogin = () => {
+                    loading.value = true;
+                    isScanning.value = true;
+
+                    // 模拟接口延迟验证
+                    setTimeout(() => {
+                        loading.value = false;
+                        isScanning.value = false;
+
+                        // 极简校验逻辑
+                        const isStudentMatch = !isAdmin.value && form.username === 'zhanggong' && form.password === 'admin123';
+                        const isAdminMatch = isAdmin.value && form.username === 'super_admin' && form.password === 'admin888';
+
+                        if (isStudentMatch || isAdminMatch) {
+                            // 登录成功
+                            isLoggedIn.value = true;
+                            triggerAlert('系统鉴权成功', '正在加载储安云核心安全控制面板...', false);
+                        } else {
+                            // 登录失败
+                            triggerAlert('系统认证失败', '账号或安全密钥错误，请核对快捷演示账号。', true);
+                        }
+                    }, 1500);
+                };
+
+                // 登出系统
+                const logout = () => {
+                    isLoggedIn.value = false;
+                    form.password = '';
+                    triggerAlert('安全注销', '您已安全退出储能安全控制台。', false);
+                };
+
+                // 触发通知提示
+                const triggerAlert = (title, desc, isError) => {
+                    alert.title = title;
+                    alert.desc = desc;
+                    alert.isError = isError;
+                    alert.show = true;
+                    // 如果是登录成功提示，2秒后自动关闭
+                    if (!isError) {
+                        setTimeout(() => {
+                            alert.show = false;
+                        }, 2200);
+                    }
+                };
+
+                return {
+                    isAdmin,
+                    loading,
+                    isScanning,
+                    isLoggedIn,
+                    showPassword,
+                    currentCharge,
+                    clientIp,
+                    form,
+                    alert,
+                    featureModules,
+                    trainingCourses,
+                    toggleRole,
+                    fillDemoCredentials,
+                    handleLogin,
+                    logout,
+                    triggerAlert
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

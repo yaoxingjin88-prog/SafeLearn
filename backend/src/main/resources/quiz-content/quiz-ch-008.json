@@ -1,0 +1,12 @@
+{
+  "title": "测验：BMS系统架构与功能",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"BMS典型架构是？","options":[{"id":"a","text":"分布式采集 + 集中式控制","correct":true},{"id":"b","text":"完全集中式单芯片","correct":false},{"id":"c","text":"无通信的独立模块","correct":false},{"id":"d","text":"仅软件无硬件采集","correct":false}],"explanation":"BMS采用BMU/CSC从控采集、BCU/BAMS主控汇总的分布式架构。"},
+    {"id":"q2","type":"single","question":"SOH低于多少时应列入电池更换计划？","options":[{"id":"a","text":"90%","correct":false},{"id":"b","text":"85%","correct":false},{"id":"c","text":"80%","correct":true},{"id":"d","text":"70%","correct":false}],"explanation":"SOH低于80%的电池应列入更换计划，保障系统安全与性能。"},
+    {"id":"q3","type":"multiple","question":"BMS向外部系统可输出的指令/数据包括？（多选）","options":[{"id":"a","text":"向PCS发送充放电允许与紧急停机","correct":true},{"id":"b","text":"向EMS上报告警与历史曲线","correct":true},{"id":"c","text":"直接向电网调度AGC指令","correct":false},{"id":"d","text":"向消防输出热失控预警信号","correct":true}],"explanation":"BMS与PCS、EMS、消防联动；电网调度由EMS执行。"},
+    {"id":"q4","type":"single","question":"大型储能更常用的均衡方式是？","options":[{"id":"a","text":"主动均衡（能量在单体间转移）","correct":true},{"id":"b","text":"仅被动均衡","correct":false},{"id":"c","text":"不做均衡","correct":false},{"id":"d","text":"人工更换单体","correct":false}],"explanation":"主动均衡效率高，在大型储能系统中更常用。"},
+    {"id":"q5","type":"truefalse","question":"BMS应根据温度分布控制液冷泵速，维持模组温差≤5℃。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"热管理联动是BMS重要功能，控制温差有助于预防热失控。"}
+  ]
+}

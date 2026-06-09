@@ -17,4 +17,6 @@ public interface CourseRepository extends JpaRepository<Course, String> {
     List<Course> findByFilters(@Param("status") String status,
                                @Param("category") String category,
                                @Param("keyword") String keyword);
+
+    long countByCategory(String category);
 }

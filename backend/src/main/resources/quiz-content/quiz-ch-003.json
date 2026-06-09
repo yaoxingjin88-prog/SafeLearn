@@ -1,0 +1,12 @@
+{
+  "title": "测验：储能系统组成",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"储能电池系统的层级结构自底向上正确顺序是？","options":[{"id":"a","text":"单体 → 模组 → 簇 → 集装箱/舱体","correct":true},{"id":"b","text":"模组 → 单体 → 簇 → 舱体","correct":false},{"id":"c","text":"簇 → 模组 → 单体 → 舱体","correct":false},{"id":"d","text":"单体 → 簇 → 模组 → 舱体","correct":false}],"explanation":"电池系统采用单体→模组→簇→集装箱/舱体的分级架构。"},
+    {"id":"q2","type":"multiple","question":"BMS（电池管理系统）的主要功能包括哪些？（多选）","options":[{"id":"a","text":"数据采集与状态估算","correct":true},{"id":"b","text":"均衡管理与故障诊断","correct":true},{"id":"c","text":"将交流电转换为直流电","correct":false},{"id":"d","text":"保护执行与分级告警","correct":true}],"explanation":"BMS负责采集、估算、均衡、诊断与保护；交直流转换由PCS完成。"},
+    {"id":"q3","type":"single","question":"BMS三级保护（保护级）的典型动作是？","options":[{"id":"a","text":"仅记录并通知运维","correct":false},{"id":"b","text":"降功率运行","correct":false},{"id":"c","text":"切断充放电回路","correct":true},{"id":"d","text":"启动消防喷洒","correct":false}],"explanation":"三级保护在严重异常时切断充放电回路，防止事故扩大。"},
+    {"id":"q4","type":"single","question":"PCS（储能变流器）的主要作用是？","options":[{"id":"a","text":"电池直流侧与电网交流侧的能量转换","correct":true},{"id":"b","text":"估算电池SOC和SOH","correct":false},{"id":"c","text":"执行站级调度策略","correct":false},{"id":"d","text":"检测烟雾和可燃气体","correct":false}],"explanation":"PCS负责电池直流与电网交流之间的双向能量转换。"},
+    {"id":"q5","type":"truefalse","question":"典型安全链为：BMS检测异常 → PCS停机 → EMS记录告警 → 消防系统待命/启动。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"各子系统联动构成完整安全链，BMS是异常发现的第一环。"}
+  ]
+}

@@ -6,7 +6,14 @@
         <el-icon><ArrowLeft /></el-icon>
         返回案例列表
       </button>
-      <FavoriteButton v-if="caseData.id" :link="false" target-type="case" :target-id="caseData.id" />
+      <div class="topbar-actions">
+        <el-tag v-if="caseProgress.completed" type="success" effect="plain" round>已复盘</el-tag>
+        <el-button type="primary" @click="openGuide">
+          <el-icon><Reading /></el-icon>
+          {{ caseProgress.completed ? '查看 / 再次复盘' : '开始复盘引导' }}
+        </el-button>
+        <FavoriteButton v-if="caseData.id" :link="false" target-type="case" :target-id="caseData.id" />
+      </div>
     </div>
 
     <!-- 事故概览卡 -->
@@ -271,11 +278,8 @@
         <el-icon><ArrowLeft /></el-icon> 上一案例
       </el-button>
       <div class="footer-center">
-        <el-button class="footer-review" @click="goToReview">
-          <el-icon><Reading /></el-icon> 进入案例复盘
-        </el-button>
-        <el-button class="footer-complete" type="primary" @click="handleComplete">
-          <el-icon><CircleCheck /></el-icon> 完成学习
+        <el-button class="footer-review" type="primary" @click="openGuide">
+          <el-icon><Reading /></el-icon> 复盘引导
         </el-button>
       </div>
       <el-button
@@ -286,6 +290,15 @@
         下一案例 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </div>
+
+    <CaseReviewGuide
+      v-model="guideVisible"
+      :case-id="caseData.id"
+      :case-title="caseData.title"
+      :case-data="caseData"
+      @completed="onGuideCompleted"
+      @progress="onGuideProgress"
+    />
   </div>
 </template>
 
@@ -296,12 +309,13 @@ import { ElMessage } from 'element-plus'
 import {
   Location, Calendar, Link, ArrowLeft, ArrowRight, Clock, Money, User, Timer,
   Histogram, Right, Connection, MagicStick, Document, Warning, CircleClose,
-  Files, Reading, CircleCheck,
+  Files, Reading,
 } from '@element-plus/icons-vue'
 import request from '@/api/request'
 import { useAppBase } from '@/composables/useAppBase'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
 import NotePanel from '@/components/learning/NotePanel.vue'
+import CaseReviewGuide from '@/components/cases/CaseReviewGuide.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -322,6 +336,8 @@ const caseData = ref({
 
 const relatedCases = ref<RelatedCase[]>([])
 const allCaseIds = ref<string[]>([])
+const guideVisible = ref(false)
+const caseProgress = ref({ completed: false, currentStep: 0, totalSteps: 0 })
 
 const hasStructuredCause = computed(() =>
   !!(caseData.value.directCause || caseData.value.indirectCause || caseData.value.rootCause))
@@ -350,29 +366,44 @@ const timelineSpan = computed(() => {
 
 async function loadCase() {
   const caseId = route.params.id as string
-  const [detailRes, relatedRes, listRes] = await Promise.all([
+  const [detailRes, relatedRes, listRes, progressRes] = await Promise.all([
     request.get(`/cases/${caseId}`),
     request.get(`/cases/${caseId}/related`).catch(() => ({ data: [] })),
     request.get('/cases').catch(() => ({ data: [] })),
+    request.get(`/cases/${caseId}/progress`).catch(() => ({ data: {} })),
   ])
   caseData.value = { ...caseData.value, ...detailRes.data }
   relatedCases.value = relatedRes.data || []
   allCaseIds.value = (listRes.data || []).map((c: RelatedCase) => c.id)
+  const p = progressRes.data || {}
+  caseProgress.value = {
+    completed: !!p.completed,
+    currentStep: p.currentStep || 0,
+    totalSteps: p.totalSteps || 0,
+  }
+  if (route.query.review === '1') {
+    guideVisible.value = true
+  }
 }
 
 onMounted(loadCase)
 watch(() => route.params.id, loadCase)
 
+function openGuide() {
+  guideVisible.value = true
+}
+
+function onGuideCompleted() {
+  caseProgress.value.completed = true
+  ElMessage.success('案例复盘已完成')
+}
+
+function onGuideProgress(payload: { completed: boolean; currentStep: number; totalSteps: number }) {
+  caseProgress.value = { ...payload }
+}
+
 function goToCase(id: string) {
   router.push(p(`/cases/${id}`))
-}
-
-function goToReview() {
-  router.push(p('/cases/review'))
-}
-
-function handleComplete() {
-  ElMessage.success('已完成本案例学习')
 }
 
 // ===== 映射 =====
@@ -458,6 +489,14 @@ function lossColor(idx: number) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  gap: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .back-btn {

@@ -27,7 +27,7 @@
         <span class="sort-label">排序：</span>
         <el-select v-model="sortBy" class="sort-select" size="default">
           <el-option label="最新发布" value="latest" />
-          <el-option label="最热学习" value="popular" />
+          <el-option label="未复盘优先" value="popular" />
         </el-select>
       </div>
     </div>
@@ -40,9 +40,14 @@
         <el-col :span="8" v-for="caseItem in filteredCases" :key="caseItem.id">
           <el-card class="case-card" shadow="hover" @click="router.push(p(`/cases/${caseItem.id}`))">
             <div class="case-header">
-              <el-tag :type="getSeverityType(caseItem.severity)">
-                {{ getSeverityName(caseItem.severity) }}
-              </el-tag>
+              <div class="case-tags">
+                <el-tag :type="getSeverityType(caseItem.severity)">
+                  {{ getSeverityName(caseItem.severity) }}
+                </el-tag>
+                <el-tag v-if="progressMap[caseItem.id]?.completed" type="success" size="small" effect="plain">
+                  已复盘
+                </el-tag>
+              </div>
               <span class="case-date">{{ caseItem.date }}</span>
             </div>
             <h3 class="case-title">{{ caseItem.title }}</h3>
@@ -51,10 +56,24 @@
               {{ caseItem.location }}
             </p>
             <p class="case-desc">{{ caseItem.description }}</p>
+            <div v-if="caseItem.timeline?.length" class="timeline-preview">
+              <div v-for="(evt, idx) in caseItem.timeline.slice(0, 3)" :key="idx" class="timeline-preview-item">
+                <span class="tp-time">{{ evt.time }}</span>
+                <span class="tp-title">{{ evt.title }}</span>
+              </div>
+            </div>
             <div class="case-meta">
               <el-tag :type="getTypeType(caseItem.type)" size="small">
                 {{ getTypeName(caseItem.type) }}
               </el-tag>
+              <el-button
+                type="primary"
+                link
+                size="small"
+                @click.stop="startReview(caseItem.id)"
+              >
+                {{ progressMap[caseItem.id]?.completed ? '再次复盘' : '复盘引导' }}
+              </el-button>
             </div>
           </el-card>
         </el-col>
@@ -97,12 +116,25 @@ const severityWeight: Record<string, number> = {
 
 const cases = ref<AccidentCase[]>([])
 const loading = ref(true)
+const progressMap = ref<Record<string, { completed: boolean }>>({})
+
+function startReview(id: string) {
+  router.push({ path: p(`/cases/${id}`), query: { review: '1' } })
+}
 
 onMounted(async () => {
   loading.value = true
   try {
-    const res = await request.get('/cases')
-    cases.value = res.data
+    const [casesRes, progressRes] = await Promise.all([
+      request.get('/cases'),
+      request.get('/cases/progress/summary').catch(() => ({ data: [] })),
+    ])
+    cases.value = casesRes.data
+    const map: Record<string, { completed: boolean }> = {}
+    for (const item of progressRes.data || []) {
+      map[item.caseId] = { completed: !!item.completed }
+    }
+    progressMap.value = map
   } catch (error) {
     console.error('加载案例失败', error)
     ElMessage.error('加载案例失败，请稍后重试')
@@ -124,7 +156,12 @@ const filteredCases = computed(() => {
     )
   }
   if (sortBy.value === 'popular') {
-    result.sort((a, b) => (severityWeight[b.severity] || 0) - (severityWeight[a.severity] || 0))
+    result.sort((a, b) => {
+      const aDone = progressMap.value[a.id]?.completed ? 1 : 0
+      const bDone = progressMap.value[b.id]?.completed ? 1 : 0
+      if (aDone !== bDone) return aDone - bDone
+      return (severityWeight[b.severity] || 0) - (severityWeight[a.severity] || 0)
+    })
   } else {
     result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
@@ -262,6 +299,38 @@ function getTypeName(type: string) {
   margin-bottom: 12px;
 }
 
+.case-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.timeline-preview {
+  border-left: 2px solid #e5e7eb;
+  padding-left: 10px;
+  margin-bottom: 12px;
+}
+
+.timeline-preview-item {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 8px;
+}
+
+.tp-time {
+  color: #2b5aed;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.tp-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .case-date {
   font-size: 13px;
   color: #9ca3af;
@@ -295,6 +364,8 @@ function getTypeName(type: string) {
 
 .case-meta {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 </style>

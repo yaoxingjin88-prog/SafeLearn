@@ -1,11 +1,6 @@
 <template>
-  <div class="sl-page data-screen">
-    <div class="sl-page-head">
-      <h2 class="sl-page-title">数据大屏</h2>
-    </div>
-
+  <div class="admin-charts-panel">
     <el-row :gutter="20">
-      <!-- 统计卡片 -->
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon bg-blue-500">
@@ -53,45 +48,39 @@
     </el-row>
 
     <el-row :gutter="20" class="mt-6">
-      <!-- 培训完成率 -->
       <el-col :span="12">
         <el-card>
           <template #header>
             <span class="font-bold">培训完成率</span>
           </template>
-          <div ref="completionChart" style="height: 300px"></div>
+          <div ref="completionChart" class="chart-box"></div>
         </el-card>
       </el-col>
-
-      <!-- 事故类型分布 -->
       <el-col :span="12">
         <el-card>
           <template #header>
             <span class="font-bold">事故类型分布</span>
           </template>
-          <div ref="accidentChart" style="height: 300px"></div>
+          <div ref="accidentChart" class="chart-box"></div>
         </el-card>
       </el-col>
     </el-row>
 
     <el-row :gutter="20" class="mt-6">
-      <!-- 月度趋势 -->
       <el-col :span="16">
         <el-card>
           <template #header>
             <span class="font-bold">月度培训趋势</span>
           </template>
-          <div ref="trendChart" style="height: 300px"></div>
+          <div ref="trendChart" class="chart-box"></div>
         </el-card>
       </el-col>
-
-      <!-- 风险等级分布 -->
       <el-col :span="8">
         <el-card>
           <template #header>
             <span class="font-bold">风险等级分布</span>
           </template>
-          <div ref="riskChart" style="height: 300px"></div>
+          <div ref="riskChart" class="chart-box"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -126,14 +115,18 @@ const chartData = ref<{
 } | null>(null)
 
 onMounted(async () => {
-  const [statsRes, chartsRes] = await Promise.all([
-    request.get('/admin/stats'),
-    request.get('/admin/charts'),
-  ])
-  Object.assign(stats, statsRes.data)
-  chartData.value = chartsRes.data
-  initCharts()
-  window.addEventListener('resize', handleResize)
+  try {
+    const [statsRes, chartsRes] = await Promise.all([
+      request.get('/admin/stats'),
+      request.get('/admin/charts'),
+    ])
+    Object.assign(stats, statsRes.data)
+    chartData.value = chartsRes.data
+    initCharts()
+    window.addEventListener('resize', handleResize)
+  } catch (err) {
+    console.warn('加载数据概览失败', err)
+  }
 })
 
 onUnmounted(() => {
@@ -196,10 +189,7 @@ function initCharts() {
       tooltip: { trigger: 'axis' },
       legend: { data: ['培训人数', '推演次数'] },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: trend.months,
-      },
+      xAxis: { type: 'category', data: trend.months },
       yAxis: { type: 'value' },
       series: [
         {
@@ -275,5 +265,13 @@ function initCharts() {
 .stat-label {
   font-size: 14px;
   color: #6b7280;
+}
+
+.chart-box {
+  height: 300px;
+}
+
+.mt-6 {
+  margin-top: 24px;
 }
 </style>

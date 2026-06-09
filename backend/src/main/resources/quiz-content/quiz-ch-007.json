@@ -1,0 +1,12 @@
+{
+  "title": "测验：灭火剂选择与适用",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"电池舱灭火剂选型的首要考虑因素不包括？","options":[{"id":"a","text":"灭火效率与降温能力","correct":false},{"id":"b","text":"导电性与设备腐蚀性","correct":false},{"id":"c","text":"发电效率","correct":true},{"id":"d","text":"环保性与复燃抑制","correct":false}],"explanation":"灭火剂选型关注灭火、降温、导电性、腐蚀性和环保性，与发电效率无关。"},
+    {"id":"q2","type":"single","question":"全氟己酮（FK-5-1-12）的主要优势是？","options":[{"id":"a","text":"汽化吸热、不导电、无残留","correct":true},{"id":"b","text":"成本最低、维护最简单","correct":false},{"id":"c","text":"适合直接大量用水降温","correct":false},{"id":"d","text":"可替代干粉用于所有场景","correct":false}],"explanation":"全氟己酮汽化吸热快、不导电无残留，是电池舱推荐灭火剂。"},
+    {"id":"q3","type":"truefalse","question":"干粉灭火器对锂电池火灾有良好降温效果且不易复燃。","options":[{"id":"a","text":"正确","correct":false},{"id":"b","text":"错误","correct":true}],"explanation":"干粉可暂时窒息火焰但无降温效果，易复燃，残留物还可能腐蚀设备。"},
+    {"id":"q4","type":"single","question":"电池冒烟但未明火时，推荐措施是？","options":[{"id":"a","text":"启动气体灭火，疏散人员，禁止进入","correct":true},{"id":"b","text":"用水直接喷射电池模组","correct":false},{"id":"c","text":"继续正常运行加强观察","correct":false},{"id":"d","text":"打开舱门通风即可","correct":false}],"explanation":"冒烟阶段应启动气体灭火、疏散人员，严禁未防护进入或用水喷射带电模组。"},
+    {"id":"q5","type":"multiple","question":"细水雾系统在储能消防中的合理用途包括？（多选）","options":[{"id":"a","text":"作为辅助降温手段","correct":true},{"id":"b","text":"与气体灭火组合防复燃","correct":true},{"id":"c","text":"直接替代所有气体灭火","correct":false},{"id":"d","text":"需配合绝缘设计使用","correct":true}],"explanation":"细水雾通常作辅助降温，可与气体灭火组合，需考虑绝缘设计。"}
+  ]
+}

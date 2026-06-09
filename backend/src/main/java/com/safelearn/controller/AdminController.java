@@ -3,6 +3,7 @@ package com.safelearn.controller;
 import com.safelearn.common.ApiResponse;
 import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseService;
+import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AdminCourseService adminCourseService;
+    private final CourseCategoryService courseCategoryService;
     private final DashboardService dashboardService;
 
     @GetMapping("/users")
@@ -53,6 +55,28 @@ public class AdminController {
     @GetMapping("/learning-overview")
     public ApiResponse<Map<String, Object>> getLearningOverview() {
         return ApiResponse.success(dashboardService.getAdminOverview());
+    }
+
+    @GetMapping("/course-categories")
+    public ApiResponse<List<Map<String, Object>>> getCourseCategories() {
+        return ApiResponse.success(courseCategoryService.listAll());
+    }
+
+    @PostMapping("/course-categories")
+    public ApiResponse<Map<String, Object>> createCourseCategory(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(courseCategoryService.create(body));
+    }
+
+    @PutMapping("/course-categories/{id}")
+    public ApiResponse<Map<String, Object>> updateCourseCategory(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(courseCategoryService.update(id, body));
+    }
+
+    @DeleteMapping("/course-categories/{id}")
+    public ApiResponse<Map<String, Object>> deleteCourseCategory(@PathVariable String id) {
+        return ApiResponse.success(courseCategoryService.delete(id));
     }
 
     @GetMapping("/courses")

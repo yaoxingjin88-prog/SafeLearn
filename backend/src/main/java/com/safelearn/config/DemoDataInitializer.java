@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * 确保演示账号存在（data.sql 可能因历史库或编码问题未写入测试用户）
+ * 确保演示账号存在（safelearn.sql 可能因历史库或编码问题未写入测试用户）
  */
 @Slf4j
 @Component

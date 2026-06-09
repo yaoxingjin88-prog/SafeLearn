@@ -121,7 +121,7 @@ import {
   Loading, ArrowLeft, ArrowRight, Timer, Check, Close,
   InfoFilled, Promotion
 } from '@element-plus/icons-vue'
-import { getQuizByChapter, startQuiz, submitQuiz } from '@/api/quiz'
+import { getQuizByChapter, startQuiz, submitQuiz, checkQuizExists } from '@/api/quiz'
 import type { Quiz, QuizQuestion } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 
@@ -150,6 +150,13 @@ const chapterId = computed(() => route.params.chapterId as string)
 // 加载测验
 onMounted(async () => {
   try {
+    const statusRes = await checkQuizExists(chapterId.value)
+    if (statusRes.data?.chapterCompleted || statusRes.data?.quizPassed) {
+      ElMessage.info('本章已完成，无需重复测验')
+      goBack()
+      return
+    }
+
     // 先获取章节测验信息
     const quizRes = await getQuizByChapter(chapterId.value)
     if (quizRes.code !== 200 || !quizRes.data) {
@@ -246,11 +253,16 @@ async function confirmSubmit() {
       await ElMessageBox.confirm(
         `还有 ${unanswered} 道题未作答，确定要提交吗？`,
         '确认提交',
-        { confirmButtonText: '继续答题', cancelButtonText: '确认提交', type: 'warning' }
+        {
+          confirmButtonText: '继续答题',
+          cancelButtonText: '确认提交',
+          distinguishCancelAndClose: true,
+          type: 'warning',
+        }
       )
       return
-    } catch {
-      // 用户点击了确认提交
+    } catch (action) {
+      if (action !== 'cancel') return
     }
   }
   await submitQuiz()

@@ -24,7 +24,7 @@ spring:
     init:
       mode: always
       continue-on-error: true
-      data-locations: classpath:data.sql
+      schema-locations: classpath:safelearn.sql
       encoding: UTF-8
 
 app:

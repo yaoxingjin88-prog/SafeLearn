@@ -1,0 +1,12 @@
+{
+  "title": "测验：日常巡检规范",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"储能电站巡检制度通常分为哪三级？","options":[{"id":"a","text":"日检、周检、月检","correct":true},{"id":"b","text":"时检、日检、年检","correct":false},{"id":"c","text":"仅月检","correct":false},{"id":"d","text":"班检、季检、年检","correct":false}],"explanation":"根据GB/T 42288要求，运行期间应建立日检、周检、月检三级巡检制度。"},
+    {"id":"q2","type":"multiple","question":"日检项目包括？（多选）","options":[{"id":"a","text":"EMS运行状态与未处理告警","correct":true},{"id":"b","text":"舱体外观有无变形渗漏异味","correct":true},{"id":"c","text":"PCS滤波电容全面拆解","correct":false},{"id":"d","text":"消防控制主机状态","correct":true}],"explanation":"日检侧重运行状态、外观、空调液冷和消防主机；电容拆解属月检深度项。"},
+    {"id":"q3","type":"single","question":"巡检发现异常项的处理要求是？","options":[{"id":"a","text":"当日闭环或升级至工单系统","correct":true},{"id":"b","text":"下月统一处理","correct":false},{"id":"c","text":"仅口头告知同事","correct":false},{"id":"d","text":"自行忽略轻微异常","correct":false}],"explanation":"异常项须当日闭环或升级工单，不得拖延或口头了事。"},
+    {"id":"q4","type":"truefalse","question":"进入电池舱前须确认无告警、无异味，并穿戴绝缘鞋和安全帽。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"舱内作业须满足安全着装与进入前环境确认要求。"},
+    {"id":"q5","type":"single","question":"月检项目中包括？","options":[{"id":"a","text":"消防瓶组压力与探测器清洁","correct":true},{"id":"b","text":"仅查看视频监控","correct":false},{"id":"c","text":"仅检查EMS告警","correct":false},{"id":"d","text":"更换全部电池模组","correct":false}],"explanation":"月检包括PCS部件检查、电池外观抽检、消防瓶组压力及绝缘抽测等。"}
+  ]
+}

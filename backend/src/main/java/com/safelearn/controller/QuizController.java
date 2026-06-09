@@ -28,9 +28,11 @@ public class QuizController {
      * 检查章节是否有测验
      */
     @GetMapping("/chapter/{chapterId}/exists")
-    public ApiResponse<Map<String, Object>> checkQuizExists(@PathVariable String chapterId) {
-        boolean exists = quizService.hasQuiz(chapterId);
-        return ApiResponse.success(Map.of("exists", exists));
+    public ApiResponse<Map<String, Object>> checkQuizExists(
+            Authentication auth,
+            @PathVariable String chapterId) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(quizService.getChapterQuizStatus(userId, chapterId));
     }
 
     /**

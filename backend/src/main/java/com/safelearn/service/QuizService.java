@@ -2,13 +2,8 @@ package com.safelearn.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.safelearn.entity.ChapterQuiz;
-import com.safelearn.entity.QuizAttempt;
-import com.safelearn.entity.User;
-import com.safelearn.repository.ChapterQuizRepository;
-import com.safelearn.repository.QuizAttemptRepository;
-import com.safelearn.repository.UserProgressRepository;
-import com.safelearn.repository.UserRepository;
+import com.safelearn.entity.*;
+import com.safelearn.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +21,9 @@ public class QuizService {
     private final QuizAttemptRepository attemptRepo;
     private final UserRepository userRepo;
     private final UserProgressRepository progressRepo;
+    private final ChapterRepository chapterRepo;
+    private final CourseRepository courseRepo;
+    private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -53,6 +51,44 @@ public class QuizService {
     }
 
     /**
+     * 章节测验与学习状态（用于前端展示）
+     */
+    public Map<String, Object> getChapterQuizStatus(String userId, String chapterId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("exists", hasQuiz(chapterId));
+        if (userId == null) {
+            return result;
+        }
+
+        boolean chapterCompleted = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, chapterId);
+        result.put("chapterCompleted", chapterCompleted);
+
+        progressRepo.findByUserIdAndChapterId(userId, chapterId).ifPresent(p -> {
+            if (p.getMasteryLevel() != null) {
+                result.put("masteryLevel", p.getMasteryLevel());
+            }
+        });
+
+        if (!hasQuiz(chapterId)) {
+            return result;
+        }
+
+        List<QuizAttempt> attempts = attemptRepo.findByUserIdAndChapterId(userId, chapterId);
+        boolean quizPassed = attempts.stream()
+                .anyMatch(a -> a.getCompletedAt() != null && Boolean.TRUE.equals(a.getPassed()));
+        result.put("quizPassed", quizPassed);
+        if (quizPassed) {
+            int bestScore = attempts.stream()
+                    .filter(a -> a.getCompletedAt() != null && Boolean.TRUE.equals(a.getPassed()))
+                    .mapToInt(a -> a.getScore() != null ? a.getScore() : 0)
+                    .max()
+                    .orElse(0);
+            result.put("bestScore", bestScore);
+        }
+        return result;
+    }
+
+    /**
      * 开始测验
      */
     @Transactional
@@ -61,6 +97,16 @@ public class QuizService {
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
         ChapterQuiz quiz = quizRepo.findById(quizId)
                 .orElseThrow(() -> new RuntimeException("测验不存在"));
+
+        String chapterId = quiz.getChapterId();
+        if (progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, chapterId)) {
+            throw new RuntimeException("本章已完成学习，无需重复参加测验");
+        }
+        boolean alreadyPassed = attemptRepo.findByUserIdAndChapterId(userId, chapterId).stream()
+                .anyMatch(a -> a.getCompletedAt() != null && Boolean.TRUE.equals(a.getPassed()));
+        if (alreadyPassed) {
+            throw new RuntimeException("本章测验已通过，无需重复参加");
+        }
 
         QuizAttempt attempt = new QuizAttempt();
         attempt.setId(UUID.randomUUID().toString());
@@ -152,6 +198,9 @@ public class QuizService {
 
         // 更新用户进度中的掌握度
         updateMasteryLevel(userId, quiz.getChapterId(), totalScore);
+        if (passed) {
+            markChapterCompleted(userId, quiz.getChapterId(), totalScore);
+        }
 
         // 构建返回结果
         Map<String, Object> response = new HashMap<>();
@@ -240,6 +289,35 @@ public class QuizService {
     }
 
     // ========== 私有辅助方法 ==========
+
+    private void markChapterCompleted(String userId, String chapterId, int masteryLevel) {
+        Chapter chapter = chapterRepo.findById(chapterId).orElse(null);
+        if (chapter == null) return;
+
+        User user = userRepo.findById(userId).orElse(null);
+        Course course = chapter.getCourse();
+        if (user == null || course == null) return;
+
+        UserProgress progress = progressRepo.findByUserIdAndChapterId(userId, chapterId)
+                .orElseGet(() -> {
+                    UserProgress p = new UserProgress();
+                    p.setUser(user);
+                    p.setCourse(course);
+                    p.setChapter(chapter);
+                    return p;
+                });
+
+        if (!Boolean.TRUE.equals(progress.getCompleted())) {
+            progress.setProgress(100);
+            progress.setCompleted(true);
+        }
+        if (progress.getMasteryLevel() == null || masteryLevel > progress.getMasteryLevel()) {
+            progress.setMasteryLevel(masteryLevel);
+        }
+        progress.setLastAccessAt(LocalDateTime.now());
+        progressRepo.save(progress);
+        certificateService.tryIssueOnCourseComplete(userId, chapter.getCourse().getId());
+    }
 
     private void updateMasteryLevel(String userId, String chapterId, int masteryLevel) {
         // 查找或创建用户进度记录

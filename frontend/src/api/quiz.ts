@@ -80,8 +80,17 @@ export function getQuizByChapter(chapterId: string): Promise<ApiResponse<Quiz>> 
   return request.get(`/quiz/chapter/${chapterId}`)
 }
 
-/** 检查章节是否有测验 */
-export function checkQuizExists(chapterId: string): Promise<ApiResponse<{ exists: boolean }>> {
+/** 章节测验与学习状态 */
+export interface ChapterQuizStatus {
+  exists: boolean
+  chapterCompleted?: boolean
+  quizPassed?: boolean
+  bestScore?: number
+  masteryLevel?: number
+}
+
+/** 检查章节是否有测验及完成状态 */
+export function checkQuizExists(chapterId: string): Promise<ApiResponse<ChapterQuizStatus>> {
   return request.get(`/quiz/chapter/${chapterId}/exists`)
 }
 

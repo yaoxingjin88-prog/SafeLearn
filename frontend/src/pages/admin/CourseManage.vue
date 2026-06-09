@@ -1,34 +1,58 @@
 <template>
   <div class="sl-page course-manage">
     <div class="sl-page-header">
-      <h2 class="sl-page-title">课程管理</h2>
-      <el-button type="primary" @click="showAddCourse">
-        <el-icon><Plus /></el-icon>
-        添加课程
-      </el-button>
+      <div>
+        <h2 class="sl-page-title">学员课程配置</h2>
+        <p class="page-desc">配置学员端「安全培训」模块的课程、章节与学习路径，发布后学员即可在课程列表中学习。</p>
+      </div>
+      <div class="header-actions">
+        <el-button @click="openUserPreview('/user/courses/list')">
+          <el-icon class="mr-1"><View /></el-icon>
+          预览学员端
+        </el-button>
+        <el-button v-if="activeTab === 'courses'" type="primary" @click="showAddCourse">
+          <el-icon><Plus /></el-icon>
+          添加课程
+        </el-button>
+      </div>
     </div>
 
-    <el-card v-loading="loading">
+    <el-tabs v-model="activeTab" class="config-tabs">
+      <el-tab-pane label="课程配置" name="courses" />
+      <el-tab-pane label="分类配置" name="categories" />
+    </el-tabs>
+
+    <CategoryConfigPanel
+      v-if="activeTab === 'categories'"
+      @changed="loadCategories"
+    />
+
+    <el-card v-else v-loading="loading">
       <el-table :data="courses" style="width: 100%">
         <el-table-column prop="title" label="课程名称" min-width="200" />
         <el-table-column prop="category" label="分类" width="120">
           <template #default="{ row }">
-            <el-tag>{{ categoryLabel(row.category) }}</el-tag>
+            <el-tag :type="categoryTagType(row.category)">{{ categoryLabel(row.category) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="chapterCount" label="章节数" width="90" />
         <el-table-column prop="totalDuration" label="时长(分钟)" width="110" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="发布状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'published' ? 'success' : 'info'">
-              {{ row.status === 'published' ? '已发布' : '草稿' }}
-            </el-tag>
+            <el-switch
+              :model-value="row.status === 'published'"
+              active-text="已发布"
+              inactive-text="草稿"
+              inline-prompt
+              @change="(val: boolean) => togglePublish(row, val)"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" width="180" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openChapters(row)">章节</el-button>
+            <el-button type="primary" link @click="openUserPreview(`/user/courses/${row.id}`)">预览</el-button>
             <el-button type="primary" link @click="editCourse(row)">编辑</el-button>
             <el-button type="danger" link @click="deleteCourse(row)">删除</el-button>
           </template>
@@ -37,27 +61,39 @@
     </el-card>
 
     <!-- 课程表单 -->
-    <el-dialog v-model="courseDialogVisible" :title="isEdit ? '编辑课程' : '添加课程'" width="560px">
-      <el-form ref="courseFormRef" :model="courseForm" :rules="courseRules" label-width="90px">
+    <el-dialog v-model="courseDialogVisible" :title="isEdit ? '编辑课程' : '添加课程'" width="600px">
+      <el-form ref="courseFormRef" :model="courseForm" :rules="courseRules" label-width="100px">
         <el-form-item label="课程名称" prop="title">
-          <el-input v-model="courseForm.title" placeholder="请输入课程名称" />
+          <el-input v-model="courseForm.title" placeholder="学员端显示的课程标题" />
         </el-form-item>
         <el-form-item label="分类" prop="category">
           <el-select v-model="courseForm.category" placeholder="请选择分类" class="w-full">
-            <el-option v-for="c in categories" :key="c.value" :label="c.label" :value="c.value" />
+            <el-option
+              v-for="c in enabledCategories"
+              :key="c.code"
+              :label="c.name"
+              :value="c.code"
+            />
           </el-select>
+          <div v-if="!enabledCategories.length" class="field-tip">
+            请先在「分类配置」中添加并启用分类
+          </div>
         </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="courseForm.status" class="w-full">
-            <el-option label="已发布" value="published" />
-            <el-option label="草稿" value="draft" />
-          </el-select>
+        <el-form-item label="发布状态" prop="status">
+          <el-radio-group v-model="courseForm.status">
+            <el-radio value="published">已发布（学员可见）</el-radio>
+            <el-radio value="draft">草稿（仅管理员可见）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="封面图 URL">
+          <el-input v-model="courseForm.coverImage" placeholder="可选，学员端课程卡片封面" />
         </el-form-item>
         <el-form-item label="时长(分钟)">
           <el-input-number v-model="courseForm.totalDuration" :min="0" :step="5" />
+          <span class="field-tip">保存章节后会自动汇总，也可手动填写</span>
         </el-form-item>
         <el-form-item label="课程简介">
-          <el-input v-model="courseForm.description" type="textarea" :rows="4" placeholder="请输入课程简介" />
+          <el-input v-model="courseForm.description" type="textarea" :rows="4" placeholder="学员端课程详情页展示" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -67,20 +103,29 @@
     </el-dialog>
 
     <!-- 章节管理 -->
-    <el-drawer v-model="chapterDrawerVisible" :title="`章节管理 — ${activeCourse?.title || ''}`" size="640px">
+    <el-drawer v-model="chapterDrawerVisible" :title="`章节配置 — ${activeCourse?.title || ''}`" size="720px">
       <div class="chapter-toolbar">
         <el-button type="primary" size="small" @click="showAddChapter">
           <el-icon><Plus /></el-icon>
           添加章节
+        </el-button>
+        <el-button size="small" @click="openUserPreview(`/user/courses/${activeCourse?.id}`)">
+          预览课程
         </el-button>
       </div>
       <el-table :data="chapters" v-loading="chapterLoading" size="small">
         <el-table-column prop="order" label="序号" width="60" />
         <el-table-column prop="title" label="章节标题" min-width="160" />
         <el-table-column prop="duration" label="时长(分)" width="80" />
-        <el-table-column prop="difficultyLevel" label="难度" width="80">
+        <el-table-column prop="difficultyLevel" label="难度" width="90">
           <template #default="{ row }">
             {{ difficultyLabel(row.difficultyLevel) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="前置章节" min-width="120">
+          <template #default="{ row }">
+            <span v-if="!row.prerequisiteIds?.length" class="text-muted">无</span>
+            <el-tag v-else size="small" type="info">{{ row.prerequisiteIds.length }} 个前置</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120">
@@ -93,10 +138,10 @@
     </el-drawer>
 
     <!-- 章节表单 -->
-    <el-dialog v-model="chapterDialogVisible" :title="chapterIsEdit ? '编辑章节' : '添加章节'" width="560px" append-to-body>
-      <el-form ref="chapterFormRef" :model="chapterForm" :rules="chapterRules" label-width="90px">
+    <el-dialog v-model="chapterDialogVisible" :title="chapterIsEdit ? '编辑章节' : '添加章节'" width="640px" append-to-body>
+      <el-form ref="chapterFormRef" :model="chapterForm" :rules="chapterRules" label-width="100px">
         <el-form-item label="章节标题" prop="title">
-          <el-input v-model="chapterForm.title" placeholder="请输入章节标题" />
+          <el-input v-model="chapterForm.title" placeholder="学员端章节列表显示名称" />
         </el-form-item>
         <el-form-item label="排序" prop="order">
           <el-input-number v-model="chapterForm.order" :min="1" />
@@ -111,8 +156,28 @@
             <el-option label="高级实操" :value="3" />
           </el-select>
         </el-form-item>
+        <el-form-item label="前置章节">
+          <el-select
+            v-model="chapterForm.prerequisiteIds"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="学完前置章节后解锁本章节"
+            class="w-full"
+          >
+            <el-option
+              v-for="ch in prerequisiteOptions"
+              :key="ch.id"
+              :label="`${ch.order}. ${ch.title}`"
+              :value="ch.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="视频地址">
+          <el-input v-model="chapterForm.videoUrl" placeholder="可选，章节视频 URL" />
+        </el-form-item>
         <el-form-item label="章节内容">
-          <el-input v-model="chapterForm.content" type="textarea" :rows="6" placeholder="支持 HTML 内容" />
+          <el-input v-model="chapterForm.content" type="textarea" :rows="8" placeholder="支持 HTML，学员端章节学习页展示" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -124,13 +189,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Plus, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { adminApi } from '@/api/admin'
-import type { Course, Chapter } from '@/types'
+import CategoryConfigPanel from '@/components/admin/CategoryConfigPanel.vue'
+import type { Course, Chapter, CourseCategory } from '@/types'
 
+const activeTab = ref('courses')
+const categoryList = ref<CourseCategory[]>([])
 const loading = ref(false)
 const chapterLoading = ref(false)
 const courses = ref<Course[]>([])
@@ -146,20 +214,14 @@ const chapterIsEdit = ref(false)
 const courseFormRef = ref<FormInstance>()
 const chapterFormRef = ref<FormInstance>()
 
-const categories = [
-  { label: '基础知识', value: 'basic' },
-  { label: '电池安全', value: 'battery' },
-  { label: '热失控', value: 'thermal' },
-  { label: '消防安全', value: 'fire' },
-  { label: 'BMS管理', value: 'bms' },
-  { label: '事故案例', value: 'case' },
-]
+const enabledCategories = computed(() => categoryList.value.filter(c => c.enabled))
 
 const courseForm = reactive({
   id: '',
   title: '',
   description: '',
-  category: 'basic',
+  coverImage: '',
+  category: '',
   totalDuration: 60,
   status: 'published',
 })
@@ -168,9 +230,11 @@ const chapterForm = reactive({
   id: '',
   title: '',
   content: '',
+  videoUrl: '',
   duration: 30,
   order: 1,
   difficultyLevel: 1,
+  prerequisiteIds: [] as string[],
 })
 
 const courseRules: FormRules = {
@@ -183,13 +247,31 @@ const chapterRules: FormRules = {
   order: [{ required: true, message: '请输入排序', trigger: 'blur' }],
 }
 
-function categoryLabel(c: string) {
-  return categories.find(x => x.value === c)?.label || c
+const prerequisiteOptions = computed(() =>
+  chapters.value.filter(ch => ch.id !== chapterForm.id),
+)
+
+function categoryLabel(code: string) {
+  return categoryList.value.find(x => x.code === code)?.name || code
+}
+
+function categoryTagType(code: string) {
+  const tag = categoryList.value.find(x => x.code === code)?.tagType
+  return tag || undefined
+}
+
+async function loadCategories() {
+  const res = await adminApi.getCourseCategories()
+  categoryList.value = res.data || []
 }
 
 function difficultyLabel(level?: number) {
   const map: Record<number, string> = { 1: '基础', 2: '案例', 3: '实操' }
   return map[level ?? 1] || '-'
+}
+
+function openUserPreview(path: string) {
+  window.open(path, '_blank')
 }
 
 async function loadCourses() {
@@ -217,7 +299,8 @@ function showAddCourse() {
   courseForm.id = ''
   courseForm.title = ''
   courseForm.description = ''
-  courseForm.category = 'basic'
+  courseForm.coverImage = ''
+  courseForm.category = enabledCategories.value[0]?.code || ''
   courseForm.totalDuration = 60
   courseForm.status = 'published'
   courseDialogVisible.value = true
@@ -228,6 +311,7 @@ function editCourse(row: Course) {
   courseForm.id = row.id
   courseForm.title = row.title
   courseForm.description = row.description || ''
+  courseForm.coverImage = row.coverImage || ''
   courseForm.category = row.category
   courseForm.totalDuration = row.totalDuration || 0
   courseForm.status = row.status || 'published'
@@ -241,6 +325,7 @@ async function submitCourse() {
   const payload = {
     title: courseForm.title,
     description: courseForm.description,
+    coverImage: courseForm.coverImage || undefined,
     category: courseForm.category,
     totalDuration: courseForm.totalDuration,
     status: courseForm.status,
@@ -255,6 +340,13 @@ async function submitCourse() {
   courseDialogVisible.value = false
   await loadCourses()
   ElMessage.success(isEdit.value ? '编辑成功' : '添加成功')
+}
+
+async function togglePublish(row: Course, published: boolean) {
+  const status = published ? 'published' : 'draft'
+  await adminApi.updateCourse(row.id, { status })
+  row.status = status
+  ElMessage.success(published ? '已发布到学员端' : '已转为草稿')
 }
 
 async function deleteCourse(row: Course) {
@@ -276,9 +368,11 @@ function showAddChapter() {
   chapterForm.id = ''
   chapterForm.title = ''
   chapterForm.content = ''
+  chapterForm.videoUrl = ''
   chapterForm.duration = 30
   chapterForm.order = chapters.value.length + 1
   chapterForm.difficultyLevel = 1
+  chapterForm.prerequisiteIds = []
   chapterDialogVisible.value = true
 }
 
@@ -287,9 +381,11 @@ function editChapter(row: Chapter) {
   chapterForm.id = row.id
   chapterForm.title = row.title
   chapterForm.content = row.content || ''
+  chapterForm.videoUrl = row.videoUrl || ''
   chapterForm.duration = row.duration
   chapterForm.order = row.order
   chapterForm.difficultyLevel = row.difficultyLevel ?? 1
+  chapterForm.prerequisiteIds = [...(row.prerequisiteIds || [])]
   chapterDialogVisible.value = true
 }
 
@@ -301,9 +397,11 @@ async function submitChapter() {
   const payload = {
     title: chapterForm.title,
     content: chapterForm.content,
+    videoUrl: chapterForm.videoUrl || undefined,
     duration: chapterForm.duration,
     orderNum: chapterForm.order,
     difficultyLevel: chapterForm.difficultyLevel,
+    prerequisiteIds: chapterForm.prerequisiteIds,
   }
 
   if (chapterIsEdit.value) {
@@ -327,15 +425,56 @@ async function deleteChapter(row: Chapter) {
   ElMessage.success('删除成功')
 }
 
-onMounted(loadCourses)
+onMounted(async () => {
+  await loadCategories()
+  await loadCourses()
+})
 </script>
 
 <style scoped>
+.page-desc {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .chapter-toolbar {
+  display: flex;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.field-tip {
+  margin-left: 10px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.text-muted {
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 .w-full {
   width: 100%;
+}
+
+.mr-1 {
+  margin-right: 4px;
+}
+
+.config-tabs {
+  margin-bottom: 16px;
+}
+
+.config-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
 }
 </style>

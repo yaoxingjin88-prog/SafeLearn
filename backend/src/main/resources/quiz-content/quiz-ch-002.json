@@ -1,0 +1,12 @@
+{
+  "title": "测验：电池类型与特点",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"目前储能领域的主流电池类型是？","options":[{"id":"a","text":"铅酸电池","correct":false},{"id":"b","text":"锂离子电池","correct":true},{"id":"c","text":"液流电池","correct":false},{"id":"d","text":"钠硫电池","correct":false}],"explanation":"锂离子电池因其高能量密度和长寿命成为储能领域的主流选择。"},
+    {"id":"q2","type":"single","question":"锂离子电池的主要优势是什么？","options":[{"id":"a","text":"成本最低","correct":false},{"id":"b","text":"安全性最高","correct":false},{"id":"c","text":"高能量密度和长寿命","correct":true},{"id":"d","text":"技术最简单","correct":false}],"explanation":"锂离子电池的主要优势是高能量密度和长循环寿命。"},
+    {"id":"q3","type":"truefalse","question":"铅酸电池的能量密度高于锂离子电池。","options":[{"id":"a","text":"正确","correct":false},{"id":"b","text":"错误","correct":true}],"explanation":"铅酸电池的能量密度远低于锂离子电池，这是锂离子电池成为主流的重要原因之一。"},
+    {"id":"q4","type":"single","question":"液流电池的主要特点是什么？","options":[{"id":"a","text":"能量密度最高","correct":false},{"id":"b","text":"功率密度最高","correct":false},{"id":"c","text":"容量可独立扩展","correct":true},{"id":"d","text":"成本最低","correct":false}],"explanation":"液流电池的主要特点是容量和功率可以独立扩展，适合大规模储能。"},
+    {"id":"q5","type":"multiple","question":"以下哪些是常见的储能电池类型？（多选）","options":[{"id":"a","text":"锂离子电池","correct":true},{"id":"b","text":"铅酸电池","correct":true},{"id":"c","text":"液流电池","correct":true},{"id":"d","text":"汽油电池","correct":false}],"explanation":"常见的储能电池类型包括锂离子电池、铅酸电池、液流电池等，汽油电池不是储能电池类型。"}
+  ]
+}

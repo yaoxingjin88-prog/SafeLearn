@@ -1,0 +1,12 @@
+{
+  "title": "测验：异常处理流程",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"电池冒烟属于哪类异常？","options":[{"id":"a","text":"一般异常","correct":false},{"id":"b","text":"重要异常","correct":false},{"id":"c","text":"紧急异常","correct":true},{"id":"d","text":"可忽略异常","correct":false}],"explanation":"冒烟直接威胁安全，属于紧急异常，须立即响应。"},
+    {"id":"q2","type":"single","question":"紧急异常的响应时限是？","options":[{"id":"a","text":"24小时内","correct":false},{"id":"b","text":"4小时内","correct":false},{"id":"c","text":"立即响应","correct":true},{"id":"d","text":"下一班次处理","correct":false}],"explanation":"紧急异常须立即响应；重要异常4h内、一般异常24h内处理。"},
+    {"id":"q3","type":"multiple","question":"电池冒烟场景的正确处置原则包括？（多选）","options":[{"id":"a","text":"立即切断电源","correct":true},{"id":"b","text":"启动消防并疏散人员","correct":true},{"id":"c","text":"未穿戴防护进入舱体查看","correct":false},{"id":"d","text":"禁止进入并报告119","correct":true}],"explanation":"冒烟处置四原则：断电、消防、疏散、禁入；严禁无防护进入。"},
+    {"id":"q4","type":"truefalse","question":"故障排除恢复并网后，应加强监控72小时。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"恢复与验证阶段要求逐步恢复并网并加强监控72h，防止复发。"},
+    {"id":"q5","type":"single","question":"紧急异常信息报送要求是？","options":[{"id":"a","text":"15分钟内电话报告，2小时内提交书面快报","correct":true},{"id":"b","text":"仅事后周报汇总","correct":false},{"id":"c","text":"无需报告公司安全部门","correct":false},{"id":"d","text":"仅内部记录不对外","correct":false}],"explanation":"紧急异常须15min内电话报告站长及安全部门，2h内提交书面快报。"}
+  ]
+}

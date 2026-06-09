@@ -1,7 +1,23 @@
 import request from './request'
-import type { ApiResponse, Course, Chapter } from '@/types'
+import type { ApiResponse, Course, Chapter, CourseCategory } from '@/types'
 
 export const adminApi = {
+  getCourseCategories(): Promise<ApiResponse<CourseCategory[]>> {
+    return request.get('/admin/course-categories')
+  },
+
+  createCourseCategory(data: Partial<CourseCategory>): Promise<ApiResponse<CourseCategory>> {
+    return request.post('/admin/course-categories', data)
+  },
+
+  updateCourseCategory(id: string, data: Partial<CourseCategory>): Promise<ApiResponse<CourseCategory>> {
+    return request.put(`/admin/course-categories/${id}`, data)
+  },
+
+  deleteCourseCategory(id: string): Promise<ApiResponse<void>> {
+    return request.delete(`/admin/course-categories/${id}`)
+  },
+
   getCourses(): Promise<ApiResponse<Course[]>> {
     return request.get('/admin/courses')
   },

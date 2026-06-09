@@ -2,6 +2,7 @@ package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
 import com.safelearn.dto.ProgressRequest;
+import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,12 @@ import java.util.*;
 public class CourseController {
 
     private final CourseService courseService;
+    private final CourseCategoryService courseCategoryService;
+
+    @GetMapping("/course-categories")
+    public ApiResponse<List<Map<String, Object>>> getCourseCategories() {
+        return ApiResponse.success(courseCategoryService.listEnabled());
+    }
 
     @GetMapping("/courses")
     public ApiResponse<Map<String, Object>> getCourses(

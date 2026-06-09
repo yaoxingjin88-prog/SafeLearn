@@ -1,0 +1,12 @@
+{
+  "title": "测验：储能概述",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"储能的主要作用是什么？","options":[{"id":"a","text":"将电能转化为其他形式能量存储","correct":true},{"id":"b","text":"直接发电","correct":false},{"id":"c","text":"传输电力","correct":false},{"id":"d","text":"消耗电能","correct":false}],"explanation":"储能是指将电能转化为其他形式的能量存储起来，在需要时再转化为电能释放的技术。"},
+    {"id":"q2","type":"single","question":"以下哪项不是储能技术解决的问题？","options":[{"id":"a","text":"新能源发电的间歇性","correct":false},{"id":"b","text":"电网负荷波动","correct":false},{"id":"c","text":"电力传输损耗","correct":true},{"id":"d","text":"新能源发电的波动性","correct":false}],"explanation":"储能主要解决新能源发电的间歇性和波动性问题，电力传输损耗不是储能直接解决的问题。"},
+    {"id":"q3","type":"truefalse","question":"储能技术是解决新能源发电间歇性和波动性的关键手段。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"储能技术确实是解决新能源发电间歇性和波动性的关键手段。"},
+    {"id":"q4","type":"multiple","question":"储能系统可以应用在以下哪些场景？（多选）","options":[{"id":"a","text":"电网调峰","correct":true},{"id":"b","text":"新能源消纳","correct":true},{"id":"c","text":"直接发电","correct":false},{"id":"d","text":"备用电源","correct":true}],"explanation":"储能系统可应用于电网调峰、新能源消纳、备用电源等场景，但不能直接发电。"},
+    {"id":"q5","type":"single","question":"储能技术的核心价值是什么？","options":[{"id":"a","text":"降低发电成本","correct":false},{"id":"b","text":"实现电能的时空转移","correct":true},{"id":"c","text":"提高发电效率","correct":false},{"id":"d","text":"减少电力需求","correct":false}],"explanation":"储能技术的核心价值是实现电能的时空转移，将低谷时段的电能转移到高峰时段使用。"}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "title": "测验：消防联动与应急演练",
+  "passScore": 60,
+  "timeLimit": 15,
+  "questions": [
+    {"id":"q1","type":"single","question":"消防联动中「复合确认」的主要目的是？","options":[{"id":"a","text":"防止误喷灭火剂","correct":true},{"id":"b","text":"延长灭火时间","correct":false},{"id":"c","text":"减少探测器数量","correct":false},{"id":"d","text":"降低系统成本","correct":false}],"explanation":"烟感+温感/气体探测复合确认可减少误报导致的误喷。"},
+    {"id":"q2","type":"single","question":"释放灭火剂前通常设置的延时是？","options":[{"id":"a","text":"5秒","correct":false},{"id":"b","text":"30秒","correct":true},{"id":"c","text":"5分钟","correct":false},{"id":"d","text":"无需延时","correct":false}],"explanation":"典型联动序列在声光报警后延时约30s释放灭火剂，保障人员撤离。"},
+    {"id":"q3","type":"multiple","question":"典型消防联动序列包括？（多选）","options":[{"id":"a","text":"切断故障区域直流电源","correct":true},{"id":"b","text":"关闭通风防火阀并启动排烟","correct":true},{"id":"c","text":"立即打开所有舱门通风","correct":false},{"id":"d","text":"灭火后持续监测防复燃","correct":true}],"explanation":"联动包括断电、关阀排烟、延时喷灭和复燃监测；起火后不应随意开门通风。"},
+    {"id":"q4","type":"truefalse","question":"储能电站消防联合演练应每半年至少进行一次。","options":[{"id":"a","text":"正确","correct":true},{"id":"b","text":"错误","correct":false}],"explanation":"规范要求每半年至少一次消防联合演练，并留存记录与整改闭环。"},
+    {"id":"q5","type":"single","question":"演练记录应包括？","options":[{"id":"a","text":"演练方案、签到表、总结报告、整改闭环","correct":true},{"id":"b","text":"仅口头汇报即可","correct":false},{"id":"c","text":"仅拍照存档","correct":false},{"id":"d","text":"仅消防队参与时记录","correct":false}],"explanation":"完整演练记录包括方案、签到、总结和整改闭环，便于持续改进。"}
+  ]
+}
