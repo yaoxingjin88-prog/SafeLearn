@@ -112,6 +112,16 @@ CREATE TABLE IF NOT EXISTS accident_cases (
     cause_analysis TEXT,
     loss_estimate TEXT,
     lessons_learned TEXT,
+    direct_cause TEXT,
+    indirect_cause TEXT,
+    root_cause TEXT,
+    responsible_party VARCHAR(200),
+    casualties VARCHAR(100),
+    loss_amount INT,
+    loss_breakdown JSON,
+    lessons JSON,
+    difficulty VARCHAR(20),
+    study_minutes INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_cases_type (type),
@@ -143,6 +153,39 @@ CREATE TABLE IF NOT EXISTS qa_records (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_qa_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 章节测验配置表
+CREATE TABLE IF NOT EXISTS chapter_quizzes (
+    id VARCHAR(36) PRIMARY KEY,
+    chapter_id VARCHAR(36) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    questions JSON NOT NULL COMMENT '题目数组',
+    pass_score INT DEFAULT 60 COMMENT '及格分数',
+    time_limit INT COMMENT '限时(分钟), null为不限时',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+    INDEX idx_quiz_chapter (chapter_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 测验尝试记录表
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    quiz_id VARCHAR(36) NOT NULL,
+    answers JSON COMMENT '用户答案和错题记录',
+    score INT DEFAULT 0 COMMENT '得分(0-100)',
+    passed BOOLEAN DEFAULT FALSE,
+    mastery_level INT DEFAULT 0 COMMENT '掌握度',
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES chapter_quizzes(id) ON DELETE CASCADE,
+    INDEX idx_attempt_user (user_id),
+    INDEX idx_attempt_quiz (quiz_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 学习体验增强表（详见 learning_schema.sql）
+-- user_notes, user_favorites, user_certificates
 
 -- 事故推演引擎表（详见 deduction_schema.sql）
 -- simulation_sessions, simulation_event_logs, simulation_decisions, simulation_snapshots, simulation_score_reports

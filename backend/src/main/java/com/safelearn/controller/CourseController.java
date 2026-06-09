@@ -18,9 +18,11 @@ public class CourseController {
 
     @GetMapping("/courses")
     public ApiResponse<Map<String, Object>> getCourses(
+            Authentication auth,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword) {
-        List<Map<String, Object>> courses = courseService.getCourses(category, keyword);
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        List<Map<String, Object>> courses = courseService.getCourses(category, keyword, userId);
         return ApiResponse.success(Map.of("items", courses, "total", courses.size()));
     }
 

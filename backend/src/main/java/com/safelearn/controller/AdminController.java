@@ -3,6 +3,7 @@ package com.safelearn.controller;
 import com.safelearn.common.ApiResponse;
 import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseService;
+import com.safelearn.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AdminCourseService adminCourseService;
+    private final DashboardService dashboardService;
 
     @GetMapping("/users")
     public ApiResponse<Map<String, Object>> getUsers() {
@@ -45,6 +47,12 @@ public class AdminController {
     @GetMapping("/charts")
     public ApiResponse<Map<String, Object>> getCharts() {
         return ApiResponse.success(adminService.getCharts());
+    }
+
+    /** 学习总览：在线/总学习人数与各部门进度，用于管理端工作台。 */
+    @GetMapping("/learning-overview")
+    public ApiResponse<Map<String, Object>> getLearningOverview() {
+        return ApiResponse.success(dashboardService.getAdminOverview());
     }
 
     @GetMapping("/courses")

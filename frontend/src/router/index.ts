@@ -20,6 +20,9 @@ const adminChildren: RouteRecordRaw[] = [
       { path: 'skill-tree', name: 'SkillTree', component: () => import('@/pages/courses/SkillTree.vue'), meta: { title: '安全进阶路径' } },
       { path: ':id', name: 'CourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
       { path: ':courseId/chapters/:chapterId', name: 'ChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
+      { path: ':courseId/chapters/:chapterId/quiz', name: 'QuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
+      { path: 'quiz/result/:attemptId', name: 'QuizResult', component: () => import('@/pages/courses/QuizResult.vue'), meta: { title: '测验结果', hidden: true } },
+      { path: 'wrong-questions', name: 'WrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本', hidden: true } },
     ],
   },
   {
@@ -82,6 +85,16 @@ const userChildren: RouteRecordRaw[] = [
     meta: { title: '工作台' },
   },
   {
+    path: 'learning',
+    redirect: '/user/learning/calendar',
+    meta: { title: '学习中心' },
+    children: [
+      { path: 'calendar', name: 'UserLearningCalendar', component: () => import('@/pages/user/LearningCalendar.vue'), meta: { title: '学习日历' } },
+      { path: 'favorites', name: 'UserMyFavorites', component: () => import('@/pages/user/MyFavorites.vue'), meta: { title: '我的收藏' } },
+      { path: 'certificates', name: 'UserMyCertificates', component: () => import('@/pages/user/MyCertificates.vue'), meta: { title: '我的证书' } },
+    ],
+  },
+  {
     path: 'courses',
     redirect: '/user/courses/list',
     meta: { title: '安全培训' },
@@ -91,6 +104,9 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'my-learning', name: 'UserMyLearning', component: () => import('@/pages/courses/MyLearning.vue'), meta: { title: '我的学习' } },
       { path: ':id', name: 'UserCourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
       { path: ':courseId/chapters/:chapterId', name: 'UserChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
+      { path: ':courseId/chapters/:chapterId/quiz', name: 'UserQuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
+      { path: 'quiz/result/:attemptId', name: 'UserQuizResult', component: () => import('@/pages/courses/QuizResult.vue'), meta: { title: '测验结果', hidden: true } },
+      { path: 'wrong-questions', name: 'UserWrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本', hidden: true } },
     ],
   },
   {

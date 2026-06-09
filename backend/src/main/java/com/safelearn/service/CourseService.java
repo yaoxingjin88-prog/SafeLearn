@@ -19,15 +19,16 @@ public class CourseService {
     private final ChapterRepository chapterRepo;
     private final UserProgressRepository progressRepo;
     private final UserRepository userRepo;
+    private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
 
     private static final int MASTERY_THRESHOLD = 60;
 
-    public List<Map<String, Object>> getCourses(String category, String keyword) {
+    public List<Map<String, Object>> getCourses(String category, String keyword, String userId) {
         List<Course> courses = courseRepo.findByFilters("published",
                 (category == null || category.equals("all")) ? null : category,
                 (keyword == null || keyword.isBlank()) ? null : keyword);
-        return courses.stream().map(this::toCourseSummary).toList();
+        return courses.stream().map(c -> toCourseSummary(c, userId)).toList();
     }
 
     public Map<String, Object> getCourseById(String id) {
@@ -47,7 +48,7 @@ public class CourseService {
                 ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
                 : new HashSet<>();
 
-        Map<String, Object> m = toCourseSummary(course);
+        Map<String, Object> m = toCourseSummary(course, userId);
         m.put("chapters", course.getChapters().stream().map(ch -> {
             Map<String, Object> cm = toChapterInfo(ch);
             cm.put("unlocked", isChapterUnlocked(ch, userId, completedIds, qualifiedIds));
@@ -118,7 +119,13 @@ public class CourseService {
         }
         progressRepo.save(progress);
 
-        return Map.of("success", true);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        if (Boolean.TRUE.equals(req.getCompleted())) {
+            certificateService.tryIssueOnCourseComplete(userId, req.getCourseId())
+                    .ifPresent(cert -> result.put("newCertificate", cert));
+        }
+        return result;
     }
 
     public List<Map<String, Object>> getProgress(String userId, String courseId) {
@@ -242,7 +249,7 @@ public class CourseService {
         }
     }
 
-    private Map<String, Object> toCourseSummary(Course c) {
+    private Map<String, Object> toCourseSummary(Course c, String userId) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", c.getId());
         m.put("title", c.getTitle());
@@ -260,11 +267,22 @@ public class CourseService {
             cm.put("title", ch.getTitle());
             return cm;
         }).toList() : List.of());
+
+        // 计算用户进度
+        if (userId != null && c.getChapters() != null && !c.getChapters().isEmpty()) {
+            int totalChapters = c.getChapters().size();
+            long completedChapters = progressRepo.countCompletedChaptersByUserIdAndCourseId(userId, c.getId());
+            int progress = (int) Math.round((double) completedChapters / totalChapters * 100);
+            m.put("progress", progress);
+        } else {
+            m.put("progress", 0);
+        }
+
         return m;
     }
 
     private Map<String, Object> toCourseDetail(Course c) {
-        Map<String, Object> m = toCourseSummary(c);
+        Map<String, Object> m = toCourseSummary(c, null);
         m.put("chapters", c.getChapters().stream().map(this::toChapterInfo).toList());
         return m;
     }

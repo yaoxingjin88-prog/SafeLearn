@@ -1,0 +1,41 @@
+<h2>一、BMS 系统架构</h2>
+<p>电池管理系统 (Battery Management System) 采用<strong>分布式采集 + 集中式控制</strong>架构：</p>
+<ul>
+  <li><strong>BMU / CSC</strong>：从控/采集板，贴近模组采集单体电压与温度</li>
+  <li><strong>BCU / BAMS</strong>：主控，汇总数据、执行保护策略、对外通信</li>
+  <li><strong>通信网络</strong>：CAN / RS485 / Daisy Chain 菊花链</li>
+</ul>
+
+<h2>二、核心功能模块</h2>
+
+<h3>2.1 数据采集</h3>
+<ul>
+  <li>单体电压（精度 ±5mV）、模组温度（精度 ±1℃）</li>
+  <li>簇电流（霍尔传感器）、绝缘电阻（≥500Ω/V）</li>
+  <li>采样周期通常 100ms～1s</li>
+</ul>
+
+<h3>2.2 SOC / SOH 估算</h3>
+<p>SOC 常用安时积分法 + 开路电压校正；SOH 通过容量衰减或内阻增长评估。SOH 低于 80% 的电池应列入更换计划。</p>
+
+<h3>2.3 均衡管理</h3>
+<ul>
+  <li><strong>被动均衡</strong>：高压单体通过电阻放电，成本低</li>
+  <li><strong>主动均衡</strong>：能量在单体间转移，效率高，大型储能更常用</li>
+</ul>
+
+<h3>2.4 热管理联动</h3>
+<p>BMS 根据温度分布控制液冷泵速、风机转速，维持模组温差 ≤ 5℃。</p>
+
+<h2>三、BMS 与站控系统接口</h2>
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;margin:12px 0">
+  <tr style="background:#f3f4f6"><th>接口</th><th>数据/指令</th></tr>
+  <tr><td>BMS → PCS</td><td>充放电允许、功率限制、紧急停机</td></tr>
+  <tr><td>BMS → EMS</td><td>全站电池状态、告警信息、历史曲线</td></tr>
+  <tr><td>BMS → 消防</td><td>热失控预警信号（可选硬接线）</td></tr>
+</table>
+
+<h2>四、本章要点</h2>
+<p>了解 BMS 分层架构与四大功能模块；理解 BMS 在储能安全链中的枢纽地位。</p>
+
+<p><strong>参考：</strong>知识库「BMS安全监控要点」。</p>

@@ -20,7 +20,7 @@ export const courseApi = {
     progress: number
     completed?: boolean
     masteryLevel?: number
-  }): Promise<ApiResponse<void>> {
+  }): Promise<ApiResponse<{ success: boolean; newCertificate?: Record<string, unknown> }>> {
     return request.post('/progress', data)
   },
 

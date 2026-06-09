@@ -26,13 +26,13 @@
               </el-button>
             </el-button-group>
             <el-slider
-              :model-value="currentSec"
+              :model-value="Math.min(currentSec, durationSec)"
               :max="durationSec"
               :format-tooltip="formatTime"
               class="time-slider"
               @change="seek"
             />
-            <div class="time-display">{{ formatTime(currentSec) }} / {{ formatTime(durationSec) }}</div>
+            <div class="time-display">{{ formatTime(Math.min(currentSec, durationSec)) }} / {{ formatTime(durationSec) }}</div>
             <el-select v-model="speedModel" size="small" style="width: 80px" @change="setSpeed">
               <el-option :value="0.5" label="0.5x" />
               <el-option :value="1" label="1x" />

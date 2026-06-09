@@ -88,8 +88,7 @@ const sortBy = ref<'latest' | 'popular'>('latest')
 const categories = [
   { label: '全部', value: 'all' },
   { label: '基础知识', value: 'basic' },
-  { label: '锂电池', value: 'battery' },
-  { label: '热失控', value: 'thermal' },
+  { label: '锂电池', value: 'thermal' },
   { label: '消防安全', value: 'fire' },
   { label: 'BMS系统', value: 'bms' },
 ]
@@ -103,7 +102,14 @@ onMounted(async () => {
   }
   loading.value = true
   try {
-    const res = await request.get('/courses')
+    const params: any = {}
+    if (activeCategory.value !== 'all') {
+      params.category = activeCategory.value
+    }
+    if (searchText.value) {
+      params.keyword = searchText.value
+    }
+    const res = await request.get('/courses', { params })
     courses.value = res.data.items
   } catch (error) {
     console.error('加载课程列表失败', error)

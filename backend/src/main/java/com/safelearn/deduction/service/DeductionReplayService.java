@@ -35,7 +35,9 @@ public class DeductionReplayService {
             return m;
         }).toList();
 
-        long durationMs = logs.isEmpty() ? 0 : logs.get(logs.size() - 1).getElapsedMs();
+        long maxEventMs = logs.stream().mapToLong(SimulationEventLog::getElapsedMs).max().orElse(0);
+        Long sessionMs = session.getElapsedMs();
+        long durationMs = (sessionMs != null && sessionMs > 0) ? sessionMs : maxEventMs;
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sessionId", sessionId);

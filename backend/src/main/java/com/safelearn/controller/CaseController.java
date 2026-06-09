@@ -23,4 +23,9 @@ public class CaseController {
     public ApiResponse<Map<String, Object>> getCaseById(@PathVariable String id) {
         return ApiResponse.success(caseService.getCaseById(id));
     }
+
+    @GetMapping("/{id}/related")
+    public ApiResponse<List<Map<String, Object>>> getRelatedCases(@PathVariable String id) {
+        return ApiResponse.success(caseService.getRelatedCases(id));
+    }
 }

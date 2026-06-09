@@ -1,0 +1,55 @@
+<h2>一、热失控诱因分类</h2>
+
+<h3>1.1 电滥用 (Electrical Abuse)</h3>
+<ul>
+  <li><strong>过充</strong>：充电截止电压过高或 BMS 失效，导致锂枝晶生长刺穿隔膜</li>
+  <li><strong>过放</strong>：深度放电导致铜箔溶解，再充电时引发内短路</li>
+  <li><strong>外部短路</strong>：线路绝缘破损、金属异物导致大电流放电</li>
+  <li><strong>过流</strong>：充放电电流超出设计倍率</li>
+</ul>
+
+<h3>1.2 热滥用 (Thermal Abuse)</h3>
+<ul>
+  <li>环境温度过高（夏季舱内超 45℃）</li>
+  <li>冷却系统故障，散热不良</li>
+  <li>相邻电池热失控的热传播</li>
+</ul>
+
+<h3>1.3 机械滥用 (Mechanical Abuse)</h3>
+<ul>
+  <li>运输、安装过程中的挤压、碰撞</li>
+  <li>电池外壳变形、密封失效</li>
+</ul>
+
+<h3>1.4 内部缺陷</h3>
+<ul>
+  <li>隔膜制造缺陷、微短路</li>
+  <li>电解液杂质、水分超标</li>
+  <li>老化导致 SEI 膜不稳定</li>
+</ul>
+
+<h2>二、预防措施</h2>
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;margin:12px 0">
+  <tr style="background:#f3f4f6"><th>环节</th><th>措施</th></tr>
+  <tr><td>设计选型</td><td>选用通过安全认证的电池，合理配置熔断器、接触器</td></tr>
+  <tr><td>安装施工</td><td>规范接线，避免机械损伤，做好绝缘测试</td></tr>
+  <tr><td>运行监控</td><td>BMS 阈值定期校验，温度/电压 24h 监控</td></tr>
+  <tr><td>维护保养</td><td>定期内阻测试，及时更换异常单体</td></tr>
+  <tr><td>环境管理</td><td>确保空调/液冷正常运行，舱内清洁无杂物</td></tr>
+</table>
+
+<h2>三、诱因排查清单</h2>
+<ol>
+  <li>近 7 日是否有过充告警记录？</li>
+  <li>簇内单体压差是否持续 &gt; 50mV？</li>
+  <li>模组温差是否 &gt; 5℃？</li>
+  <li>冷却液流量/风机转速是否正常？</li>
+  <li>是否有未关闭的维修舱门导致散热不良？</li>
+</ol>
+
+<blockquote style="border-left:4px solid #f59e0b;padding:8px 16px;background:#fffbeb;margin:16px 0">
+  南京某电站事故根因为电池老化内阻增大，叠加模组间缺乏防火隔离，一次单体热失控在 20 分钟内蔓延至整个模组。
+</blockquote>
+
+<h2>四、本章要点</h2>
+<p>掌握四类诱因；能在运维中执行预防性检查；理解多因素叠加会显著放大风险。</p>

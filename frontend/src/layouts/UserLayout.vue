@@ -139,6 +139,9 @@ const userMenus = [
       { path: '/user/courses/list', title: '课程列表' },
       { path: '/user/courses/skill-tree', title: '安全进阶路径' },
       { path: '/user/courses/my-learning', title: '我的学习' },
+      { path: '/user/learning/calendar', title: '学习日历' },
+      { path: '/user/learning/favorites', title: '我的收藏' },
+      { path: '/user/learning/certificates', title: '我的证书' },
     ],
   },
   {

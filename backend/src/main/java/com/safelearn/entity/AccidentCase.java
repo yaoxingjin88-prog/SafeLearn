@@ -51,6 +51,48 @@ public class AccidentCase {
     @Column(name = "lessons_learned", columnDefinition = "TEXT")
     private String lessonsLearned;
 
+    // ===== 结构化字段（用于学习页可视化展示，均可空，向后兼容） =====
+
+    /** 直接原因 */
+    @Column(name = "direct_cause", columnDefinition = "TEXT")
+    private String directCause;
+
+    /** 间接原因 */
+    @Column(name = "indirect_cause", columnDefinition = "TEXT")
+    private String indirectCause;
+
+    /** 根本原因 */
+    @Column(name = "root_cause", columnDefinition = "TEXT")
+    private String rootCause;
+
+    /** 责任方 */
+    @Column(name = "responsible_party", length = 200)
+    private String responsibleParty;
+
+    /** 伤亡情况，如"无人员伤亡" */
+    @Column(length = 100)
+    private String casualties;
+
+    /** 直接经济损失（万元），用于大数字展示 */
+    @Column(name = "loss_amount")
+    private Integer lossAmount;
+
+    /** 损失明细 JSON：[{"label":"设备损毁","amount":150}, ...] */
+    @Column(name = "loss_breakdown", columnDefinition = "JSON")
+    private String lossBreakdown;
+
+    /** 结构化经验教训 JSON：["...","..."] */
+    @Column(columnDefinition = "JSON")
+    private String lessons;
+
+    /** 案例难度：basic / intermediate / advanced */
+    @Column(length = 20)
+    private String difficulty;
+
+    /** 建议学习时长（分钟） */
+    @Column(name = "study_minutes")
+    private Integer studyMinutes;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

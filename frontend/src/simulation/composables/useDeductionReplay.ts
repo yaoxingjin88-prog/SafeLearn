@@ -46,9 +46,13 @@ export function useDeductionReplay(sessionId: string) {
       currentMs.value = ms
       durationMs.value = dur
     })
+    const unsubEnded = replayEngine.value.onEnded(() => {
+      isPlaying.value = false
+    })
     unbind = () => {
       unsubScene()
       unsubProgress()
+      unsubEnded()
     }
   }
 
@@ -56,8 +60,9 @@ export function useDeductionReplay(sessionId: string) {
     const res = await deductionApi.getReplay(sessionId)
     sessionMeta.value = res.data as Record<string, unknown>
     const events = (res.data.events || []) as DeductionEventLogEntry[]
-    durationMs.value = res.data.durationMs || 0
-    replayEngine.value.load(events)
+    const cap = (res.data.durationMs as number) || 0
+    durationMs.value = cap
+    replayEngine.value.load(events, [], cap)
     bind()
   }
 

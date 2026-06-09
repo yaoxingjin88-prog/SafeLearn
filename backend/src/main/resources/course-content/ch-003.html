@@ -1,0 +1,48 @@
+<h2>一、电池系统层级结构</h2>
+<p>储能电池系统采用分级架构，自底向上为：<strong>单体 → 模组 (Module) → 簇 (Rack) → 集装箱/舱体</strong>。每一层级均需配置温度采样点与电气连接保护。</p>
+
+<h3>1.1 电池簇 (Battery Rack)</h3>
+<ul>
+  <li>由若干模组串联组成，典型电压 600V～1500V 直流</li>
+  <li>配置簇级断路器、熔断器、接触器</li>
+  <li>独立热管理回路（液冷板或风道）</li>
+</ul>
+
+<h2>二、BMS — 电池管理系统</h2>
+<p>BMS 是保障电池安全运行的"神经中枢"，主要功能包括：</p>
+<ol>
+  <li><strong>数据采集</strong>：单体/模组电压、电流、温度、绝缘电阻</li>
+  <li><strong>状态估算</strong>：SOC（荷电状态）、SOH（健康状态）</li>
+  <li><strong>均衡管理</strong>：主动/被动均衡，减小单体压差</li>
+  <li><strong>故障诊断</strong>：过压、欠压、过流、过温、温差过大等</li>
+  <li><strong>保护执行</strong>：分级告警，必要时切断充放电回路</li>
+</ol>
+
+<h3>2.1 BMS 告警分级（典型）</h3>
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;margin:12px 0">
+  <tr style="background:#f3f4f6"><th>级别</th><th>动作</th><th>示例</th></tr>
+  <tr><td>一级（预警）</td><td>记录、通知运维</td><td>单体温度 &gt; 45℃</td></tr>
+  <tr><td>二级（告警）</td><td>降功率运行</td><td>单体温度 &gt; 55℃ 或压差过大</td></tr>
+  <tr><td>三级（保护）</td><td>切断充放电</td><td>单体温度 &gt; 60℃ 或绝缘故障</td></tr>
+</table>
+
+<h2>三、PCS — 储能变流器</h2>
+<p>PCS 负责电池直流侧与电网交流侧的能量转换。安全相关功能包括：防孤岛保护、直流过压/过流保护、与 BMS 的联动停机。运维时应定期检查 PCS 告警记录与散热系统。</p>
+
+<h2>四、EMS — 能量管理系统</h2>
+<p>EMS 执行站级调度策略（削峰填谷、AGC、AVC），汇总各簇 BMS 数据，生成运行报表。安全方面需确保 EMS 与消防、门禁系统的联动逻辑正确配置。</p>
+
+<h2>五、辅助系统</h2>
+<ul>
+  <li><strong>热管理</strong>：维持电池工作温度 15～35℃，避免局部过热</li>
+  <li><strong>消防</strong>：烟感/温感/可燃气体探测 + 气体/细水雾灭火</li>
+  <li><strong>通风</strong>：事故后排烟、正常运行散热</li>
+  <li><strong>监控</strong>：视频监控、环境温湿度、水浸检测</li>
+</ul>
+
+<blockquote style="border-left:4px solid #2b5aed;padding:8px 16px;background:#eef3ff;margin:16px 0">
+  各子系统并非孤立运行。典型安全链：BMS 检测异常 → PCS 停机 → EMS 记录并推送告警 → 消防系统待命/启动。
+</blockquote>
+
+<h2>六、本章要点</h2>
+<p>理解电池系统层级；掌握 BMS/PCS/EMS 核心功能与告警分级；了解辅助系统在安全保障中的角色。</p>

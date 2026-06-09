@@ -1,0 +1,40 @@
+<h2>一、告警阈值设置原则</h2>
+<p>BMS 告警阈值应结合电池厂家规格书、当地气候及运行策略制定，并<strong>每年复核</strong>。原则：宁可误报，不可漏报。</p>
+
+<h3>1.1 温度告警参考值（磷酸铁锂）</h3>
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;margin:12px 0">
+  <tr style="background:#f3f4f6"><th>级别</th><th>单体温度</th><th>动作</th></tr>
+  <tr><td>预警</td><td>≥ 45℃</td><td>记录、通知值班员</td></tr>
+  <tr><td>告警</td><td>≥ 55℃</td><td>降功率 50%，加强监控</td></tr>
+  <tr><td>保护</td><td>≥ 60℃</td><td>切断充放电，启动应急预案</td></tr>
+</table>
+
+<h3>1.2 电压与压差</h3>
+<ul>
+  <li>单体过压：≥ 3.65V（充电）→ 停止充电</li>
+  <li>单体欠压：≤ 2.50V（放电）→ 停止放电</li>
+  <li>簇内压差：≥ 50mV 持续 10min → 告警，检查均衡</li>
+</ul>
+
+<h2>二、告警响应流程 (SOP)</h2>
+<ol>
+  <li><strong>接收</strong>：EMS/短信/声光告警，确认告警级别与位置</li>
+  <li><strong>研判</strong>：查看温度/电压曲线趋势，排除传感器故障</li>
+  <li><strong>处置</strong>：按级别执行降功率、停机、现场检查</li>
+  <li><strong>记录</strong>：填写告警处置单，附截图与操作时间</li>
+  <li><strong>复盘</strong>：一级以上告警 24h 内提交分析报告</li>
+</ol>
+
+<h2>三、常见误报与排查</h2>
+<ul>
+  <li>温度传感器接触不良 → 读数跳变，检查接线</li>
+  <li>通信中断导致数据冻结 → 检查 CAN 终端电阻</li>
+  <li>环境温度骤变 → 对比舱内多点位温度</li>
+</ul>
+
+<blockquote style="border-left:4px solid #f59e0b;padding:8px 16px;background:#fffbeb;margin:16px 0">
+  深圳事故教训：55℃ 告警后若仅"加强观察"而不降功率，3 分钟内可升至 75℃ 进入不可逆阶段。
+</blockquote>
+
+<h2>四、本章要点</h2>
+<p>掌握温度/电压告警阈值；能执行标准响应 SOP；会区分真实告警与误报。</p>
