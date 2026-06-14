@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VideoPlay, VideoPause } from '@element-plus/icons-vue'
+import { VideoPlay, VideoPause, ArrowLeft } from '@element-plus/icons-vue'
 import { useTimelineDeduction } from '@/timeline-deduction/composables/useTimelineDeduction'
 import { beijing416Scenario } from '@/timeline-deduction/scenarios/beijing416'
 import TimelinePanel from '@/timeline-deduction/components/TimelinePanel.vue'
@@ -19,16 +19,16 @@ const {
   report,
   loading,
   error,
-  initSession,
+  setup,
   start,
   pause,
   resume,
   setSpeed,
   choose,
-  destroy,
+  restart,
 } = useTimelineDeduction(code)
 
-onMounted(() => initSession())
+onMounted(() => setup())
 
 const scenario = beijing416Scenario
 
@@ -48,14 +48,8 @@ function togglePlay() {
   else pause()
 }
 
-async function restart() {
-  destroy()
-  await initSession()
-  start()
-}
-
 function goBack() {
-  router.push({ name: 'TimelineDeductionHub' })
+  router.push({ name: 'UserScenarioList' })
 }
 </script>
 
@@ -72,7 +66,10 @@ function goBack() {
 
     <template v-else-if="state">
       <div class="run-toolbar">
-        <div>
+        <button class="back-btn" @click="goBack">
+          <el-icon><ArrowLeft /></el-icon> 退出推演
+        </button>
+        <div class="toolbar-text">
           <h2>{{ scenario.title }}</h2>
           <p class="narrative">{{ currentNode.narrative }}</p>
         </div>
@@ -120,19 +117,46 @@ function goBack() {
 
 <style scoped>
 .run-page {
-  min-height: calc(100vh - 140px);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0f172a;
+  padding: 12px 16px;
+  box-sizing: border-box;
 }
 .mb-3 { margin-bottom: 12px; }
 .run-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.toolbar-text {
+  flex: 1;
+  min-width: 0;
 }
 .run-toolbar h2 {
   margin: 0 0 4px;
-  font-size: 18px;
+  font-size: 16px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .narrative {
   margin: 0;
@@ -145,6 +169,7 @@ function goBack() {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 .risk {
   font-size: 13px;
@@ -153,10 +178,11 @@ function goBack() {
 }
 .run-grid {
   display: grid;
-  grid-template-columns: 280px 1fr 320px;
+  grid-template-columns: 260px 1fr 300px;
   gap: 12px;
-  height: calc(100vh - 220px);
-  min-height: 520px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 .col-left, .col-right {
   min-height: 0;

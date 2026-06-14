@@ -1,0 +1,2 @@
+-- 训练场景数据清理（仅保留，不再删除北京/广州场景）
+-- 北京/广州场景由 training_scenarios_cases.sql 种子 + TrainingScenarioDataInitializer 同步

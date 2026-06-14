@@ -6,7 +6,7 @@ export const singleBatteryThermalRunaway: DeductionScenarioDef = {
   name: '单电池热失控处置',
   description:
     '模拟储能舱内单颗电芯温度异常升高，学员需在黄金窗口内完成隔离、通风或灭火决策，避免热扩散。',
-  durationSec: 300,
+  durationSec: 60,
   initialConditions: {
     cellCount: 1,
     initialTemperature: 35,
@@ -25,6 +25,8 @@ export const singleBatteryThermalRunaway: DeductionScenarioDef = {
       question: 'BMS 告警：#1 电芯温度 62°C 且持续上升，请选择首要处置措施。',
       timePressureSec: 30,
       triggerTemp: 60,
+      triggerTimeSec: 10,
+      order: 1,
       options: [
         {
           id: 'opt-observe',
@@ -57,6 +59,8 @@ export const singleBatteryThermalRunaway: DeductionScenarioDef = {
       question: '电芯温度突破 120°C，冒烟明显，请选择应急措施。',
       timePressureSec: 20,
       triggerTemp: 120,
+      triggerTimeSec: 25,
+      order: 3,
       options: [
         {
           id: 'opt-extinguish',
@@ -88,6 +92,7 @@ export const singleBatteryThermalRunaway: DeductionScenarioDef = {
       phase: 'isolation',
       question: '隔离指令已下发，请确认后续操作。',
       timePressureSec: 15,
+      order: 2,
       options: [
         {
           id: 'opt-confirm-off',

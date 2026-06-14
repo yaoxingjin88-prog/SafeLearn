@@ -8,6 +8,7 @@ import com.safelearn.deduction.repository.SimulationDecisionRepository;
 import com.safelearn.deduction.repository.SimulationEventLogRepository;
 import com.safelearn.deduction.repository.SimulationSessionRepository;
 import com.safelearn.entity.Scenario;
+import com.safelearn.deduction.repository.SimulationScoreReportRepository;
 import com.safelearn.repository.ScenarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,10 +26,13 @@ public class DeductionSessionService {
     private final SimulationEventLogRepository eventLogRepo;
     private final SimulationDecisionRepository decisionRepo;
     private final ScenarioRepository scenarioRepo;
+    private final SimulationScoreReportRepository scoreReportRepo;
     private final ObjectMapper objectMapper;
 
     private static final Set<String> OPTIMAL_OPTIONS = Set.of(
-            "opt-vent", "opt-isolate", "opt-confirm-off", "opt-extinguish", "opt-evacuate"
+            "opt-vent", "opt-isolate", "opt-confirm-off", "opt-extinguish", "opt-evacuate",
+            "opt-l2-isolate-module", "opt-l2-region-fire",
+            "opt-l3-emergency-cut", "opt-l3-full-fire-evac"
     );
 
     @Transactional
@@ -118,6 +122,15 @@ public class DeductionSessionService {
         }
     }
 
+    @Transactional
+    public void abandonSession(String userId, String sessionId) {
+        SimulationSession session = requireOwnedSession(userId, sessionId);
+        if ("completed".equals(session.getStatus())) return;
+        session.setStatus("abandoned");
+        session.setFinishedAt(LocalDateTime.now());
+        sessionRepo.save(session);
+    }
+
     public List<Map<String, Object>> listUserSessions(String userId) {
         return sessionRepo.findByUserIdOrderByStartedAtDesc(userId).stream()
                 .map(this::toSessionMap)
@@ -135,6 +148,7 @@ public class DeductionSessionService {
 
     private Map<String, Object> toSessionMap(SimulationSession s) {
         Map<String, Object> m = new HashMap<>();
+        m.put("type", "classic");
         m.put("sessionId", s.getId());
         m.put("scenarioId", s.getScenarioId());
         m.put("status", s.getStatus());
@@ -150,6 +164,32 @@ public class DeductionSessionService {
         m.put("finishedAt", s.getFinishedAt());
         Optional<Scenario> scenario = scenarioRepo.findById(s.getScenarioId());
         scenario.ifPresent(sc -> m.put("scenarioName", sc.getName()));
+        if ("completed".equals(s.getStatus()) && s.getTotalScore() != null) {
+            scoreReportRepo.findBySessionId(s.getId()).ifPresent(report -> {
+                m.put("instructorComment", report.getInstructorSummary());
+                m.put("dimensions", parseJson(report.getDimensions()));
+                m.put("strengths", parseJsonList(report.getHighlights()));
+                m.put("weaknesses", parseJsonList(report.getImprovements()));
+            });
+        }
         return m;
+    }
+
+    private Object parseJson(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(json, Object.class);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<?> parseJsonList(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(json, List.class);
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 }

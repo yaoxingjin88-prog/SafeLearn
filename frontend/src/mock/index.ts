@@ -45,7 +45,7 @@ function match(path: string, pattern: string): Record<string, string> | null {
   return params
 }
 
-function handleMock(url: string, method: string, data?: any): any {
+function handleMock(url: string, method: string, data?: any, params?: Record<string, unknown>): any {
   // Auth
   if (url === 'auth/login' && method === 'post') {
     return ok({ token: 'mock-jwt-token-' + Date.now() })
@@ -94,7 +94,11 @@ function handleMock(url: string, method: string, data?: any): any {
     const { id } = match(url, 'training/scenarios/:id')!
     return ok(mockTrainingScenarios.find(s => s.id === id) || mockTrainingScenarios[0])
   } else if (url === 'training/records') {
-    return ok(mockTrainingRecords)
+    const page = Number(params?.page) || 1
+    const pageSize = Number(params?.pageSize) || 10
+    const start = (page - 1) * pageSize
+    const items = mockTrainingRecords.slice(start, start + pageSize)
+    return ok({ items, total: mockTrainingRecords.length, page, pageSize, totalPages: Math.ceil(mockTrainingRecords.length / pageSize) })
   } else if (match(url, 'training/records/:id')) {
     return ok(mockTrainingReport)
   } else if (url === 'training/start' && method === 'post') {
@@ -170,7 +174,7 @@ export function setupMock(axiosInstance: AxiosInstance) {
     }
 
     const requestData = config.data ? JSON.parse(config.data) : undefined
-    const responseData = handleMock(url, method, requestData)
+    const responseData = handleMock(url, method, requestData, config.params as Record<string, unknown> | undefined)
 
     return {
       data: responseData,

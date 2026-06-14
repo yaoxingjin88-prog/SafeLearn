@@ -2,8 +2,10 @@ import { ref, shallowRef, computed, watch, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { SimulationEngine } from '@/simulation/engine/SimulationEngine'
 import { SceneBridge } from '@/simulation/bridge/SceneBridge'
+import { resolveNextDecision } from '@/simulation/composables/classicDecisionScheduler'
 import type { BatteryCellState } from '@/composables/useSimulation'
 import type { DeductionContext, DeductionEventLogEntry, DecisionPointDef } from '@/simulation/types/deduction.types'
+import { getDeductionScenario } from '@/simulation/scenarios'
 import { singleBatteryThermalRunaway } from '@/simulation/scenarios/singleBatteryThermalRunaway'
 import request from '@/api/request'
 
@@ -13,10 +15,10 @@ export interface DeductionAlert {
   message: string
 }
 
-function initCells(): BatteryCellState[] {
-  return Array.from({ length: singleBatteryThermalRunaway.initialConditions.cellCount }, (_, i) => ({
+function createInitialCells(count: number, temp: number): BatteryCellState[] {
+  return Array.from({ length: count }, (_, i) => ({
     id: i,
-    temperature: singleBatteryThermalRunaway.initialConditions.initialTemperature,
+    temperature: temp,
     status: 'normal' as const,
     smokeIntensity: 0,
     fireIntensity: 0,
@@ -24,25 +26,32 @@ function initCells(): BatteryCellState[] {
 }
 
 export function useDeductionEngine(scenarioId: string) {
-  const cells = ref<BatteryCellState[]>(initCells())
+  const scenario = getDeductionScenario(scenarioId) ?? singleBatteryThermalRunaway
+
+  const cells = ref<BatteryCellState[]>(
+    createInitialCells(
+      scenario.initialConditions.cellCount,
+      scenario.initialConditions.initialTemperature,
+    ),
+  )
   const context = ref<DeductionContext | null>(null)
   const phase = ref('idle')
   const isPlaying = ref(false)
   const events = ref<DeductionAlert[]>([])
   const sessionId = ref<string | null>(null)
   const lastSyncedSeq = ref(0)
+  const activeDecision = ref<DecisionPointDef | null>(null)
 
   let timeoutTimer: ReturnType<typeof setTimeout> | null = null
-  let syncTimer: ReturnType<typeof setInterval> | null = null
   let unbindBridge: (() => void) | null = null
+  let unbindContext: (() => void) | null = null
 
-  const scenario = singleBatteryThermalRunaway
   const totalDuration = computed(() => scenario.durationSec)
   const currentTime = computed(() => Math.floor((context.value?.elapsedMs ?? 0) / 1000))
 
   const environment = computed(() => {
     const env = context.value?.environment
-    const maxTemp = context.value?.maxTemperature ?? 35
+    const maxTemp = context.value?.maxTemperature ?? scenario.initialConditions.initialTemperature
     return {
       temperature: Math.max(env?.temperature ?? 25, maxTemp * 0.3),
       humidity: env?.humidity ?? 45,
@@ -52,20 +61,72 @@ export function useDeductionEngine(scenarioId: string) {
     }
   })
 
-  const pendingDecision = computed<DecisionPointDef | null>(
-    () => context.value?.pendingDecision ?? null,
-  )
+  const pendingDecision = computed<DecisionPointDef | null>(() => activeDecision.value)
 
   const isCompleted = computed(() => phase.value === 'completed')
+
+  function clearDecisionTimer() {
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer)
+      timeoutTimer = null
+    }
+  }
+
+  function armDecisionTimer(dp: DecisionPointDef) {
+    clearDecisionTimer()
+    timeoutTimer = setTimeout(() => {
+      engineRef.value.submitTimeout()
+      refreshContext(engineRef.value)
+      activeDecision.value = null
+      ElMessage.warning('决策超时，事故可能扩大')
+    }, dp.timePressureSec * 1000)
+  }
 
   function refreshContext(engine: SimulationEngine) {
     context.value = engine.getContext()
     phase.value = context.value.phase
-    isPlaying.value = phase.value !== 'completed' && phase.value !== 'idle'
+    isPlaying.value = engine.isTimePlaying() && !activeDecision.value
+    syncDecisionGate(engine)
+  }
+
+  function checkCompletion(engine: SimulationEngine) {
+    if (!context.value || context.value.phase === 'completed') return
+    if (context.value.decisions.length === 0) return
+    if (resolveNextDecision(scenario, context.value)) return
+    engine.finish()
+    refreshContext(engine)
+  }
+
+  function syncDecisionGate(engine: SimulationEngine) {
+    if (!context.value || context.value.phase === 'completed') {
+      activeDecision.value = null
+      clearDecisionTimer()
+      return
+    }
+
+    if (activeDecision.value) return
+
+    const next = resolveNextDecision(scenario, context.value)
+    if (!next) return
+
+    activeDecision.value = next
+    engine.pause()
+    isPlaying.value = false
+    phase.value = next.phase
+    armDecisionTimer(next)
+
+    events.value.unshift({
+      time: Math.floor(engine.getElapsedSec()),
+      type: 'warning',
+      message: next.question,
+    })
+    if (events.value.length > 30) events.value.pop()
   }
 
   function bindEngine(engine: SimulationEngine) {
     if (unbindBridge) unbindBridge()
+    if (unbindContext) unbindContext()
+
     const bridge = new SceneBridge({
       cells,
       onAlert: (level, message) => {
@@ -79,24 +140,11 @@ export function useDeductionEngine(scenarioId: string) {
       onPhaseChange: () => refreshContext(engine),
     })
     unbindBridge = bridge.bind(engine)
+    unbindContext = engine.onContextChange(() => refreshContext(engine))
   }
 
-  const engineRef = shallowRef<SimulationEngine>(new SimulationEngine())
+  const engineRef = shallowRef(new SimulationEngine(scenario))
   bindEngine(engineRef.value)
-
-  watch(pendingDecision, dp => {
-    if (timeoutTimer) {
-      clearTimeout(timeoutTimer)
-      timeoutTimer = null
-    }
-    if (!dp) return
-    pause()
-    timeoutTimer = setTimeout(() => {
-      engineRef.value.submitTimeout()
-      refreshContext(engineRef.value)
-      ElMessage.warning('决策超时，事故可能扩大')
-    }, dp.timePressureSec * 1000)
-  })
 
   async function startSession() {
     try {
@@ -104,6 +152,8 @@ export function useDeductionEngine(scenarioId: string) {
       sessionId.value = res.data.sessionId as string
       events.value = []
       lastSyncedSeq.value = 0
+      activeDecision.value = null
+      clearDecisionTimer()
       engineRef.value.start(sessionId.value, scenarioId)
       refreshContext(engineRef.value)
       isPlaying.value = true
@@ -119,13 +169,13 @@ export function useDeductionEngine(scenarioId: string) {
   }
 
   function resume() {
-    if (phase.value === 'completed' || pendingDecision.value) return
+    if (phase.value === 'completed' || activeDecision.value) return
     engineRef.value.resume()
     isPlaying.value = true
   }
 
   function togglePlay() {
-    if (phase.value === 'completed' || pendingDecision.value) return
+    if (phase.value === 'completed' || activeDecision.value) return
     if (isPlaying.value) pause()
     else resume()
   }
@@ -135,16 +185,16 @@ export function useDeductionEngine(scenarioId: string) {
   }
 
   function submitDecision(decisionPointId: string, optionId: string) {
-    if (timeoutTimer) {
-      clearTimeout(timeoutTimer)
-      timeoutTimer = null
-    }
+    clearDecisionTimer()
+    activeDecision.value = null
     engineRef.value.submitDecision(decisionPointId, optionId)
     refreshContext(engineRef.value)
     syncEvents()
-    if (!isCompleted.value && !pendingDecision.value) {
+    if (!isCompleted.value) {
       engineRef.value.resume()
       isPlaying.value = true
+      syncDecisionGate(engineRef.value)
+      checkCompletion(engineRef.value)
     }
   }
 
@@ -152,6 +202,8 @@ export function useDeductionEngine(scenarioId: string) {
     engineRef.value.pause()
     refreshContext(engineRef.value)
     isPlaying.value = false
+    activeDecision.value = null
+    clearDecisionTimer()
     if (!sessionId.value || !context.value) return null
     await syncEvents()
     try {
@@ -172,11 +224,25 @@ export function useDeductionEngine(scenarioId: string) {
     }
   }
 
+  async function abandonSession() {
+    if (!sessionId.value || phase.value === 'completed') return
+    try {
+      await request.post(`/deduction/sessions/${sessionId.value}/abandon`)
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function reset() {
-    if (timeoutTimer) clearTimeout(timeoutTimer)
+    clearDecisionTimer()
+    activeDecision.value = null
+    await abandonSession()
     engineRef.value.destroy()
-    cells.value = initCells()
-    engineRef.value = new SimulationEngine()
+    cells.value = createInitialCells(
+      scenario.initialConditions.cellCount,
+      scenario.initialConditions.initialTemperature,
+    )
+    engineRef.value = new SimulationEngine(scenario)
     bindEngine(engineRef.value)
     sessionId.value = null
     context.value = null
@@ -206,15 +272,19 @@ export function useDeductionEngine(scenarioId: string) {
     }
   }
 
-  syncTimer = setInterval(() => {
-    if (isPlaying.value) refreshContext(engineRef.value)
-  }, 400)
+  watch(isCompleted, completed => {
+    if (completed) {
+      activeDecision.value = null
+      clearDecisionTimer()
+    }
+  })
 
   onUnmounted(() => {
-    if (timeoutTimer) clearTimeout(timeoutTimer)
-    if (syncTimer) clearInterval(syncTimer)
+    clearDecisionTimer()
     unbindBridge?.()
+    unbindContext?.()
     engineRef.value.destroy()
+    void abandonSession()
   })
 
   return {

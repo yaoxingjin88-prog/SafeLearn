@@ -6,6 +6,7 @@ import com.safelearn.timeline.entity.TdScore;
 import com.safelearn.timeline.entity.TdSession;
 import com.safelearn.timeline.repository.TdScoreRepository;
 import com.safelearn.timeline.repository.TdSessionRepository;
+import com.safelearn.timeline.util.TdDebriefMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,13 @@ public class TimelineDeductionService {
 
     @Transactional
     public Map<String, Object> startSession(String userId, String scenarioCode) {
+        sessionRepo.findByUserIdAndScenarioIdAndStatus(userId, SCENARIO_ID, "running")
+                .forEach(s -> {
+                    s.setStatus("abandoned");
+                    s.setEndedAt(LocalDateTime.now());
+                    sessionRepo.save(s);
+                });
+
         TdSession session = new TdSession();
         session.setUserId(userId);
         session.setScenarioId(SCENARIO_ID);
@@ -105,29 +113,52 @@ public class TimelineDeductionService {
         return result;
     }
 
+    @Transactional
+    public void abandonSession(String userId, String sessionId) {
+        TdSession session = requireSession(userId, sessionId);
+        if ("running".equals(session.getStatus())) {
+            session.setStatus("abandoned");
+            session.setEndedAt(LocalDateTime.now());
+            sessionRepo.save(session);
+        }
+    }
+
     public List<Map<String, Object>> listUserSessions(String userId) {
-        return sessionRepo.findByUserIdOrderByStartedAtDesc(userId).stream().map(s -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("sessionId", s.getId());
-            m.put("scenarioTitle", "北京丰台 4·16 储能电站事故推演");
-            m.put("outcome", s.getOutcome());
-            m.put("startedAt", s.getStartedAt() != null ? s.getStartedAt().toString() : "");
-            scoreRepo.findBySessionId(s.getId()).ifPresent(sc -> m.put("totalScore", sc.getTotalScore()));
-            return m;
-        }).toList();
+        return sessionRepo.findByUserIdOrderByStartedAtDesc(userId).stream()
+                .filter(s -> SCENARIO_ID.equals(s.getScenarioId()))
+                .filter(s -> "finished".equals(s.getStatus()))
+                .filter(s -> scoreRepo.findBySessionId(s.getId()).isPresent())
+                .map(s -> {
+                    TdScore sc = scoreRepo.findBySessionId(s.getId()).orElseThrow();
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("sessionId", s.getId());
+                    m.put("type", "timeline");
+                    m.put("scenarioCode", "beijing_416");
+                    m.put("scenarioName", "北京丰台 4·16 储能电站事故推演");
+                    m.put("status", s.getStatus());
+                    m.put("outcome", s.getOutcome());
+                    m.put("branch", s.getBranchPath());
+                    m.put("startedAt", s.getStartedAt());
+                    m.put("finishedAt", s.getEndedAt());
+                    m.putAll(TdDebriefMapper.toListSummary(s, sc, objectMapper));
+                    return m;
+                })
+                .toList();
+    }
+
+    private String scoreToRating(Integer score) {
+        if (score == null) return "pending";
+        if (score >= 90) return "excellent";
+        if (score >= 75) return "good";
+        if (score >= 60) return "average";
+        return "poor";
     }
 
     public Map<String, Object> getScore(String userId, String sessionId) {
-        requireSession(userId, sessionId);
-        return scoreRepo.findBySessionId(sessionId).map(sc -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("sessionId", sessionId);
-            m.put("totalScore", sc.getTotalScore());
-            m.put("instructorComment", sc.getAiComment());
-            m.put("strengths", parseJsonList(sc.getStrengthsJson()));
-            m.put("weaknesses", parseJsonList(sc.getWeaknessesJson()));
-            return m;
-        }).orElse(Map.of("sessionId", sessionId, "message", "评分尚未生成"));
+        TdSession session = requireSession(userId, sessionId);
+        return scoreRepo.findBySessionId(sessionId)
+                .map(sc -> TdDebriefMapper.toDebriefMap(session, sc, objectMapper))
+                .orElse(Map.of("sessionId", sessionId, "message", "评分尚未生成"));
     }
 
     private TdSession requireSession(String userId, String sessionId) {

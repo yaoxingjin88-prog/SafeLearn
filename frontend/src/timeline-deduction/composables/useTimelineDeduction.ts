@@ -11,34 +11,49 @@ export function useTimelineDeduction(scenarioCode: string) {
   const sessionId = ref('')
   const loading = ref(false)
   const error = ref('')
+  const sessionStarted = ref(false)
 
   let unsub: (() => void) | null = null
 
-  async function initSession() {
+  function initEngine() {
+    const eng = new TimelineEngine(scenarioCode, 'pending')
+    engine.value = eng
+    state.value = eng.getState()
+    sessionId.value = ''
+    sessionStarted.value = false
+    bindFinishWatcher()
+  }
+
+  async function ensureBackendSession() {
+    if (sessionId.value && sessionId.value !== 'pending' && !sessionId.value.startsWith('local-')) {
+      return sessionId.value
+    }
+    const res = await api.startSession(scenarioCode)
+    sessionId.value = res.data.sessionId
+    sessionStarted.value = true
+    return sessionId.value
+  }
+
+  async function setup() {
     loading.value = true
     error.value = ''
     report.value = null
-    try {
-      const res = await api.startSession(scenarioCode)
-      sessionId.value = res.data.sessionId
-      const eng = new TimelineEngine(scenarioCode, res.data.sessionId)
-      engine.value = eng
-      state.value = eng.getState()
-      bindFinishWatcher()
-    } catch (e: unknown) {
-      const eng = new TimelineEngine(scenarioCode, `local-${Date.now()}`)
-      engine.value = eng
-      sessionId.value = eng.getState().sessionId
-      state.value = eng.getState()
-      bindFinishWatcher()
-      error.value = e instanceof Error ? e.message : '后端未连接，使用本地推演模式'
-    } finally {
-      loading.value = false
-    }
+    initEngine()
+    loading.value = false
   }
 
-  function start() {
-    engine.value?.start()
+  async function start() {
+    try {
+      await ensureBackendSession()
+      engine.value?.start()
+    } catch (e: unknown) {
+      if (!sessionId.value || sessionId.value === 'pending') {
+        sessionId.value = `local-${Date.now()}`
+        sessionStarted.value = true
+      }
+      engine.value?.start()
+      error.value = e instanceof Error ? e.message : '后端未连接，使用本地推演模式'
+    }
   }
 
   function pause() {
@@ -57,7 +72,7 @@ export function useTimelineDeduction(scenarioCode: string) {
     const eng = engine.value
     if (!eng) return
     const log = eng.submitDecision(optionId)
-    if (log && !sessionId.value.startsWith('local-')) {
+    if (log && sessionStarted.value && !sessionId.value.startsWith('local-')) {
       try {
         await api.recordDecision(sessionId.value, {
           nodeKey: log.gateId,
@@ -78,7 +93,7 @@ export function useTimelineDeduction(scenarioCode: string) {
     if (!eng || !s || s.status !== 'finished') return
     const debrief = buildDebriefReport(eng.getScenario(), s)
     report.value = debrief
-    if (!sessionId.value.startsWith('local-')) {
+    if (sessionStarted.value && !sessionId.value.startsWith('local-')) {
       try {
         await api.finishSession(sessionId.value, debrief as unknown as Record<string, unknown>)
       } catch { /* offline */ }
@@ -93,13 +108,38 @@ export function useTimelineDeduction(scenarioCode: string) {
     }) ?? null
   }
 
-  function destroy() {
+  async function abandonIfRunning() {
+    const s = engine.value?.getState()
+    if (
+      sessionStarted.value &&
+      sessionId.value &&
+      !sessionId.value.startsWith('local-') &&
+      s &&
+      s.status !== 'finished'
+    ) {
+      try {
+        await api.abandonSession(sessionId.value)
+      } catch { /* ignore */ }
+    }
+  }
+
+  async function destroy() {
+    await abandonIfRunning()
     unsub?.()
     engine.value?.destroy()
     engine.value = null
+    sessionStarted.value = false
   }
 
-  onBeforeUnmount(destroy)
+  async function restart() {
+    await destroy()
+    await setup()
+    await start()
+  }
+
+  onBeforeUnmount(() => {
+    void destroy()
+  })
 
   return {
     engine,
@@ -108,12 +148,13 @@ export function useTimelineDeduction(scenarioCode: string) {
     sessionId,
     loading,
     error,
-    initSession,
+    setup,
     start,
     pause,
     resume,
     setSpeed,
     choose,
     destroy,
+    restart,
   }
 }

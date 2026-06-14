@@ -67,6 +67,8 @@ public class FavoriteService {
                 m.put("title", c.getTitle());
                 m.put("type", c.getType());
                 m.put("severity", c.getSeverity());
+                m.put("location", c.getLocation());
+                m.put("date", c.getDate() != null ? c.getDate().toString() : null);
             });
         }
         return m;

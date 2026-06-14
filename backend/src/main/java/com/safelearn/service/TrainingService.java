@@ -12,10 +12,14 @@ import com.safelearn.repository.TrainingRecordRepository;
 import com.safelearn.repository.UserProgressRepository;
 import com.safelearn.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -36,11 +40,25 @@ public class TrainingService {
         final Set<String> qualifiedIds = userId != null
                 ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
                 : new HashSet<>();
-        return scenarioRepo.findAll().stream().map(s -> {
+        return scenarioRepo.findAll().stream()
+                .filter(s -> !isTestScenario(s))
+                .filter(this::hasDecisionTraining)
+                .map(s -> {
             Map<String, Object> m = toScenarioInfo(s);
             m.put("unlocked", isScenarioUnlocked(s, userId, completedIds, qualifiedIds));
             return m;
         }).toList();
+    }
+
+    private boolean isTestScenario(Scenario s) {
+        if (s.getName() == null || s.getName().isBlank()) return true;
+        String name = s.getName().trim().toLowerCase(Locale.ROOT);
+        return "test".equals(name) || name.startsWith("test_") || name.startsWith("test ");
+    }
+
+    private boolean hasDecisionTraining(Scenario s) {
+        List<Map<String, Object>> dps = getDecisionPoints(s);
+        return !dps.isEmpty();
     }
 
     public Map<String, Object> getScenarioById(String id) {
@@ -49,6 +67,7 @@ public class TrainingService {
         return toScenarioInfo(s);
     }
 
+    @Transactional
     public Map<String, Object> startTraining(String userId, String scenarioId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         Scenario scenario = scenarioRepo.findById(scenarioId).orElseThrow(() -> new RuntimeException("场景不存在"));
@@ -92,8 +111,9 @@ public class TrainingService {
         return result;
     }
 
+    @Transactional
     public Map<String, Object> submitDecision(String userId, TrainingDecisionRequest req) {
-        TrainingRecord record = recordRepo.findById(req.getRecordId())
+        TrainingRecord record = recordRepo.findByIdWithDetails(req.getRecordId())
                 .orElseThrow(() -> new RuntimeException("训练记录不存在"));
         if (!record.getUser().getId().equals(userId)) {
             throw new RuntimeException("无权操作该训练记录");
@@ -133,6 +153,15 @@ public class TrainingService {
             entry.put("question", decisionPoint.get("question"));
             entry.put("selectedAnswer", option.get("text"));
             entry.put("correctAnswer", findCorrectAnswer(decisionPoint));
+            entry.put("timelinePhase", decisionPoint.get("timelinePhase"));
+            entry.put("explanation", decisionPoint.get("explanation"));
+            entry.put("regulationRef", decisionPoint.get("regulationRef"));
+            if (!correct) {
+                Object optionConsequence = option.get("consequence");
+                if (optionConsequence != null) {
+                    entry.put("consequence", optionConsequence);
+                }
+            }
             decisions.add(entry);
             saveDecisions(record, decisions);
         }
@@ -144,7 +173,7 @@ public class TrainingService {
         if (decisions.size() < decisionPoints.size()) {
             nextDecisionPoint = decisionPoints.get(decisions.size());
         } else {
-            finalizeRecord(record, decisions, decisionPoints);
+            finalizeRecord(record, scenario, decisions, decisionPoints);
         }
         recordRepo.save(record);
 
@@ -156,21 +185,33 @@ public class TrainingService {
         return result;
     }
 
-    public List<Map<String, Object>> getRecords(String userId) {
-        return recordRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(this::toRecordInfo).toList();
+    @Transactional(readOnly = true)
+    public Map<String, Object> getRecords(String userId, int page, int pageSize) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(pageSize, 1), 50);
+        Page<TrainingRecord> records = recordRepo.findByUserIdOrderByCreatedAtDesc(
+                userId, PageRequest.of(safePage - 1, safeSize));
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", records.getContent().stream().map(this::toRecordInfo).toList());
+        result.put("total", records.getTotalElements());
+        result.put("page", safePage);
+        result.put("pageSize", safeSize);
+        result.put("totalPages", records.getTotalPages());
+        return result;
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> getRecordById(String id) {
-        TrainingRecord record = recordRepo.findById(id)
+        TrainingRecord record = recordRepo.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("记录不存在"));
         return toRecordDetail(record);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> getRecordById(String userId, String id) {
-        TrainingRecord record = recordRepo.findById(id)
+        TrainingRecord record = recordRepo.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("记录不存在"));
-        if (!record.getUser().getId().equals(userId)) {
+        if (record.getUser() == null || !record.getUser().getId().equals(userId)) {
             throw new RuntimeException("无权查看该训练记录");
         }
         return toRecordDetail(record);
@@ -237,8 +278,41 @@ public class TrainingService {
     private Map<String, Object> toRecordDetail(TrainingRecord r) {
         Map<String, Object> m = toRecordInfo(r);
         m.put("decisions", parseJsonList(r.getDecisions()));
-        m.put("feedback", r.getFeedback());
+        applyFeedbackFields(m, r.getFeedback());
         return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyFeedbackFields(Map<String, Object> m, String feedbackJson) {
+        if (feedbackJson == null || feedbackJson.isBlank()) {
+            m.put("feedback", "");
+            m.put("debrief", List.of());
+            m.put("highlights", List.of());
+            m.put("improvements", List.of());
+            return;
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(feedbackJson, new TypeReference<Map<String, Object>>() {});
+            m.put("feedback", parsed.getOrDefault("summary", parsed.get("instructorSummary")));
+            m.put("instructorSummary", parsed.get("instructorSummary"));
+            m.put("debrief", parsed.getOrDefault("debrief", List.of()));
+            m.put("highlights", parsed.getOrDefault("highlights", List.of()));
+            m.put("improvements", parsed.getOrDefault("improvements", List.of()));
+            m.put("keyNodeReview", parsed.getOrDefault("keyNodeReview", List.of()));
+            m.put("typicalMistakes", parsed.getOrDefault("typicalMistakes", List.of()));
+            m.put("correctFlow", parsed.getOrDefault("correctFlow", List.of()));
+            m.put("wrongFlow", parsed.getOrDefault("wrongFlow", List.of()));
+            m.put("knowledgePoints", parsed.getOrDefault("knowledgePoints", List.of()));
+            if (parsed.get("maxScore") != null) m.put("maxScore", parsed.get("maxScore"));
+            return;
+        } catch (Exception ignored) {
+            /* legacy plain text */
+        }
+        m.put("feedback", feedbackJson);
+        m.put("instructorSummary", feedbackJson);
+        m.put("debrief", List.of());
+        m.put("highlights", List.of());
+        m.put("improvements", List.of());
     }
 
     private List<String> parsePrereqIds(String json) {
@@ -323,7 +397,8 @@ public class TrainingService {
         }
     }
 
-    private void finalizeRecord(TrainingRecord record, List<Map<String, Object>> decisions,
+    private void finalizeRecord(TrainingRecord record, Scenario scenario,
+                                List<Map<String, Object>> decisions,
                                 List<Map<String, Object>> decisionPoints) {
         record.setEndTime(LocalDateTime.now());
         int totalScore = record.getTotalScore() != null ? record.getTotalScore() : 0;
@@ -331,7 +406,104 @@ public class TrainingService {
                 .mapToInt(dp -> maxOptionScore(dp))
                 .sum();
         record.setRating(calculateRating(totalScore, maxScore));
-        record.setFeedback(buildFeedback(decisions, totalScore, maxScore));
+        try {
+            record.setFeedback(objectMapper.writeValueAsString(
+                    buildReportPayload(scenario, decisions, decisionPoints, totalScore, maxScore)));
+        } catch (Exception e) {
+            record.setFeedback(buildFeedback(decisions, totalScore, maxScore));
+        }
+    }
+
+    private Map<String, Object> buildReportPayload(Scenario scenario,
+                                                   List<Map<String, Object>> decisions,
+                                                   List<Map<String, Object>> decisionPoints,
+                                                   int totalScore, int maxScore) {
+        String rating = calculateRating(totalScore, maxScore);
+        long wrongCount = decisions.stream().filter(d -> !Boolean.TRUE.equals(d.get("correct"))).count();
+        String level = switch (rating) {
+            case "excellent" -> "表现优秀";
+            case "good" -> "表现良好";
+            case "average" -> "基本合格";
+            default -> "需要加强";
+        };
+
+        List<Map<String, Object>> debrief = new ArrayList<>();
+        for (int i = 0; i < decisionPoints.size(); i++) {
+            Map<String, Object> dp = decisionPoints.get(i);
+            Map<String, Object> answered = i < decisions.size() ? decisions.get(i) : null;
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("step", i + 1);
+            item.put("timelinePhase", dp.get("timelinePhase"));
+            item.put("question", dp.get("question"));
+            item.put("correct", answered != null && Boolean.TRUE.equals(answered.get("correct")));
+            item.put("selectedAnswer", answered != null ? answered.get("selectedAnswer") : null);
+            item.put("correctAnswer", findCorrectAnswer(dp));
+            item.put("explanation", dp.get("explanation"));
+            item.put("regulationRef", dp.get("regulationRef"));
+            item.put("score", answered != null ? answered.get("score") : 0);
+            debrief.add(item);
+        }
+
+        List<String> highlights = new ArrayList<>();
+        List<String> improvements = new ArrayList<>();
+        for (int i = 0; i < decisions.size(); i++) {
+            Map<String, Object> d = decisions.get(i);
+            String phase = d.get("timelinePhase") != null ? String.valueOf(d.get("timelinePhase")) : ("第" + (i + 1) + "步");
+            if (Boolean.TRUE.equals(d.get("correct"))) {
+                highlights.add(phase + "：决策正确，处置符合规范要求。");
+            } else {
+                String correctAns = d.get("correctAnswer") != null ? String.valueOf(d.get("correctAnswer")) : "见解析";
+                improvements.add(phase + "：应优先选择「" + truncate(correctAns, 48) + "」。");
+                if (d.get("explanation") != null) {
+                    improvements.add(String.valueOf(d.get("explanation")));
+                }
+            }
+        }
+        if (highlights.isEmpty() && wrongCount == 0) {
+            highlights.add("全部决策正确，应急处置流程掌握扎实。");
+        }
+        if (improvements.isEmpty() && wrongCount > 0) {
+            improvements.add("共有 " + wrongCount + " 项决策需要改进，建议结合法规依据复盘并重新训练。");
+        }
+
+        String summary = level + "。本次得分 " + totalScore + "/" + maxScore + "。"
+                + (wrongCount == 0 ? " 全部决策正确，处置链条完整。" : " 共有 " + wrongCount + " 项决策需要改进。");
+
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("summary", summary);
+        report.put("instructorSummary", summary);
+        report.put("totalScore", totalScore);
+        report.put("maxScore", maxScore);
+        report.put("rating", rating);
+        report.put("debrief", debrief);
+        report.put("highlights", highlights);
+        report.put("improvements", improvements);
+        applyScenarioReportMeta(report, scenario);
+        return report;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyScenarioReportMeta(Map<String, Object> report, Scenario scenario) {
+        Object parsed = parseJson(scenario.getInitialConditions());
+        if (!(parsed instanceof Map<?, ?> ic)) return;
+        Object metaObj = ic.get("trainingReportMeta");
+        if (!(metaObj instanceof Map<?, ?> meta)) return;
+        copyIfPresent(report, meta, "keyNodeReview");
+        copyIfPresent(report, meta, "typicalMistakes");
+        copyIfPresent(report, meta, "correctFlow");
+        copyIfPresent(report, meta, "wrongFlow");
+        copyIfPresent(report, meta, "knowledgePoints");
+    }
+
+    private void copyIfPresent(Map<String, Object> target, Map<?, ?> source, String key) {
+        if (source.get(key) != null) {
+            target.put(key, source.get(key));
+        }
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "…";
     }
 
     @SuppressWarnings("unchecked")

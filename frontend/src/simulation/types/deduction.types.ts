@@ -51,7 +51,12 @@ export interface DecisionPointDef {
   question: string
   options: DecisionOptionDef[]
   timePressureSec: number
+  /** 达到该温度时触发决策（单点/热点电芯） */
   triggerTemp?: number
+  /** 达到该推演秒数时触发决策（兜底） */
+  triggerTimeSec?: number
+  /** 决策序号，按从小到大依次触发 */
+  order: number
 }
 
 export interface UserDecisionRecord {
@@ -146,6 +151,10 @@ export interface DeductionScenarioDef {
     baseRiseRate: number
     runawayThreshold: number
     runawayRate: number
+    /** 热扩散触发温度（多电池场景） */
+    spreadThreshold?: number
+    spreadRate?: number
+    hotspotCellId?: number
   }
 }
 

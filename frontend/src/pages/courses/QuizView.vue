@@ -93,7 +93,7 @@
           <el-icon><ArrowRight /></el-icon>
         </el-button>
 
-        <el-button v-if="showAnswer && currentIndex === quiz.questions.length - 1" @click="submitQuiz" type="success">
+        <el-button v-if="showAnswer && currentIndex === quiz.questions.length - 1" @click="handleSubmitQuiz" type="success">
           提交测验
           <el-icon><Check /></el-icon>
         </el-button>
@@ -121,7 +121,7 @@ import {
   Loading, ArrowLeft, ArrowRight, Timer, Check, Close,
   InfoFilled, Promotion
 } from '@element-plus/icons-vue'
-import { getQuizByChapter, startQuiz, submitQuiz, checkQuizExists } from '@/api/quiz'
+import { getQuizByChapter, startQuiz, submitQuiz as submitQuizApi, checkQuizExists } from '@/api/quiz'
 import type { Quiz, QuizQuestion } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 
@@ -131,6 +131,7 @@ const { p } = useAppBase()
 
 const loading = ref(true)
 const submitting = ref(false)
+const submitted = ref(false)
 const quiz = ref<Quiz | null>(null)
 const attemptId = ref('')
 const currentIndex = ref(0)
@@ -200,7 +201,7 @@ function startTimer() {
     } else {
       stopTimer()
       ElMessage.warning('时间到，自动提交测验')
-      submitQuiz()
+      handleSubmitQuiz()
     }
   }, 1000)
 }
@@ -265,28 +266,31 @@ async function confirmSubmit() {
       if (action !== 'cancel') return
     }
   }
-  await submitQuiz()
+  await handleSubmitQuiz()
 }
 
 // 提交测验
-async function submitQuiz() {
-  if (!quiz.value || !attemptId.value) return
+async function handleSubmitQuiz() {
+  if (!quiz.value || !attemptId.value || submitting.value) return
 
   submitting.value = true
+  submitted.value = true
   stopTimer()
 
   try {
-    const res = await submitQuiz(attemptId.value, answers.value)
+    const res = await submitQuizApi(attemptId.value, answers.value)
     if (res.code === 200 && res.data) {
-      // 跳转到结果页面
+      sessionStorage.setItem('quizResult', JSON.stringify(res.data))
       router.replace({
         path: p(`/courses/quiz/result/${res.data.attemptId}`),
-        query: { chapterId: chapterId.value, courseId: courseId.value }
+        query: { chapterId: chapterId.value, courseId: courseId.value },
       })
     } else {
+      submitted.value = false
       ElMessage.error(res.message || '提交失败')
     }
-  } catch (error) {
+  } catch {
+    submitted.value = false
     ElMessage.error('提交测验失败')
   } finally {
     submitting.value = false

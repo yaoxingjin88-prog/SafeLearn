@@ -18,6 +18,10 @@ export const deductionApi = {
     return request.post<ApiResponse<AiScoreReport>>(`/deduction/sessions/${sessionId}/finish`, summary ?? {})
   },
 
+  abandonSession(sessionId: string) {
+    return request.post(`/deduction/sessions/${sessionId}/abandon`)
+  },
+
   getReplay(sessionId: string) {
     return request.get<ApiResponse<{ events: DeductionEventLogEntry[]; durationMs: number }>>(
       `/deduction/sessions/${sessionId}/replay`,

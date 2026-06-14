@@ -10,6 +10,9 @@
       </button>
       <div class="topbar-actions">
         <el-tag v-if="caseProgress.completed" type="success" effect="plain" round>已复盘</el-tag>
+        <el-button v-if="simulationLink" type="warning" @click="router.push(simulationLink)">
+          开始事故推演
+        </el-button>
         <el-button type="primary" @click="openGuide">
           <el-icon>
             <Reading />
@@ -334,6 +337,7 @@ import {
   Files, Reading,
 } from '@element-plus/icons-vue'
 import request from '@/api/request'
+import { getCaseSimulationPath } from '@/cases/caseSimulationLinks'
 import { useAppBase } from '@/composables/useAppBase'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
 import NotePanel from '@/components/learning/NotePanel.vue'
@@ -360,6 +364,11 @@ const relatedCases = ref<RelatedCase[]>([])
 const allCaseIds = ref<string[]>([])
 const guideVisible = ref(false)
 const caseProgress = ref({ completed: false, currentStep: 0, totalSteps: 0 })
+
+const simulationLink = computed(() => {
+  const path = getCaseSimulationPath(caseData.value.id)
+  return path ? p(path) : ''
+})
 
 const hasStructuredCause = computed(() =>
   !!(caseData.value.directCause || caseData.value.indirectCause || caseData.value.rootCause))

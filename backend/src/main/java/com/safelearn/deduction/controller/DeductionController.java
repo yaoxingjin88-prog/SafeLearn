@@ -59,6 +59,13 @@ public class DeductionController {
         return ApiResponse.success(scoringService.scoreSession(userId, id));
     }
 
+    @PostMapping("/sessions/{id}/abandon")
+    public ApiResponse<Void> abandonSession(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        sessionService.abandonSession(userId, id);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/sessions/{id}/replay")
     public ApiResponse<Map<String, Object>> getReplay(Authentication auth, @PathVariable String id) {
         String userId = auth.getPrincipal().toString();

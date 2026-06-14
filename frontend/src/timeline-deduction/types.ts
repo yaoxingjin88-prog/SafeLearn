@@ -73,6 +73,7 @@ export interface TimelineScenario {
   title: string
   subtitle: string
   caseRef: string
+  caseId?: string
   location: string
   accidentDate: string
   durationMinutes: number

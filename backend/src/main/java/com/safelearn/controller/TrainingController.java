@@ -41,9 +41,12 @@ public class TrainingController {
     }
 
     @GetMapping("/records")
-    public ApiResponse<List<Map<String, Object>>> getRecords(Authentication auth) {
+    public ApiResponse<Map<String, Object>> getRecords(
+            Authentication auth,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
         String userId = auth.getPrincipal().toString();
-        return ApiResponse.success(trainingService.getRecords(userId));
+        return ApiResponse.success(trainingService.getRecords(userId, page, pageSize));
     }
 
     @GetMapping("/records/{id}")

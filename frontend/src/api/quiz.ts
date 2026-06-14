@@ -58,20 +58,23 @@ export interface QuizSubmitResult {
   }>
 }
 
+export interface WrongQuestionItem {
+  questionId: string
+  question: string
+  options: Array<{ id: string; text: string }>
+  userAnswer: string
+  correctAnswer: string
+  explanation: string
+  type: string
+  chapterId: string
+  chapterTitle: string
+  courseId?: string
+  attemptId: string
+  attemptDate: string
+}
+
 export interface WrongQuestionsData {
-  chapters: Record<string, Array<{
-    questionId: string
-    question: string
-    options: Array<{ id: string; text: string }>
-    userAnswer: string
-    correctAnswer: string
-    explanation: string
-    type: string
-    chapterId: string
-    chapterTitle: string
-    attemptId: string
-    attemptDate: string
-  }>>
+  chapters: Record<string, WrongQuestionItem[]>
   totalWrong: number
 }
 

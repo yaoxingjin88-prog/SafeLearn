@@ -19,6 +19,10 @@ export function recordDecision(sessionId: string, body: Record<string, unknown>)
   return request.post(`/timeline-deduction/sessions/${sessionId}/decisions`, body)
 }
 
+export function abandonSession(sessionId: string) {
+  return request.post(`/timeline-deduction/sessions/${sessionId}/abandon`)
+}
+
 export function finishSession(sessionId: string, report: Record<string, unknown>) {
   return request.post(`/timeline-deduction/sessions/${sessionId}/finish`, report)
 }

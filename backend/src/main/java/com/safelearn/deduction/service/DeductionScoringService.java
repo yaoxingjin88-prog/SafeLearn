@@ -84,8 +84,13 @@ public class DeductionScoringService {
                     m.put("aiScore", r.getAiScore());
                     m.put("totalScore", r.getTotalScore());
                     m.put("rating", r.getRating());
+                    m.put("instructorComment", r.getInstructorSummary());
                     m.put("instructorSummary", r.getInstructorSummary());
+                    m.put("outcome", session.getOutcome());
+                    m.put("branch", session.getBranch());
                     m.put("dimensions", parseJson(r.getDimensions()));
+                    m.put("strengths", parseJsonList(r.getHighlights()));
+                    m.put("weaknesses", parseJsonList(r.getImprovements()));
                     m.put("highlights", parseJsonList(r.getHighlights()));
                     m.put("improvements", parseJsonList(r.getImprovements()));
                     return m;

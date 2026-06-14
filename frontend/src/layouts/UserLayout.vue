@@ -1,6 +1,6 @@
 <template>
-  <el-container class="user-layout">
-    <el-aside :width="collapsed ? '72px' : '240px'" class="user-aside" :class="{ 'is-collapsed': collapsed }">
+  <el-container class="user-layout" :class="{ 'is-immersive': isImmersive }">
+    <el-aside v-if="!isImmersive" :width="collapsed ? '72px' : '240px'" class="user-aside" :class="{ 'is-collapsed': collapsed }">
       <div class="brand" @click="$router.push('/user/dashboard')">
         <img src="@/assets/logo.png" class="brand-logo" alt="Logo" />
         <span v-if="!collapsed" class="brand-name">储安云</span>
@@ -76,8 +76,8 @@
       </div>
     </el-aside>
 
-    <el-container class="main-wrap">
-      <el-header class="user-header">
+    <el-container class="main-wrap" :class="{ 'is-immersive': isImmersive }">
+      <el-header v-if="!isImmersive" class="user-header">
         <div class="header-left">
           <el-icon class="collapse-btn" @click="collapsed = !collapsed">
             <Fold v-if="!collapsed" />
@@ -104,7 +104,7 @@
         </div>
       </el-header>
 
-      <div v-if="breadcrumbs.length" class="breadcrumb-bar">
+      <div v-if="!isImmersive && breadcrumbs.length" class="breadcrumb-bar">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item
             v-for="(item, index) in breadcrumbs"
@@ -116,7 +116,7 @@
         </el-breadcrumb>
       </div>
 
-      <el-main class="user-main">
+      <el-main class="user-main" :class="{ 'is-immersive': isImmersive }">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -166,6 +166,7 @@ function resolveActiveMenu(path: string): string {
     return '/user/courses/list'
   }
   if (path.startsWith('/user/simulation/')) return '/user/simulation/scenarios'
+  if (path.startsWith('/user/training/records')) return '/user/training/records'
   if (path.startsWith('/user/training/')) return '/user/training/scenarios'
   if (path.startsWith('/user/cases/')) return '/user/cases/list'
   if (path.startsWith('/user/ai/')) return '/user/ai/chat'
@@ -177,6 +178,9 @@ function resolveActiveMenu(path: string): string {
 }
 
 const activeMenu = computed(() => resolveActiveMenu(route.path))
+
+/** 推演/训练进行中：隐藏侧栏与顶栏，全屏沉浸 */
+const isImmersive = computed(() => Boolean(route.meta.immersive))
 
 const isAdmin = computed(() => userStore.role === 'admin')
 const displayInitial = computed(() => (displayName.value || '用').charAt(0))
@@ -216,7 +220,6 @@ const userMenus: NavMenu[] = [
     title: '事故推演',
     icon: Warning,
     children: [
-      { path: '/user/timeline-deduction/hub', title: '时间轴推演', icon: Guide },
       { path: '/user/simulation/scenarios', title: '推演场景', icon: VideoPlay },
       { path: '/user/simulation/records', title: '推演记录', icon: Tickets },
     ],
@@ -798,6 +801,35 @@ onMounted(async () => {
 .user-main {
   padding: 0;
   background: #f5f7fa;
+  overflow: auto;
+}
+
+.user-layout.is-immersive {
+  height: 100dvh;
+  background: #030712;
+}
+
+.main-wrap.is-immersive {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+}
+
+.user-main.is-immersive {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #030712;
+}
+
+.user-main.is-immersive :deep(> *) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
 }
 
 .fade-enter-active,

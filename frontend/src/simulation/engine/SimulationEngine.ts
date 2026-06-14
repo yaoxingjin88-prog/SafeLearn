@@ -1,5 +1,5 @@
 import { createActor, type Subscription } from 'xstate'
-import { thermalRunawayMachine } from '../machine/thermalRunawayMachine'
+import { createThermalRunawayMachine } from '../machine/thermalRunawayMachine'
 import { TimeEngine } from './TimeEngine'
 import { ReplayEngine } from './ReplayEngine'
 import type {
@@ -8,12 +8,13 @@ import type {
   DeductionEventLogEntry,
   DeductionSceneEvent,
   DeductionSceneEventType,
+  DeductionScenarioDef,
 } from '../types/deduction.types'
 
 export type SceneEventHandler = (event: DeductionSceneEvent) => void
 
 export class SimulationEngine {
-  private actor = createActor(thermalRunawayMachine)
+  private actor
   private timeEngine = new TimeEngine()
   private replayEngine = new ReplayEngine()
   private eventLog: DeductionEventLogEntry[] = []
@@ -22,10 +23,14 @@ export class SimulationEngine {
   private mode: 'live' | 'replay' = 'live'
   private prevContext: DeductionContext | null = null
 
-  constructor() {
+  private contextHandlers = new Set<(ctx: DeductionContext) => void>()
+
+  constructor(scenario: DeductionScenarioDef) {
+    this.actor = createActor(createThermalRunawayMachine(scenario))
     this.actor.start()
     this.sub = this.actor.subscribe(snapshot => {
       this.onStateChange(snapshot.context)
+      for (const handler of this.contextHandlers) handler(snapshot.context)
     })
     this.timeEngine.subscribe((deltaMs) => {
       if (this.mode === 'live' && this.timeEngine.isPlaying()) {
@@ -40,6 +45,15 @@ export class SimulationEngine {
   onSceneEvent(handler: SceneEventHandler): () => void {
     this.sceneHandlers.add(handler)
     return () => this.sceneHandlers.delete(handler)
+  }
+
+  onContextChange(handler: (ctx: DeductionContext) => void): () => void {
+    this.contextHandlers.add(handler)
+    return () => this.contextHandlers.delete(handler)
+  }
+
+  isTimePlaying(): boolean {
+    return this.timeEngine.isPlaying()
   }
 
   start(sessionId: string, scenarioId: string): DeductionContext {
@@ -108,6 +122,7 @@ export class SimulationEngine {
 
   destroy(): void {
     this.sub?.unsubscribe()
+    this.contextHandlers.clear()
     this.timeEngine.destroy()
     this.replayEngine.destroy()
     this.sceneHandlers.clear()

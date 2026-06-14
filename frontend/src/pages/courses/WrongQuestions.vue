@@ -1,175 +1,120 @@
 <template>
-  <div class="wrong-questions-container">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div class="header-left">
-        <el-button @click="goBack" text>
+  <div class="sl-page wrong-questions">
+    <div class="sl-page-header">
+      <div class="sl-page-head">
+        <el-button
+          v-if="chapterId"
+          class="back-link"
+          text
+          @click="goToList"
+        >
           <el-icon><ArrowLeft /></el-icon>
-          返回
+          返回章节列表
         </el-button>
-        <h2>
-          <el-icon><Notebook /></el-icon>
-          错题本
-        </h2>
+        <h2 class="sl-page-title">{{ pageTitle }}</h2>
+        <p class="sl-page-desc">{{ pageDesc }}</p>
       </div>
-      <div class="header-right" v-if="data">
-        <el-tag type="danger" size="large">共 {{ data.totalWrong }} 道错题</el-tag>
-      </div>
+      <el-tag v-if="data && !loading && data.totalWrong > 0" type="danger" size="large" class="count-tag">
+        {{ chapterId ? `${activeChapterCount} 道错题` : `共 ${activeTotal} 道错题` }}
+      </el-tag>
     </div>
 
-    <!-- 加载中 -->
-    <div v-if="loading" class="loading-container">
-      <el-icon class="is-loading" :size="40"><Loading /></el-icon>
-      <p>加载错题本...</p>
-    </div>
-
-    <!-- 空状态 -->
-    <div v-else-if="!data || data.totalWrong === 0" class="empty-container">
-      <el-empty description="暂无错题记录">
-        <template #image>
-          <div class="empty-icon">
-            <el-icon :size="80"><CircleCheck /></el-icon>
-          </div>
-        </template>
-        <el-button type="primary" @click="goToCourses">去学习课程</el-button>
-      </el-empty>
-    </div>
-
-    <!-- 错题列表 -->
-    <template v-else>
-      <!-- 按章节分组展示 -->
-      <div v-for="(questions, chapterId) in data.chapters" :key="chapterId" class="chapter-section">
-        <div class="chapter-header">
-          <h3>
-            <el-icon><Document /></el-icon>
-            {{ getChapterTitle(questions) }}
-          </h3>
-          <el-tag size="small">{{ questions.length }} 道错题</el-tag>
-        </div>
-
-        <div class="questions-list">
-          <div
-            v-for="(question, index) in questions"
-            :key="question.questionId"
-            class="question-card"
-          >
-            <div class="question-top">
-              <el-tag :type="getQuestionTypeTag(question.type)" size="small">
-                {{ getQuestionTypeLabel(question.type) }}
-              </el-tag>
-              <span class="question-date">{{ formatDate(question.attemptDate) }}</span>
+    <el-card v-loading="loading" shadow="never" class="content-card">
+      <div v-if="!loading && (!data || data.totalWrong === 0)" class="empty-container">
+        <el-empty description="暂无错题数据">
+          <template #image>
+            <div class="empty-icon">
+              <el-icon :size="80"><CircleCheck /></el-icon>
             </div>
-
-            <div class="question-text">{{ question.question }}</div>
-
-            <div class="options-list">
-              <div
-                v-for="option in question.options"
-                :key="option.id"
-                class="option-item"
-                :class="{
-                  'correct-answer': option.id === question.correctAnswer,
-                  'your-wrong-answer': option.id === question.userAnswer && option.id !== question.correctAnswer
-                }"
-              >
-                <div class="option-marker">{{ option.id.toUpperCase() }}</div>
-                <div class="option-text">{{ option.text }}</div>
-                <div v-if="option.id === question.correctAnswer" class="option-badge correct">
-                  <el-icon><Check /></el-icon>
-                  正确答案
-                </div>
-                <div v-if="option.id === question.userAnswer && option.id !== question.correctAnswer" class="option-badge wrong">
-                  <el-icon><Close /></el-icon>
-                  你的答案
-                </div>
-              </div>
-            </div>
-
-            <div v-if="question.explanation" class="explanation">
-              <el-icon><InfoFilled /></el-icon>
-              <span>{{ question.explanation }}</span>
-            </div>
-          </div>
-        </div>
+          </template>
+          <el-button type="primary" @click="goToCourses">去学习课程</el-button>
+        </el-empty>
       </div>
 
-      <!-- 底部操作 -->
-      <div class="bottom-actions">
-        <el-button @click="goToCourses" type="primary" size="large">
-          <el-icon><Reading /></el-icon>
-          继续学习
-        </el-button>
+      <WrongQuestionChapterDetail
+        v-else-if="chapterId && chapterQuestions.length"
+        :chapter-id="chapterId"
+        :questions="chapterQuestions"
+      />
+
+      <div v-else-if="chapterId && !chapterQuestions.length" class="empty-container">
+        <el-empty description="该章节暂无错题">
+          <el-button type="primary" @click="goToList">返回章节列表</el-button>
+        </el-empty>
       </div>
-    </template>
+
+      <WrongQuestionChapterList v-else-if="data" :data="data" />
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import {
-  ArrowLeft, Notebook, Loading, CircleCheck, Document,
-  Check, Close, InfoFilled, Reading
-} from '@element-plus/icons-vue'
-import { getWrongQuestions } from '@/api/quiz'
-import type { WrongQuestionsData } from '@/api/quiz'
+import { ArrowLeft, CircleCheck } from '@element-plus/icons-vue'
+import { getWrongQuestions, type WrongQuestionsData } from '@/api/quiz'
+import WrongQuestionChapterList from './WrongQuestionChapterList.vue'
+import WrongQuestionChapterDetail from './WrongQuestionChapterDetail.vue'
+import { useWrongQuestionMastered } from '@/composables/useWrongQuestionMastered'
 import { useAppBase } from '@/composables/useAppBase'
 
+const route = useRoute()
 const router = useRouter()
 const { p } = useAppBase()
+const { activeCount, masteredMap } = useWrongQuestionMastered()
 
 const loading = ref(true)
 const data = ref<WrongQuestionsData | null>(null)
+
+const chapterId = computed(() => route.params.chapterId as string | undefined)
+
+const chapterQuestions = computed(() => {
+  if (!data.value || !chapterId.value) return []
+  return data.value.chapters[chapterId.value] || []
+})
+
+const chapterTitle = computed(() => chapterQuestions.value[0]?.chapterTitle || '章节错题')
+
+const pageTitle = computed(() => (chapterId.value ? chapterTitle.value : '错题本'))
+
+const pageDesc = computed(() =>
+  chapterId.value
+    ? '复习本章测验错题，标记掌握后可隐藏'
+    : '按章节分类管理测验错题，点击章节进入复习',
+)
+
+const activeChapterCount = computed(() => {
+  void masteredMap.value
+  return activeCount(chapterId.value || '', chapterQuestions.value.length)
+})
+
+const activeTotal = computed(() => {
+  void masteredMap.value
+  if (!data.value) return 0
+  return Object.entries(data.value.chapters).reduce(
+    (sum, [id, qs]) => sum + activeCount(id, qs.length),
+    0,
+  )
+})
 
 onMounted(async () => {
   try {
     const res = await getWrongQuestions()
     if (res.code === 200 && res.data) {
-      data.value = res.data
+      data.value = res.data as WrongQuestionsData
     } else {
       ElMessage.error(res.message || '加载错题本失败')
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('加载错题本失败')
   } finally {
     loading.value = false
   }
 })
 
-function getChapterTitle(questions: Array<{ chapterTitle?: string }>): string {
-  if (questions.length > 0 && questions[0].chapterTitle) {
-    return questions[0].chapterTitle
-  }
-  return '未知章节'
-}
-
-function getQuestionTypeTag(type: string) {
-  switch (type) {
-    case 'single': return 'primary'
-    case 'multiple': return 'success'
-    case 'truefalse': return 'warning'
-    default: return 'info'
-  }
-}
-
-function getQuestionTypeLabel(type: string) {
-  switch (type) {
-    case 'single': return '单选题'
-    case 'multiple': return '多选题'
-    case 'truefalse': return '判断题'
-    default: return '未知'
-  }
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-}
-
-function goBack() {
-  router.back()
+function goToList() {
+  router.push(p('/courses/wrong-questions'))
 }
 
 function goToCourses() {
@@ -178,213 +123,62 @@ function goToCourses() {
 </script>
 
 <style scoped>
-.wrong-questions-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
+.wrong-questions {
+  min-height: 100%;
 }
 
-.page-header {
+.sl-page-header {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.sl-page-head {
+  flex: 1;
+  min-width: 0;
 }
 
-.header-left h2 {
-  display: flex;
+.back-link {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 20px;
-  color: #303133;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 400px;
-  color: #909399;
-}
-
-.loading-container p {
-  margin-top: 16px;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
   font-size: 14px;
+  color: #606266;
+}
+
+.back-link:hover {
+  color: #409eff;
+}
+
+.sl-page-desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.count-tag {
+  flex-shrink: 0;
+}
+
+.content-card {
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+}
+
+.content-card :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .empty-container {
-  padding: 80px 0;
+  padding: 48px 0;
 }
 
 .empty-icon {
   color: #67c23a;
-}
-
-.chapter-section {
-  margin-bottom: 32px;
-}
-
-.chapter-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
-}
-
-.chapter-header h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 16px;
-  color: #303133;
-}
-
-.questions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.question-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  border-left: 4px solid #f56c6c;
-}
-
-.question-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.question-date {
-  font-size: 12px;
-  color: #909399;
-}
-
-.question-text {
-  font-size: 15px;
-  color: #303133;
-  line-height: 1.6;
-  margin-bottom: 16px;
-}
-
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.option-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  background: #fafafa;
-}
-
-.option-item.correct-answer {
-  background: #f0f9eb;
-  border-color: #67c23a;
-}
-
-.option-item.your-wrong-answer {
-  background: #fef0f0;
-  border-color: #f56c6c;
-}
-
-.option-marker {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #e4e7ed;
-  font-weight: 600;
-  font-size: 13px;
-  color: #606266;
-  flex-shrink: 0;
-}
-
-.option-item.correct-answer .option-marker {
-  background: #67c23a;
-  color: #fff;
-}
-
-.option-item.your-wrong-answer .option-marker {
-  background: #f56c6c;
-  color: #fff;
-}
-
-.option-text {
-  flex: 1;
-  font-size: 14px;
-  color: #303133;
-}
-
-.option-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.option-badge.correct {
-  color: #67c23a;
-  background: #f0f9eb;
-}
-
-.option-badge.wrong {
-  color: #f56c6c;
-  background: #fef0f0;
-}
-
-.explanation {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px;
-  background: #fdf6ec;
-  border-radius: 8px;
-  color: #e6a23c;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.explanation .el-icon {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.bottom-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid #ebeef5;
 }
 </style>

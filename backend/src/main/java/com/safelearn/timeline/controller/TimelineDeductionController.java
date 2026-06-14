@@ -44,6 +44,13 @@ public class TimelineDeductionController {
         return ApiResponse.success(null);
     }
 
+    @PostMapping("/sessions/{id}/abandon")
+    public ApiResponse<Void> abandonSession(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        service.abandonSession(userId, id);
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/sessions/{id}/finish")
     public ApiResponse<Map<String, Object>> finishSession(
             Authentication auth,

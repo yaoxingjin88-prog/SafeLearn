@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface TdSessionRepository extends JpaRepository<TdSession, String> {
     List<TdSession> findByUserIdOrderByStartedAtDesc(String userId);
+
+    List<TdSession> findByUserIdAndScenarioIdAndStatus(String userId, String scenarioId, String status);
 }

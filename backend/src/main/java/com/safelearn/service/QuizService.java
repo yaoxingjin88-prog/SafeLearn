@@ -248,12 +248,16 @@ public class QuizService {
 
             String chapterId = attempt.getQuiz().getChapterId();
             String chapterTitle = attempt.getQuiz().getTitle().replace("测验：", "");
+            String courseId = chapterRepo.findById(chapterId)
+                    .map(ch -> ch.getCourse().getId())
+                    .orElse(null);
 
             chapterWrongQuestions.computeIfAbsent(chapterId, k -> new ArrayList<>());
             for (Map<String, Object> wq : wrongQuestions) {
                 Map<String, Object> entry = new LinkedHashMap<>(wq);
                 entry.put("chapterId", chapterId);
                 entry.put("chapterTitle", chapterTitle);
+                if (courseId != null) entry.put("courseId", courseId);
                 entry.put("attemptId", attempt.getId());
                 entry.put("attemptDate", attempt.getCompletedAt());
                 chapterWrongQuestions.get(chapterId).add(entry);
@@ -266,7 +270,10 @@ public class QuizService {
             Map<String, Map<String, Object>> latestByQuestion = new LinkedHashMap<>();
             for (Map<String, Object> wq : entry.getValue()) {
                 String questionId = (String) wq.get("questionId");
-                latestByQuestion.put(questionId, wq);
+                Map<String, Object> existing = latestByQuestion.get(questionId);
+                if (existing == null || isLaterAttempt(wq, existing)) {
+                    latestByQuestion.put(questionId, wq);
+                }
             }
             deduplicated.put(entry.getKey(), new ArrayList<>(latestByQuestion.values()));
         }
@@ -379,6 +386,14 @@ public class QuizService {
             }
         }
         return String.join(",", correctIds);
+    }
+
+    private boolean isLaterAttempt(Map<String, Object> candidate, Map<String, Object> existing) {
+        Object cDate = candidate.get("attemptDate");
+        Object eDate = existing.get("attemptDate");
+        if (cDate == null) return false;
+        if (eDate == null) return true;
+        return cDate.toString().compareTo(eDate.toString()) >= 0;
     }
 
     private List<Map<String, Object>> sanitizeQuestions(String questionsJson) {

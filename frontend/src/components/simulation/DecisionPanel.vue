@@ -3,10 +3,13 @@
     :model-value="!!decision"
     :title="dialogTitle"
     width="520px"
+    append-to-body
+    align-center
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     :show-close="false"
     class="decision-dialog"
+    :z-index="4000"
   >
     <div v-if="decision" class="decision-body">
       <div class="decision-timer">
@@ -48,6 +51,9 @@ const phaseLabels: Record<string, string> = {
   earlyWarning: '早期预警',
   thermalRunaway: '热失控',
   isolation: '电气隔离',
+  venting: '通风降温',
+  fireSuppression: '灭火处置',
+  evacuation: '人员撤离',
 }
 
 const dialogTitle = computed(() => {

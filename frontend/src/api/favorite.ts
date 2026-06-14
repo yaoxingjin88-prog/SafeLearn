@@ -10,6 +10,8 @@ export interface FavoriteItem {
   coverImage?: string
   type?: string
   severity?: string
+  location?: string
+  date?: string
   createdAt?: string
 }
 

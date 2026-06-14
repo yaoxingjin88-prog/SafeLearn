@@ -74,6 +74,7 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'skill-tree', name: 'UserSkillTree', component: () => import('@/pages/courses/SkillTree.vue'), meta: { title: '安全进阶路径' } },
       { path: 'my-learning', name: 'UserMyLearning', component: () => import('@/pages/courses/MyLearning.vue'), meta: { title: '我的学习' } },
       { path: 'wrong-questions', name: 'UserWrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本' } },
+      { path: 'wrong-questions/:chapterId', name: 'UserWrongQuestionChapter', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '章节错题', hidden: true } },
       { path: ':id', name: 'UserCourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
       { path: ':courseId/chapters/:chapterId', name: 'UserChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
       { path: ':courseId/chapters/:chapterId/quiz', name: 'UserQuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
@@ -87,19 +88,15 @@ const userChildren: RouteRecordRaw[] = [
     children: [
       { path: 'scenarios', name: 'UserScenarioList', component: () => import('@/pages/simulation/ScenarioList.vue'), meta: { title: '推演场景' } },
       { path: 'records', name: 'UserSimulationRecords', component: () => import('@/pages/simulation/SimulationRecords.vue'), meta: { title: '推演记录' } },
-      { path: 'replay/:sessionId', name: 'UserSimulationReplay', component: () => import('@/pages/simulation/SimulationReplay.vue'), meta: { title: '推演回放', hidden: true } },
-      { path: ':id', name: 'UserSimulationView', component: () => import('@/pages/simulation/SimulationView.vue'), meta: { title: '推演演示', hidden: true } },
+      { path: 'timeline/:code', name: 'TimelineDeductionRun', component: () => import('@/pages/timeline-deduction/TimelineRun.vue'), meta: { title: '时间轴推演', hidden: true, immersive: true } },
+      { path: 'test/:code', name: 'TestSimulationRun', component: () => import('@/pages/test-simulation/TestSimulationRun.vue'), meta: { title: '测试作业推演', hidden: true, immersive: true } },
+      { path: 'replay/:sessionId', name: 'UserSimulationReplay', component: () => import('@/pages/simulation/SimulationReplay.vue'), meta: { title: '推演回放', hidden: true, immersive: true } },
+      { path: ':id', name: 'UserSimulationView', component: () => import('@/pages/simulation/SimulationView.vue'), meta: { title: '推演演示', hidden: true, immersive: true } },
     ],
   },
-  {
-    path: 'timeline-deduction',
-    redirect: '/user/timeline-deduction/hub',
-    meta: { title: '时间轴推演' },
-    children: [
-      { path: 'hub', name: 'TimelineDeductionHub', component: () => import('@/pages/timeline-deduction/TimelineHub.vue'), meta: { title: '时间轴推演' } },
-      { path: 'run/:code', name: 'TimelineDeductionRun', component: () => import('@/pages/timeline-deduction/TimelineRun.vue'), meta: { title: '推演进行中', hidden: true } },
-    ],
-  },
+  { path: 'timeline-deduction', redirect: '/user/simulation/scenarios' },
+  { path: 'timeline-deduction/hub', redirect: '/user/simulation/scenarios' },
+  { path: 'timeline-deduction/run/:code', redirect: to => `/user/simulation/timeline/${to.params.code}` },
   {
     path: 'training',
     redirect: '/user/training/scenarios',
@@ -108,7 +105,7 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'scenarios', name: 'UserTrainingScenarioList', component: () => import('@/pages/training/TrainingScenarioList.vue'), meta: { title: '训练场景' } },
       { path: 'records', name: 'UserTrainingRecords', component: () => import('@/pages/training/TrainingRecords.vue'), meta: { title: '训练记录' } },
       { path: 'records/:id', name: 'UserTrainingReport', component: () => import('@/pages/training/TrainingReport.vue'), meta: { title: '训练报告', hidden: true } },
-      { path: ':id', name: 'UserTrainingView', component: () => import('@/pages/training/TrainingView.vue'), meta: { title: '训练进行中', hidden: true } },
+      { path: ':id', name: 'UserTrainingView', component: () => import('@/pages/training/TrainingView.vue'), meta: { title: '训练进行中', hidden: true, immersive: true } },
     ],
   },
   {
