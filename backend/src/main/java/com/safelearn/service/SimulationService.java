@@ -13,6 +13,7 @@ public class SimulationService {
 
     private final ScenarioRepository scenarioRepo;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final SystemConfigService systemConfig;
 
     public List<Map<String, Object>> getScenarios() {
         return scenarioRepo.findAll().stream()
@@ -27,6 +28,9 @@ public class SimulationService {
         if ("test".equals(name) || name.startsWith("test_") || name.startsWith("test ")) return false;
         if (s.getDuration() == null || s.getDuration() <= 0) return false;
         if (isEmergencyTrainingScenario(s)) return false;
+        // 管理端可隐藏指定场景（按 id 或名称）
+        List<String> hiddenIds = systemConfig.getStringList("scenario.hiddenIds", List.of());
+        if (hiddenIds.contains(s.getId()) || hiddenIds.contains(s.getName())) return false;
         int batteryCount = extractBatteryCount(s.getInitialConditions());
         return batteryCount > 0;
     }

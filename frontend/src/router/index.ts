@@ -41,6 +41,7 @@ const adminChildren: RouteRecordRaw[] = [
     meta: { title: '系统管理', icon: 'Setting', roles: ['admin'] },
     children: [
       { path: 'users', name: 'UserManage', component: () => import('@/pages/admin/UserManage.vue'), meta: { title: '用户管理' } },
+      { path: 'settings', name: 'SystemSettings', component: () => import('@/pages/admin/SystemSettings.vue'), meta: { title: '系统设置' } },
       { path: 'courses', redirect: '/admin/learning/courses' },
       { path: 'data', redirect: '/dashboard' },
     ],

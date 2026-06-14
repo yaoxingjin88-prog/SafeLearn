@@ -25,7 +25,7 @@
             </el-avatar>
           </div>
           <div class="message-content">
-            <div class="message-text" v-html="message.content" />
+            <div class="message-text">{{ message.content }}<span v-if="message.role === 'ai' && loading && !message.content" class="stream-cursor" /></div>
             <div v-if="message.sources?.length" class="message-sources">
               <div class="sources-title">参考来源:</div>
               <div v-for="source in message.sources" :key="source.id" class="source-item">
@@ -96,7 +96,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
 import { ChatDotRound, User, Document } from '@element-plus/icons-vue'
-import request from '@/api/request'
+import { systemConfigApi } from '@/api/systemConfig'
 
 interface Message {
   id: string
@@ -119,13 +119,14 @@ const messages = ref<Message[]>([
   },
 ])
 
-const recommendQuestions = [
+// 默认推荐问题作为兜底，优先使用管理端配置的 ai.relatedQuestions
+const recommendQuestions = ref<string[]>([
   '储能柜冒烟如何处理？',
   '热失控前兆有哪些？',
   '锂电池储能消防系统有哪些类型？',
   'BMS系统的主要功能是什么？',
   '储能电站安全检查的重点是什么？',
-]
+])
 
 async function sendMessage() {
   const text = inputText.value.trim()
@@ -145,27 +146,99 @@ async function sendMessage() {
   await nextTick()
   scrollToBottom()
 
-  // 调用AI API
-  try {
-    const res = await request.post('/ai/ask', { question: text })
-    messages.value.push({
-      id: (Date.now() + 1).toString(),
-      role: 'ai',
-      content: res.data.answer,
-      sources: res.data.sources,
-      time: new Date().toLocaleTimeString(),
-    })
-  } catch {
-    messages.value.push({
-      id: (Date.now() + 1).toString(),
-      role: 'ai',
-      content: '抱歉，暂时无法回答您的问题，请稍后重试。',
-      time: new Date().toLocaleTimeString(),
-    })
+  // 创建一个空的 AI 消息，随流式数据逐字填充
+  const aiMessage: Message = {
+    id: (Date.now() + 1).toString(),
+    role: 'ai',
+    content: '',
+    sources: [],
+    time: new Date().toLocaleTimeString(),
   }
 
-  loading.value = false
-  nextTick(() => scrollToBottom())
+  try {
+    await streamAnswer(text, aiMessage)
+  } catch {
+    if (!aiMessage.content) {
+      aiMessage.content = '抱歉，暂时无法回答您的问题，请稍后重试。'
+    }
+  } finally {
+    loading.value = false
+    nextTick(() => scrollToBottom())
+  }
+}
+
+/** 通过 SSE 流式读取后端回答，逐块追加到 aiMessage。 */
+async function streamAnswer(question: string, aiMessage: Message) {
+  const token = localStorage.getItem('token')
+  const resp = await fetch('/api/ai/ask/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ question }),
+  })
+
+  if (!resp.ok || !resp.body) {
+    throw new Error('stream request failed')
+  }
+
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+  let started = false
+  let eventName = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // SSE 以空行分隔事件，逐行解析
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/\r$/, '')
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim()
+      } else if (line.startsWith('data:')) {
+        const data = line.slice(5).trim()
+        if (!data) continue
+        handleSseEvent(eventName, data, aiMessage, () => {
+          if (!started) {
+            started = true
+            loading.value = false
+            messages.value.push(aiMessage)
+          }
+        })
+        scrollToBottom()
+      }
+    }
+  }
+}
+
+function handleSseEvent(
+  event: string,
+  data: string,
+  aiMessage: Message,
+  ensureMounted: () => void,
+) {
+  try {
+    if (event === 'sources') {
+      aiMessage.sources = JSON.parse(data)
+    } else if (event === 'delta') {
+      const { text } = JSON.parse(data)
+      ensureMounted()
+      aiMessage.content += text
+    } else if (event === 'error') {
+      ensureMounted()
+      const { message } = JSON.parse(data)
+      aiMessage.content = message || 'AI 服务暂时不可用。'
+    }
+    // done 事件无需特殊处理
+  } catch {
+    // 忽略解析失败的行
+  }
 }
 
 function scrollToBottom() {
@@ -176,7 +249,20 @@ function scrollToBottom() {
 
 onMounted(() => {
   scrollToBottom()
+  loadRecommendQuestions()
 })
+
+async function loadRecommendQuestions() {
+  try {
+    const res = await systemConfigApi.getPublic()
+    const list = res.data?.['ai.relatedQuestions']
+    if (Array.isArray(list) && list.length) {
+      recommendQuestions.value = list as string[]
+    }
+  } catch {
+    // 接口失败保留兜底默认
+  }
+}
 </script>
 
 <style scoped>
@@ -222,6 +308,23 @@ onMounted(() => {
   border-radius: 12px;
   line-height: 1.6;
   font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #8b5cf6;
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
 }
 
 .message-ai .message-text {

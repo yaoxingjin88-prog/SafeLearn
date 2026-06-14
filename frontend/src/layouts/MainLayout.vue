@@ -155,6 +155,7 @@ const adminMenus: NavMenu[] = [
     adminOnly: true,
     children: [
       { path: '/admin/users', title: '用户管理', icon: User },
+      { path: '/admin/settings', title: '系统设置', icon: Setting },
     ],
   },
 ]
@@ -171,6 +172,9 @@ const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/admin/learning')) {
     return '/admin/learning/courses'
+  }
+  if (path.startsWith('/admin/settings')) {
+    return '/admin/settings'
   }
   if (path.startsWith('/admin/users')) {
     return '/admin/users'

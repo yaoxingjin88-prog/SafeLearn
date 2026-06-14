@@ -30,15 +30,21 @@ public class TrainingService {
     private final UserRepository userRepo;
     private final UserProgressRepository progressRepo;
     private final ObjectMapper objectMapper;
+    private final SystemConfigService systemConfig;
 
     private static final int MASTERY_THRESHOLD = 60;
+
+    /** 掌握度解锁阈值，可由管理端配置覆盖。 */
+    private int masteryThreshold() {
+        return systemConfig.getInt("learning.masteryThreshold", MASTERY_THRESHOLD);
+    }
 
     public List<Map<String, Object>> getScenarios(String userId) {
         final Set<String> completedIds = userId != null
                 ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
                 : new HashSet<>();
         final Set<String> qualifiedIds = userId != null
-                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, masteryThreshold()))
                 : new HashSet<>();
         return scenarioRepo.findAll().stream()
                 .filter(s -> !isTestScenario(s))
@@ -76,10 +82,11 @@ public class TrainingService {
         if (!prereqIds.isEmpty()) {
             for (String prereqId : prereqIds) {
                 if (scenario.getDifficulty() != null && scenario.getDifficulty() > DifficultyLevel.BASIC) {
+                    int threshold = masteryThreshold();
                     boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedWithMastery(
-                            userId, prereqId, MASTERY_THRESHOLD);
+                            userId, prereqId, threshold);
                     if (!met) {
-                        throw new RuntimeException("请先完成前置章节并达到掌握度" + MASTERY_THRESHOLD + "%");
+                        throw new RuntimeException("请先完成前置章节并达到掌握度" + threshold + "%");
                     }
                 } else {
                     boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, prereqId);

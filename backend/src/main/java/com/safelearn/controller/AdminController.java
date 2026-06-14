@@ -5,6 +5,7 @@ import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseService;
 import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.DashboardService;
+import com.safelearn.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ public class AdminController {
     private final AdminCourseService adminCourseService;
     private final CourseCategoryService courseCategoryService;
     private final DashboardService dashboardService;
+    private final SystemConfigService systemConfigService;
 
     @GetMapping("/users")
     public ApiResponse<Map<String, Object>> getUsers() {
@@ -127,5 +129,24 @@ public class AdminController {
             @PathVariable String courseId,
             @PathVariable String chapterId) {
         return ApiResponse.success(adminCourseService.deleteChapter(courseId, chapterId));
+    }
+
+    // ---------- 系统配置 ----------
+
+    @GetMapping("/system-configs")
+    public ApiResponse<List<Map<String, Object>>> getSystemConfigs() {
+        return ApiResponse.success(systemConfigService.listAll());
+    }
+
+    @GetMapping("/system-configs/category/{category}")
+    public ApiResponse<List<Map<String, Object>>> getSystemConfigsByCategory(@PathVariable String category) {
+        return ApiResponse.success(systemConfigService.listByCategory(category));
+    }
+
+    @PutMapping("/system-configs/{id}")
+    public ApiResponse<Map<String, Object>> updateSystemConfig(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(systemConfigService.update(id, body));
     }
 }

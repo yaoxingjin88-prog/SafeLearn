@@ -23,8 +23,14 @@ public class CourseService {
     private final UserRepository userRepo;
     private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
+    private final SystemConfigService systemConfig;
 
     private static final int MASTERY_THRESHOLD = 60;
+
+    /** 掌握度解锁阈值，可由管理端配置覆盖。 */
+    private int masteryThreshold() {
+        return systemConfig.getInt("learning.masteryThreshold", MASTERY_THRESHOLD);
+    }
 
     public List<Map<String, Object>> getCourses(String category, String keyword, String userId) {
         List<Course> courses = courseRepo.findByFilters("published",
@@ -47,7 +53,7 @@ public class CourseService {
                 ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
                 : new HashSet<>();
         final Set<String> qualifiedIds = userId != null
-                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, masteryThreshold()))
                 : new HashSet<>();
 
         Map<String, Object> m = toCourseSummary(course, userId);
@@ -74,7 +80,7 @@ public class CourseService {
                 ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
                 : new HashSet<>();
         final Set<String> qualifiedIds = userId != null
-                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, masteryThreshold()))
                 : new HashSet<>();
 
         Map<String, Object> result = new HashMap<>();
@@ -100,10 +106,11 @@ public class CourseService {
         if (!prereqIds.isEmpty()) {
             for (String prereqId : prereqIds) {
                 if (needsMastery(chapter)) {
+                    int threshold = masteryThreshold();
                     boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedWithMastery(
-                            userId, prereqId, MASTERY_THRESHOLD);
+                            userId, prereqId, threshold);
                     if (!met) {
-                        throw new RuntimeException("请先完成前置章节并达到掌握度" + MASTERY_THRESHOLD + "%");
+                        throw new RuntimeException("请先完成前置章节并达到掌握度" + threshold + "%");
                     }
                 } else {
                     boolean met = progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, prereqId);
@@ -170,7 +177,7 @@ public class CourseService {
                 ? new HashSet<>(progressRepo.findCompletedChapterIdsByUserId(userId))
                 : new HashSet<>();
         final Set<String> qualifiedIds = userId != null
-                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, MASTERY_THRESHOLD))
+                ? new HashSet<>(progressRepo.findQualifiedChapterIdsByUserId(userId, masteryThreshold()))
                 : new HashSet<>();
 
         List<Map<String, Object>> basicNodes = new ArrayList<>();

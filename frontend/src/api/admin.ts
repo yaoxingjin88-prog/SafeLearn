@@ -53,4 +53,26 @@ export const adminApi = {
   deleteChapter(courseId: string, chapterId: string): Promise<ApiResponse<void>> {
     return request.delete(`/admin/courses/${courseId}/chapters/${chapterId}`)
   },
+
+  getSystemConfigs(): Promise<ApiResponse<SystemConfigItem[]>> {
+    return request.get('/admin/system-configs')
+  },
+
+  updateSystemConfig(id: string, data: { value: unknown }): Promise<ApiResponse<SystemConfigItem>> {
+    return request.put(`/admin/system-configs/${id}`, data)
+  },
+}
+
+export interface SystemConfigItem {
+  id: string
+  configKey: string
+  configValue: string
+  valueType: 'BOOLEAN' | 'INT' | 'STRING' | 'TEXT' | 'JSON_LIST' | 'JSON'
+  category: string
+  label: string
+  description: string
+  isPublic: boolean
+  isSensitive: boolean
+  editable: boolean
+  sortOrder: number
 }

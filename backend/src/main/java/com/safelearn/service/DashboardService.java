@@ -32,6 +32,7 @@ public class DashboardService {
     private final ScenarioRepository scenarioRepo;
     private final UserRepository userRepo;
     private final ObjectMapper objectMapper;
+    private final SystemConfigService systemConfig;
 
     private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -162,8 +163,14 @@ public class DashboardService {
         overview.put("deductionAvgScore", dedAvg != null ? Math.round(dedAvg * 10) / 10.0 : 0);
         overview.put("continueLearning", buildContinueLearning(userId, allProgress));
         overview.put("mandatoryTasks", buildMandatoryTasks(userId));
-        overview.put("recommendedCourses", buildRecommendedCourses(userId, publishedCourses));
+        boolean showRecommended = systemConfig.getBoolean("dashboard.showRecommendedCourses", true);
+        overview.put("recommendedCourses", showRecommended
+                ? buildRecommendedCourses(userId, publishedCourses) : List.of());
+        overview.put("showRecommendedCourses", showRecommended);
         overview.put("recentDeductions", buildRecentDeductions(userId));
+        // 管理端可配置的首页展示内容
+        overview.put("announcement", systemConfig.getString("dashboard.announcement", ""));
+        overview.put("recommendBanner", systemConfig.getJson("dashboard.recommendBanner", Map.of()));
         return overview;
     }
 

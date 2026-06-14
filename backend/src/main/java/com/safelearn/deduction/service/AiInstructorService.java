@@ -6,6 +6,7 @@ import com.safelearn.deduction.entity.SimulationDecision;
 import com.safelearn.deduction.entity.SimulationSession;
 import com.safelearn.deduction.repository.SimulationDecisionRepository;
 import com.safelearn.repository.KnowledgeBaseRepository;
+import com.safelearn.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -21,6 +22,7 @@ public class AiInstructorService {
     private final SimulationDecisionRepository decisionRepo;
     private final KnowledgeBaseRepository knowledgeRepo;
     private final ObjectMapper objectMapper;
+    private final SystemConfigService systemConfig;
 
     @Value("${app.ai.enabled:false}")
     private boolean aiEnabled;
@@ -34,11 +36,23 @@ public class AiInstructorService {
     @Value("${app.ai.model:gpt-4o-mini}")
     private String model;
 
+    private boolean aiEnabled() {
+        return systemConfig.getBoolean("ai.enabled", aiEnabled);
+    }
+
+    private String apiKey() {
+        return systemConfig.getString("ai.apiKey", apiKey);
+    }
+
+    private String aiModel() {
+        return systemConfig.getString("ai.model", model);
+    }
+
     public Map<String, Object> evaluate(SimulationSession session, int ruleScore) {
         List<SimulationDecision> decisions = decisionRepo.findBySessionIdOrderByElapsedMsAsc(session.getId());
         String decisionsJson = serializeDecisions(decisions);
 
-        if (aiEnabled && apiUrl != null && !apiUrl.isBlank() && apiKey != null && !apiKey.isBlank()) {
+        if (aiEnabled() && apiUrl != null && !apiUrl.isBlank() && apiKey() != null && !apiKey().isBlank()) {
             try {
                 Map<String, Object> llm = evaluateWithLlm(session, ruleScore, decisionsJson);
                 if (llm != null) return llm;
@@ -54,10 +68,10 @@ public class AiInstructorService {
         RestTemplate rest = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
+        headers.setBearerAuth(apiKey());
 
         Map<String, Object> body = Map.of(
-                "model", model,
+                "model", aiModel(),
                 "messages", List.of(Map.of("role", "user", "content", prompt)),
                 "temperature", 0.3
         );
