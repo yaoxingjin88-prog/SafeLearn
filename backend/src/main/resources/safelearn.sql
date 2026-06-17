@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     progress INT DEFAULT 0,
     completed TINYINT(1) DEFAULT 0,
     mastery_level INT DEFAULT 0 COMMENT '掌握度评级(0-100)',
+    study_seconds INT DEFAULT 0 COMMENT '累计有效学习时长(秒)',
     last_access_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
@@ -217,6 +218,24 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     INDEX idx_attempt_quiz (quiz_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 综合考试记录表（跨章节抽题快照）
+CREATE TABLE IF NOT EXISTS comprehensive_exam_attempts (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    course_id VARCHAR(36) NOT NULL,
+    questions JSON NOT NULL COMMENT '抽题快照',
+    answers JSON COMMENT '答题与错题',
+    score INT DEFAULT 0,
+    passed BOOLEAN DEFAULT FALSE,
+    pass_score INT DEFAULT 70,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    INDEX idx_comp_exam_user (user_id),
+    INDEX idx_comp_exam_course (course_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ========== 学习体验增强表 ==========
 
 CREATE TABLE IF NOT EXISTS user_notes (
@@ -244,13 +263,34 @@ CREATE TABLE IF NOT EXISTS user_favorites (
     INDEX idx_fav_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS certificate_templates (
+    code VARCHAR(32) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    badge_label VARCHAR(50) NOT NULL,
+    title_suffix VARCHAR(100) NOT NULL,
+    validity_months INT NOT NULL DEFAULT 24,
+    early_renew_days INT NOT NULL DEFAULT 30,
+    border_color VARCHAR(20),
+    accent_color VARCHAR(20),
+    header_title VARCHAR(50),
+    body_template TEXT,
+    renewal_requirement VARCHAR(30) DEFAULT 'comprehensive_exam',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS user_certificates (
     id CHAR(36) PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
     course_id CHAR(36) NOT NULL,
     title VARCHAR(200) NOT NULL,
     certificate_no VARCHAR(50) NOT NULL,
-    cert_level VARCHAR(20) NOT NULL DEFAULT 'advanced' COMMENT 'advanced/basic',
+    cert_level VARCHAR(20) NOT NULL DEFAULT 'advanced' COMMENT 'advanced/basic/professional',
+    template_code VARCHAR(32) DEFAULT 'advanced',
+    expires_at DATETIME DEFAULT NULL,
+    status VARCHAR(20) DEFAULT 'active' COMMENT 'active|expired|revoked',
+    renewal_count INT DEFAULT 0,
+    last_renewed_at DATETIME DEFAULT NULL,
+    issue_source VARCHAR(30) DEFAULT 'course_complete' COMMENT 'course_complete|comprehensive_exam|renewal',
     issued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,

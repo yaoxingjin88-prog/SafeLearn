@@ -10,43 +10,52 @@
 
     <el-card>
       <el-table :data="users" style="width: 100%">
-        <el-table-column prop="username" label="用户名" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column prop="role" label="角色" width="120">
+        <el-table-column label="用户" width="180">
+          <template #default="{ row }">
+            <div class="user-cell">
+              <el-avatar :size="32" :src="row.avatarUrl || undefined">{{ (row.username || '?').charAt(0) }}</el-avatar>
+              <span>{{ row.username }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="180" />
+        <el-table-column prop="phone" label="手机号" width="130">
+          <template #default="{ row }">{{ row.phone || '—' }}</template>
+        </el-table-column>
+        <el-table-column prop="role" label="角色" width="110">
           <template #default="{ row }">
             <el-tag :type="getRoleType(row.role)">{{ getRoleName(row.role) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="company" label="所属单位" width="150" />
-        <el-table-column prop="department" label="部门" width="120" />
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="department" label="部门" width="130" />
+        <el-table-column label="上次登录" width="170">
+          <template #default="{ row }">{{ formatTime(row.lastLoginAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="editUser(row)">编辑</el-button>
             <el-button type="danger" link @click="deleteUser(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="flex justify-end mt-4">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="100"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-        />
-      </div>
     </el-card>
 
-    <!-- 添加/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '添加用户'" width="500px">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '添加用户'" width="520px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="88px">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" />
+          <el-input v-model="form.username" placeholder="请输入用户名" :disabled="isEdit" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="form.phone" placeholder="请输入手机号" maxlength="20" />
+        </el-form-item>
+        <el-form-item v-if="!isEdit" label="初始密码" prop="password">
+          <el-input v-model="form.password" type="password" show-password placeholder="默认 123456" />
+        </el-form-item>
+        <el-form-item v-else label="重置密码">
+          <el-input v-model="form.password" type="password" show-password placeholder="留空则不修改" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="form.role" placeholder="请选择角色">
@@ -59,6 +68,9 @@
         </el-form-item>
         <el-form-item label="部门">
           <el-input v-model="form.department" placeholder="请输入部门" />
+        </el-form-item>
+        <el-form-item label="头像地址">
+          <el-input v-model="form.avatarUrl" placeholder="图片 URL（可选）" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -76,28 +88,21 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import request from '@/api/request'
 
-const currentPage = ref(1)
-const pageSize = ref(10)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref<FormInstance>()
-
 const users = ref<any[]>([])
-
-async function loadUsers() {
-  const res = await request.get('/admin/users')
-  users.value = res.data.items || res.data
-}
-
-onMounted(loadUsers)
 
 const form = reactive({
   id: '',
   username: '',
   email: '',
+  phone: '',
+  password: '',
   role: '',
   company: '',
   department: '',
+  avatarUrl: '',
 })
 
 const rules: FormRules = {
@@ -109,30 +114,39 @@ const rules: FormRules = {
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
 }
 
+function formatTime(v?: string) {
+  if (!v) return '—'
+  try {
+    return new Date(v).toLocaleString('zh-CN')
+  } catch {
+    return v
+  }
+}
+
+async function loadUsers() {
+  const res = await request.get('/admin/users')
+  users.value = res.data.items || res.data
+}
+
+onMounted(loadUsers)
+
 function getRoleType(role: string) {
-  const map: Record<string, string> = { admin: 'danger', trainee: '' }
-  return map[role] || ''
+  return role === 'admin' ? 'danger' : ''
 }
 
 function getRoleName(role: string) {
-  const map: Record<string, string> = { admin: '管理员', trainee: '培训人员' }
-  return map[role] || role
+  return role === 'admin' ? '管理员' : '培训人员'
 }
 
 function showAddDialog() {
   isEdit.value = false
-  form.id = ''
-  form.username = ''
-  form.email = ''
-  form.role = ''
-  form.company = ''
-  form.department = ''
+  Object.assign(form, { id: '', username: '', email: '', phone: '', password: '', role: '', company: '', department: '', avatarUrl: '' })
   dialogVisible.value = true
 }
 
 function editUser(user: any) {
   isEdit.value = true
-  Object.assign(form, user)
+  Object.assign(form, { ...user, password: '' })
   dialogVisible.value = true
 }
 
@@ -147,10 +161,21 @@ async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
+  const payload: Record<string, string> = {
+    username: form.username,
+    email: form.email,
+    role: form.role,
+    company: form.company,
+    department: form.department,
+    phone: form.phone,
+    avatarUrl: form.avatarUrl,
+  }
+  if (form.password) payload.password = form.password
+
   if (isEdit.value) {
-    await request.put(`/admin/users/${form.id}`, form)
+    await request.put(`/admin/users/${form.id}`, payload)
   } else {
-    await request.post('/admin/users', form)
+    await request.post('/admin/users', { ...payload, password: form.password || '123456' })
   }
 
   await loadUsers()
@@ -160,4 +185,9 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 </style>

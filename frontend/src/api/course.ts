@@ -28,6 +28,15 @@ export const courseApi = {
     return request.get(`/progress/${courseId}`)
   },
 
+  sendHeartbeat(data: {
+    courseId: string
+    chapterId: string
+    elapsedSeconds: number
+    progress?: number
+  }): Promise<ApiResponse<{ success: boolean; studySeconds?: number; progress?: number }>> {
+    return request.post('/progress/heartbeat', data)
+  },
+
   getCourseProgress(courseId: string): Promise<ApiResponse<UserProgress[]>> {
     return request.get(`/progress/${courseId}`)
   },

@@ -31,7 +31,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/health").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register",
+                        "/api/auth/forgot-password", "/api/auth/reset-password", "/api/health").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/system-configs/public").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/courses").permitAll()

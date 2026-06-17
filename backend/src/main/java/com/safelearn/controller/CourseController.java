@@ -1,6 +1,7 @@
 package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
+import com.safelearn.dto.ProgressHeartbeatRequest;
 import com.safelearn.dto.ProgressRequest;
 import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.CourseService;
@@ -52,6 +53,13 @@ public class CourseController {
     public ApiResponse<Map<String, Object>> updateProgress(Authentication auth, @RequestBody ProgressRequest req) {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(courseService.updateProgress(userId, req));
+    }
+
+    @PostMapping("/progress/heartbeat")
+    public ApiResponse<Map<String, Object>> heartbeatProgress(
+            Authentication auth, @RequestBody ProgressHeartbeatRequest req) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(courseService.heartbeatProgress(userId, req));
     }
 
     @GetMapping("/progress/{courseId}")

@@ -35,6 +35,26 @@ public class UserCertificate {
     @Column(name = "cert_level", nullable = false, length = 20)
     private String certLevel = "advanced";
 
+    @Column(name = "template_code", length = 32)
+    private String templateCode = "advanced";
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    /** active | expired | revoked */
+    @Column(length = 20)
+    private String status = "active";
+
+    @Column(name = "renewal_count")
+    private Integer renewalCount = 0;
+
+    @Column(name = "last_renewed_at")
+    private LocalDateTime lastRenewedAt;
+
+    /** course_complete | comprehensive_exam | renewal */
+    @Column(name = "issue_source", length = 30)
+    private String issueSource = "course_complete";
+
     @CreationTimestamp
     @Column(name = "issued_at", updatable = false)
     private LocalDateTime issuedAt;

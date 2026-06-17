@@ -54,6 +54,7 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item disabled>{{ userStore.userInfo?.company || '储能企业' }}</el-dropdown-item>
+              <el-dropdown-item @click="$router.push('/admin/account')">账号设置</el-dropdown-item>
               <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -77,14 +78,15 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                <el-dropdown-item @click="router.push('/admin/account')">账号设置</el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
       </el-header>
 
-      <div v-if="breadcrumbs.length" class="breadcrumb-bar">
+      <div v-if="breadcrumbs.length && route.path !== '/dashboard'" class="breadcrumb-bar">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="`${item.path ?? item.title}-${index}`"
             :to="item.path ? { path: item.path } : undefined">
@@ -93,7 +95,7 @@
         </el-breadcrumb>
       </div>
 
-      <el-main class="admin-main">
+      <el-main class="admin-main" :class="{ 'admin-main--dashboard': route.path === '/dashboard' }">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -108,7 +110,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Monitor, Setting, Fold, Expand, User, Platform, EditPen,
+  Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
@@ -137,26 +139,34 @@ interface NavMenu {
   adminOnly?: boolean
 }
 
-/** 管理端仅保留配置与系统能力，业务学习入口在学员端 */
+/**
+ * 管理端菜单按管理员工作流排列：
+ * 首页（看数据）→ 内容配置（配课程）→ 组织与账号（管用户）→ 系统设置（调平台）
+ */
 const adminMenus: NavMenu[] = [
   {
-    path: '/admin/learning',
-    title: '学员端配置',
-    icon: Platform,
+    path: '/admin/content',
+    title: '内容配置',
+    icon: Reading,
     adminOnly: true,
     children: [
-      { path: '/admin/learning/courses', title: '课程配置', icon: EditPen },
+      { path: '/admin/learning/courses', title: '课程管理', icon: EditPen },
     ],
   },
   {
-    path: '/admin',
-    title: '系统管理',
-    icon: Setting,
+    path: '/admin/org',
+    title: '组织与账号',
+    icon: UserFilled,
     adminOnly: true,
     children: [
       { path: '/admin/users', title: '用户管理', icon: User },
-      { path: '/admin/settings', title: '系统设置', icon: Setting },
     ],
+  },
+  {
+    path: '/admin/settings',
+    title: '系统设置',
+    icon: Setting,
+    adminOnly: true,
   },
 ]
 
@@ -674,9 +684,13 @@ onMounted(async () => {
 
 .admin-main {
   padding: 0;
-  background: #f5f7fa;
+  background: #f5f7fc;
   height: calc(100vh - 64px - 41px);
   overflow: auto;
+}
+
+.admin-main--dashboard {
+  height: calc(100vh - 64px);
 }
 
 .fade-enter-active,

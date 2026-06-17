@@ -12,4 +12,6 @@ public interface UserCertificateRepository extends JpaRepository<UserCertificate
     Optional<UserCertificate> findByUserIdAndCourseId(String userId, String courseId);
 
     Optional<UserCertificate> findByCertificateNo(String certificateNo);
+
+    long countByTemplateCode(String templateCode);
 }

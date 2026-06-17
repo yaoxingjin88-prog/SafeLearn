@@ -52,6 +52,9 @@
           >
             <div class="question-header">
               <span class="question-index">第 {{ index + 1 }} 题</span>
+              <el-tag v-if="item.sourceChapterTitle" type="info" size="small" effect="plain">
+                {{ item.sourceChapterTitle }}
+              </el-tag>
               <el-tag :type="item.correct ? 'success' : 'danger'" size="small">
                 {{ item.correct ? '正确' : '错误' }}
               </el-tag>
@@ -79,13 +82,13 @@
 
       <!-- 操作按钮 -->
       <div class="result-actions">
-        <el-button @click="goToChapter" size="large">
+        <el-button @click="goBack" size="large">
           <el-icon><ArrowLeft /></el-icon>
-          返回章节
+          {{ examType === 'comprehensive' ? '返回课程' : '返回章节' }}
         </el-button>
         <el-button v-if="!result.passed" @click="retryQuiz" type="primary" size="large">
           <el-icon><RefreshRight /></el-icon>
-          重新测验
+          {{ examType === 'comprehensive' ? '重新考试' : '重新测验' }}
         </el-button>
         <el-button @click="goToWrongQuestions" type="warning" size="large" plain>
           <el-icon><Notebook /></el-icon>
@@ -116,21 +119,23 @@ const loading = ref(true)
 const result = ref<QuizSubmitResult | null>(null)
 const chapterId = ref('')
 const courseId = ref('')
-const quizId = ref('')
+const examType = ref<'chapter' | 'comprehensive'>('chapter')
+const questionMap = ref<Record<string, string>>({})
 
 onMounted(async () => {
   try {
     chapterId.value = route.query.chapterId as string || ''
     courseId.value = route.query.courseId as string || ''
+    examType.value = route.query.examType === 'comprehensive' ? 'comprehensive' : 'chapter'
 
-    // 从 sessionStorage 获取结果（避免刷新丢失）
     const storedResult = sessionStorage.getItem('quizResult')
     if (storedResult) {
       result.value = JSON.parse(storedResult)
       sessionStorage.removeItem('quizResult')
+      buildQuestionMap()
     } else {
       ElMessage.warning('测验结果已过期')
-      goToChapter()
+      goBack()
     }
   } catch (error) {
     ElMessage.error('加载结果失败')
@@ -139,11 +144,22 @@ onMounted(async () => {
   }
 })
 
+function buildQuestionMap() {
+  questionMap.value = {}
+  if (!result.value) return
+  for (const q of result.value.wrongQuestions || []) {
+    questionMap.value[q.questionId] = q.question
+  }
+  for (const q of result.value.questions || []) {
+    questionMap.value[q.id] = q.question
+  }
+}
+
 function getQuestionText(questionId: string): string {
-  // 从结果中获取题目文本
   if (!result.value) return ''
   const wrongQ = result.value.wrongQuestions?.find(q => q.questionId === questionId)
   if (wrongQ) return wrongQ.question
+  if (questionMap.value[questionId]) return questionMap.value[questionId]
   return `题目 ${questionId}`
 }
 
@@ -165,8 +181,10 @@ function getRatingLabel(rating: string) {
   }
 }
 
-function goToChapter() {
-  if (courseId.value && chapterId.value) {
+function goBack() {
+  if (examType.value === 'comprehensive' && courseId.value) {
+    router.replace(p(`/courses/${courseId.value}`))
+  } else if (courseId.value && chapterId.value) {
     router.replace(p(`/courses/${courseId.value}/chapters/${chapterId.value}`))
   } else {
     router.replace(p('/courses/list'))
@@ -174,7 +192,9 @@ function goToChapter() {
 }
 
 function retryQuiz() {
-  if (chapterId.value) {
+  if (examType.value === 'comprehensive' && courseId.value) {
+    router.replace(p(`/courses/${courseId.value}/comprehensive-exam`))
+  } else if (chapterId.value) {
     router.replace(p(`/courses/${courseId.value}/chapters/${chapterId.value}/quiz`))
   }
 }

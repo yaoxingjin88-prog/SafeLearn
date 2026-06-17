@@ -32,6 +32,9 @@ app:
   jwt:
     secret: SafeLearnJwtSecretKey2026VeryLongAndSecureForHS256Algorithm
     expiration: 86400000
+  frontend-url: http://localhost:5173
+  mail:
+    dev-expose-token: true
   ai:
     enabled: true
     # 通义千问（DashScope）OpenAI 兼容模式

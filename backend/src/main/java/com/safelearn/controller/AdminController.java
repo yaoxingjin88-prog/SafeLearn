@@ -1,6 +1,7 @@
 package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
+import com.safelearn.service.AdminAnalyticsService;
 import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseService;
 import com.safelearn.service.CourseCategoryService;
@@ -17,6 +18,7 @@ import java.util.*;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminAnalyticsService adminAnalyticsService;
     private final AdminCourseService adminCourseService;
     private final CourseCategoryService courseCategoryService;
     private final DashboardService dashboardService;
@@ -51,6 +53,12 @@ public class AdminController {
     @GetMapping("/charts")
     public ApiResponse<Map<String, Object>> getCharts() {
         return ApiResponse.success(adminService.getCharts());
+    }
+
+    /** 管理端数据分析：学习效果、推演效果、活跃度、部门对比、AI、证书 */
+    @GetMapping("/analytics")
+    public ApiResponse<Map<String, Object>> getAnalytics() {
+        return ApiResponse.success(adminAnalyticsService.getAnalytics());
     }
 
     /** 学习总览：在线/总学习人数与各部门进度，用于管理端工作台。 */

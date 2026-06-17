@@ -3,6 +3,7 @@ package com.safelearn.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safelearn.common.DifficultyLevel;
+import com.safelearn.dto.ProgressHeartbeatRequest;
 import com.safelearn.dto.ProgressRequest;
 import com.safelearn.entity.*;
 import com.safelearn.repository.*;
@@ -151,6 +152,50 @@ public class CourseService {
         return result;
     }
 
+    /** 学习心跳：累加有效学习时长，同步阅读进度（不自动标记完成） */
+    public Map<String, Object> heartbeatProgress(String userId, ProgressHeartbeatRequest req) {
+        if (req.getCourseId() == null || req.getChapterId() == null) {
+            throw new RuntimeException("课程与章节不能为空");
+        }
+        int elapsed = req.getElapsedSeconds() != null ? req.getElapsedSeconds() : 30;
+        elapsed = Math.max(1, Math.min(elapsed, 120));
+
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
+        Course course = courseRepo.findById(req.getCourseId()).orElseThrow(() -> new RuntimeException("课程不存在"));
+        Chapter chapter = chapterRepo.findById(req.getChapterId()).orElseThrow(() -> new RuntimeException("章节不存在"));
+
+        UserProgress progress = progressRepo.findByUserIdAndChapterId(userId, req.getChapterId())
+                .orElseGet(() -> {
+                    UserProgress p = new UserProgress();
+                    p.setUser(user);
+                    p.setCourse(course);
+                    p.setChapter(chapter);
+                    p.setProgress(0);
+                    p.setCompleted(false);
+                    p.setMasteryLevel(0);
+                    p.setStudySeconds(0);
+                    return p;
+                });
+
+        int currentStudy = progress.getStudySeconds() != null ? progress.getStudySeconds() : 0;
+        progress.setStudySeconds(currentStudy + elapsed);
+        progress.setLastAccessAt(LocalDateTime.now());
+
+        if (!Boolean.TRUE.equals(progress.getCompleted()) && req.getProgress() != null) {
+            int reported = Math.max(0, Math.min(req.getProgress(), 99));
+            int current = progress.getProgress() != null ? progress.getProgress() : 0;
+            progress.setProgress(Math.max(current, reported));
+        }
+
+        progressRepo.save(progress);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("studySeconds", progress.getStudySeconds());
+        result.put("progress", progress.getProgress());
+        return result;
+    }
+
     public List<Map<String, Object>> getProgress(String userId, String courseId) {
         userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         courseRepo.findById(courseId).orElseThrow(() -> new RuntimeException("课程不存在"));
@@ -164,6 +209,7 @@ public class CourseService {
             m.put("progress", up.getProgress());
             m.put("completed", up.getCompleted());
             m.put("masteryLevel", up.getMasteryLevel());
+            m.put("studySeconds", up.getStudySeconds() != null ? up.getStudySeconds() : 0);
             m.put("lastAccessAt", up.getLastAccessAt() != null ? up.getLastAccessAt().toString() : null);
             m.put("completedAt", up.getCompleted() ? up.getLastAccessAt() != null ? up.getLastAccessAt().toString() : null : null);
             return m;

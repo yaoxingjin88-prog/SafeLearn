@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores'
 
-/** 管理端路由：工作台 + 学员端配置 + 系统管理 */
+/** 管理端路由：工作台 + 内容配置 + 组织与账号 + 系统设置 */
 const adminChildren: RouteRecordRaw[] = [
   {
     path: 'dashboard',
@@ -24,13 +24,13 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'admin/learning',
     name: 'AdminLearning',
     redirect: '/admin/learning/courses',
-    meta: { title: '学员端配置', roles: ['admin'] },
+    meta: { title: '内容配置', roles: ['admin'] },
     children: [
       {
         path: 'courses',
         name: 'LearningCourseConfig',
         component: () => import('@/pages/admin/CourseManage.vue'),
-        meta: { title: '课程配置' },
+        meta: { title: '课程管理' },
       },
     ],
   },
@@ -38,10 +38,11 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'admin',
     name: 'Admin',
     redirect: '/admin/users',
-    meta: { title: '系统管理', icon: 'Setting', roles: ['admin'] },
+    meta: { title: '组织与账号', icon: 'UserFilled', roles: ['admin'] },
     children: [
       { path: 'users', name: 'UserManage', component: () => import('@/pages/admin/UserManage.vue'), meta: { title: '用户管理' } },
       { path: 'settings', name: 'SystemSettings', component: () => import('@/pages/admin/SystemSettings.vue'), meta: { title: '系统设置' } },
+      { path: 'account', name: 'AdminAccount', component: () => import('@/pages/auth/AccountSettingsPage.vue'), meta: { title: '账号设置' } },
       { path: 'courses', redirect: '/admin/learning/courses' },
       { path: 'data', redirect: '/dashboard' },
     ],
@@ -79,6 +80,7 @@ const userChildren: RouteRecordRaw[] = [
       { path: ':id', name: 'UserCourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
       { path: ':courseId/chapters/:chapterId', name: 'UserChapterView', component: () => import('@/pages/courses/ChapterView.vue'), meta: { title: '章节学习', hidden: true } },
       { path: ':courseId/chapters/:chapterId/quiz', name: 'UserQuizView', component: () => import('@/pages/courses/QuizView.vue'), meta: { title: '章节测验', hidden: true } },
+      { path: ':courseId/comprehensive-exam', name: 'UserComprehensiveExam', component: () => import('@/pages/courses/ComprehensiveExamView.vue'), meta: { title: '综合考试', hidden: true } },
       { path: 'quiz/result/:attemptId', name: 'UserQuizResult', component: () => import('@/pages/courses/QuizResult.vue'), meta: { title: '测验结果', hidden: true } },
     ],
   },
@@ -128,6 +130,12 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'history', name: 'UserAIHistory', component: () => import('@/pages/ai/AIHistory.vue'), meta: { title: '问答历史' } },
     ],
   },
+  {
+    path: 'account',
+    name: 'UserAccount',
+    component: () => import('@/pages/auth/AccountSettingsPage.vue'),
+    meta: { title: '账号设置' },
+  },
 ]
 
 const routes: RouteRecordRaw[] = [
@@ -147,6 +155,18 @@ const routes: RouteRecordRaw[] = [
     path: '/register',
     name: 'Register',
     component: () => import('@/pages/auth/RegisterPage.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/pages/auth/ForgotPasswordPage.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('@/pages/auth/ResetPasswordPage.vue'),
     meta: { requiresAuth: false },
   },
   {

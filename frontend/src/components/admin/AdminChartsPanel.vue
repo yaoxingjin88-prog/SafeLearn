@@ -1,95 +1,31 @@
 <template>
-  <div class="admin-charts-panel">
-    <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon bg-blue-500">
-            <el-icon :size="32"><User /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.totalUsers }}</div>
-            <div class="stat-label">总用户数</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon bg-green-500">
-            <el-icon :size="32"><Reading /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.totalCourses }}</div>
-            <div class="stat-label">培训课程</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon bg-orange-500">
-            <el-icon :size="32"><Warning /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.totalSimulations }}</div>
-            <div class="stat-label">推演次数</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-icon bg-purple-500">
-            <el-icon :size="32"><Trophy /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.avgScore }}</div>
-            <div class="stat-label">平均分数</div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+  <div class="charts-panel">
+    <div class="charts-row">
+      <div class="chart-panel">
+        <div class="chart-panel-head">培训完成率</div>
+        <div ref="completionChart" class="chart-box" />
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-head">事故类型分布</div>
+        <div ref="accidentChart" class="chart-box" />
+      </div>
+    </div>
 
-    <el-row :gutter="20" class="mt-6">
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span class="font-bold">培训完成率</span>
-          </template>
-          <div ref="completionChart" class="chart-box"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span class="font-bold">事故类型分布</span>
-          </template>
-          <div ref="accidentChart" class="chart-box"></div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="20" class="mt-6">
-      <el-col :span="16">
-        <el-card>
-          <template #header>
-            <span class="font-bold">月度培训趋势</span>
-          </template>
-          <div ref="trendChart" class="chart-box"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <template #header>
-            <span class="font-bold">风险等级分布</span>
-          </template>
-          <div ref="riskChart" class="chart-box"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="charts-row charts-row--wide">
+      <div class="chart-panel chart-panel--wide">
+        <div class="chart-panel-head">月度培训趋势</div>
+        <div ref="trendChart" class="chart-box chart-box--tall" />
+      </div>
+      <div class="chart-panel chart-panel--narrow">
+        <div class="chart-panel-head">风险等级分布</div>
+        <div ref="riskChart" class="chart-box chart-box--tall" />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { User, Reading, Warning, Trophy } from '@element-plus/icons-vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 
@@ -100,13 +36,6 @@ const riskChart = ref<HTMLElement>()
 
 let charts: echarts.ECharts[] = []
 
-const stats = reactive({
-  totalUsers: 0,
-  totalCourses: 0,
-  totalSimulations: 0,
-  avgScore: 0,
-})
-
 const chartData = ref<{
   completion: { name: string; value: number; color: string }[]
   accidentTypes: { name: string; value: number; color: string }[]
@@ -116,16 +45,12 @@ const chartData = ref<{
 
 onMounted(async () => {
   try {
-    const [statsRes, chartsRes] = await Promise.all([
-      request.get('/admin/stats'),
-      request.get('/admin/charts'),
-    ])
-    Object.assign(stats, statsRes.data)
+    const chartsRes = await request.get('/admin/charts')
     chartData.value = chartsRes.data
     initCharts()
     window.addEventListener('resize', handleResize)
   } catch (err) {
-    console.warn('加载数据概览失败', err)
+    console.warn('加载图表数据失败', err)
   }
 })
 
@@ -154,14 +79,14 @@ function initCharts() {
     charts.push(chart)
     chart.setOption({
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0 },
+      legend: { bottom: 0, textStyle: { color: '#64748b', fontSize: 12 } },
       series: [{
         type: 'pie',
-        radius: ['40%', '70%'],
+        radius: ['42%', '68%'],
         avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+        itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
-        emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } },
+        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
         data: toPieData(chartData.value.completion),
       }],
     })
@@ -172,10 +97,10 @@ function initCharts() {
     charts.push(chart)
     chart.setOption({
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0 },
+      legend: { bottom: 0, textStyle: { color: '#64748b', fontSize: 12 } },
       series: [{
         type: 'pie',
-        radius: '50%',
+        radius: '58%',
         data: toPieData(chartData.value.accidentTypes),
       }],
     })
@@ -187,10 +112,19 @@ function initCharts() {
     charts.push(chart)
     chart.setOption({
       tooltip: { trigger: 'axis' },
-      legend: { data: ['培训人数', '推演次数'] },
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: { type: 'category', data: trend.months },
-      yAxis: { type: 'value' },
+      legend: { data: ['培训人数', '推演次数'], textStyle: { color: '#64748b' } },
+      grid: { left: '3%', right: '4%', bottom: '8%', top: '12%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: trend.months,
+        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        axisLabel: { color: '#64748b' },
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f1f5f9' } },
+        axisLabel: { color: '#64748b' },
+      },
       series: [
         {
           name: '培训人数',
@@ -198,6 +132,7 @@ function initCharts() {
           smooth: true,
           data: trend.trainingUsers,
           itemStyle: { color: '#3b82f6' },
+          areaStyle: { color: 'rgba(59, 130, 246, 0.08)' },
         },
         {
           name: '推演次数',
@@ -205,6 +140,7 @@ function initCharts() {
           smooth: true,
           data: trend.simulationCounts,
           itemStyle: { color: '#10b981' },
+          areaStyle: { color: 'rgba(16, 185, 129, 0.08)' },
         },
       ],
     })
@@ -215,17 +151,24 @@ function initCharts() {
     charts.push(chart)
     chart.setOption({
       tooltip: { trigger: 'axis' },
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '8%', top: '8%', containLabel: true },
       xAxis: {
         type: 'category',
         data: chartData.value.riskLevels.map(item => item.name),
+        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        axisLabel: { color: '#64748b', fontSize: 11 },
       },
-      yAxis: { type: 'value' },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f1f5f9' } },
+        axisLabel: { color: '#64748b' },
+      },
       series: [{
         type: 'bar',
+        barWidth: '48%',
         data: chartData.value.riskLevels.map(item => ({
           value: item.value,
-          itemStyle: { color: item.color },
+          itemStyle: { color: item.color, borderRadius: [4, 4, 0, 0] },
         })),
       }],
     })
@@ -234,44 +177,50 @@ function initCharts() {
 </script>
 
 <style scoped>
-.stat-card {
+.charts-panel {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.stat-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+.charts-row--wide {
+  grid-template-columns: 1.6fr 1fr;
 }
 
-.stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #1f2937;
+.chart-panel {
+  background: #fff;
+  border: 1px solid #e8edf3;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.stat-label {
+.chart-panel-head {
+  padding: 14px 18px 0;
   font-size: 14px;
-  color: #6b7280;
+  font-weight: 600;
+  color: #334155;
 }
 
 .chart-box {
+  height: 280px;
+  padding: 8px 12px 12px;
+}
+
+.chart-box--tall {
   height: 300px;
 }
 
-.mt-6 {
-  margin-top: 24px;
+@media (max-width: 960px) {
+  .charts-row,
+  .charts-row--wide {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

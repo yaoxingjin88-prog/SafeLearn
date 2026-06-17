@@ -2,8 +2,8 @@
   <div class="sl-page course-manage">
     <div class="sl-page-header">
       <div>
-        <h2 class="sl-page-title">学员课程配置</h2>
-        <p class="page-desc">配置学员端「安全培训」模块的课程、章节与学习路径，发布后学员即可在课程列表中学习。</p>
+        <h2 class="sl-page-title">课程管理</h2>
+        <p class="page-desc">配置学员端「安全培训」模块的课程、章节与分类，发布后学员即可在课程列表中学习。</p>
       </div>
       <div class="header-actions">
         <el-button @click="openUserPreview('/user/courses/list')">

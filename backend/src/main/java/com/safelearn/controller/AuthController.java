@@ -1,8 +1,7 @@
 package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
-import com.safelearn.dto.LoginRequest;
-import com.safelearn.dto.RegisterRequest;
+import com.safelearn.dto.*;
 import com.safelearn.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +37,34 @@ public class AuthController {
     public ApiResponse<Map<String, Object>> userInfo(Authentication auth) {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(authService.getUserInfo(userId));
+    }
+
+    @PutMapping("/profile")
+    public ApiResponse<Map<String, Object>> updateProfile(
+            Authentication auth,
+            @Valid @RequestBody UpdateProfileRequest req) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(authService.updateProfile(userId, req));
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Map<String, Object>> changePassword(
+            Authentication auth,
+            @Valid @RequestBody ChangePasswordRequest req) {
+        String userId = auth.getPrincipal().toString();
+        authService.changePassword(userId, req);
+        return ApiResponse.success(Map.of("message", "密码修改成功"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        return ApiResponse.success(authService.forgotPassword(req));
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Map<String, Object>> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req);
+        return ApiResponse.success(Map.of("message", "密码重置成功，请使用新密码登录"));
     }
 
     @PostMapping("/refresh")

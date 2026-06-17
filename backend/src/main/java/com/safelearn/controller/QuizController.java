@@ -83,4 +83,39 @@ public class QuizController {
     public ApiResponse<Map<String, Object>> getQuizDetail(@PathVariable String quizId) {
         return ApiResponse.success(quizService.getQuizDetail(quizId));
     }
+
+    /** 综合考试状态 */
+    @GetMapping("/comprehensive/{courseId}/status")
+    public ApiResponse<Map<String, Object>> getComprehensiveExamStatus(
+            Authentication auth, @PathVariable String courseId) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.getComprehensiveExamStatus(userId, courseId));
+    }
+
+    /** 开始综合考试 */
+    @PostMapping("/comprehensive/{courseId}/start")
+    public ApiResponse<Map<String, Object>> startComprehensiveExam(
+            Authentication auth, @PathVariable String courseId) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.startComprehensiveExam(userId, courseId));
+    }
+
+    /** 提交综合考试 */
+    @PostMapping("/comprehensive/attempts/{attemptId}/submit")
+    public ApiResponse<Map<String, Object>> submitComprehensiveExam(
+            Authentication auth,
+            @PathVariable String attemptId,
+            @RequestBody Map<String, Object> body) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.submitComprehensiveExam(userId, attemptId, body));
+    }
+
+    /** 综合考试历史 */
+    @GetMapping("/comprehensive/history")
+    public ApiResponse<List<Map<String, Object>>> getComprehensiveExamHistory(
+            Authentication auth,
+            @RequestParam String courseId) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.getComprehensiveExamHistory(userId, courseId));
+    }
 }

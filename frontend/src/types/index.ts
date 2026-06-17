@@ -6,7 +6,11 @@ export interface UserInfo {
   role: "admin" | "trainee";
   company?: string;
   department?: string;
+  phone?: string;
+  avatarUrl?: string;
   avatar?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }
 
 export interface LoginForm {
@@ -104,6 +108,7 @@ export interface UserProgress {
   progress: number;
   completed?: boolean;
   masteryLevel?: number;
+  studySeconds?: number;
   completedAt?: string;
   lastAccessAt: string;
 }

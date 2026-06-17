@@ -11,11 +11,14 @@ export interface QuizQuestion {
     correct?: boolean
   }>
   explanation?: string
+  sourceChapterId?: string
+  sourceChapterTitle?: string
 }
 
 export interface Quiz {
   id: string
-  chapterId: string
+  chapterId?: string
+  courseId?: string
   title: string
   passScore: number
   timeLimit: number | null
@@ -34,6 +37,8 @@ export interface QuizAttempt {
 
 export interface QuizSubmitResult {
   attemptId: string
+  examType?: 'chapter' | 'comprehensive'
+  courseId?: string
   score: number
   passed: boolean
   passScore: number
@@ -46,6 +51,7 @@ export interface QuizSubmitResult {
     userAnswer: string
     correctAnswer: string
     explanation: string
+    sourceChapterTitle?: string
   }>
   wrongQuestions: Array<{
     questionId: string
@@ -55,7 +61,10 @@ export interface QuizSubmitResult {
     correctAnswer: string
     explanation: string
     type: string
+    sourceChapterTitle?: string
+    sourceChapterId?: string
   }>
+  questions?: QuizQuestion[]
 }
 
 export interface WrongQuestionItem {
@@ -120,4 +129,40 @@ export function getWrongQuestions(): Promise<ApiResponse<WrongQuestionsData>> {
 /** 获取测验详情（含答案） */
 export function getQuizDetail(quizId: string): Promise<ApiResponse<Quiz>> {
   return request.get(`/quiz/${quizId}/detail`)
+}
+
+/** 综合考试状态 */
+export interface ComprehensiveExamStatus {
+  available: boolean
+  eligible: boolean
+  examPassed?: boolean
+  bestScore?: number
+  questionPoolSize: number
+  drawCount: number
+  passScore: number
+  timeLimit: number
+  completedChapterCount: number
+  totalChapterCount: number
+  requiredCompletionRatio: number
+  courseTitle?: string
+  eligibilityHint?: string
+}
+
+export function getComprehensiveExamStatus(courseId: string): Promise<ApiResponse<ComprehensiveExamStatus>> {
+  return request.get(`/quiz/comprehensive/${courseId}/status`)
+}
+
+/** 开始综合考试 */
+export function startComprehensiveExam(courseId: string): Promise<ApiResponse<{ attemptId: string; quiz: Quiz; startedAt: string }>> {
+  return request.post(`/quiz/comprehensive/${courseId}/start`)
+}
+
+/** 提交综合考试 */
+export function submitComprehensiveExam(attemptId: string, answers: Record<string, string>): Promise<ApiResponse<QuizSubmitResult>> {
+  return request.post(`/quiz/comprehensive/attempts/${attemptId}/submit`, { answers })
+}
+
+/** 综合考试历史 */
+export function getComprehensiveExamHistory(courseId: string): Promise<ApiResponse<QuizAttempt[]>> {
+  return request.get('/quiz/comprehensive/history', { params: { courseId } })
 }

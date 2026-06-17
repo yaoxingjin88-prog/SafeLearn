@@ -15,10 +15,27 @@ public class CertificateController {
 
     private final CertificateService certificateService;
 
+    @GetMapping("/templates")
+    public ApiResponse<List<Map<String, Object>>> templates() {
+        return ApiResponse.success(certificateService.listTemplates());
+    }
+
     @GetMapping("/mine")
     public ApiResponse<List<Map<String, Object>>> mine(Authentication auth) {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(certificateService.listMine(userId));
+    }
+
+    @GetMapping("/{id}/renewal")
+    public ApiResponse<Map<String, Object>> renewalStatus(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(certificateService.getRenewalStatus(userId, id));
+    }
+
+    @PostMapping("/{id}/renew")
+    public ApiResponse<Map<String, Object>> renew(Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(certificateService.renewCertificate(userId, id));
     }
 
     @GetMapping("/{id}")

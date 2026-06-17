@@ -273,6 +273,7 @@ import { courseApi } from '@/api/course'
 import { checkQuizExists } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 import { useCourseNavigation } from '@/composables/useCourseNavigation'
+import { useLearningHeartbeat } from '@/composables/useLearningHeartbeat'
 import NotePanel from '@/components/learning/NotePanel.vue'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
 
@@ -298,6 +299,24 @@ const chapterProgress = ref(0)
 const readProgress = ref(0)
 const contentRef = ref<HTMLElement | null>(null)
 const keywords = ref<string[]>([])
+
+const heartbeatCourseId = computed(() => route.params.courseId as string)
+const heartbeatChapterId = computed(() => route.params.chapterId as string)
+const heartbeatProgress = computed(() =>
+  Math.max(readProgress.value, chapterProgress.value),
+)
+
+useLearningHeartbeat({
+  courseId: heartbeatCourseId,
+  chapterId: heartbeatChapterId,
+  progress: heartbeatProgress,
+  enabled: computed(() => !loading.value && !!heartbeatChapterId.value),
+  onSynced: (result) => {
+    if (result.progress != null && result.progress > chapterProgress.value) {
+      chapterProgress.value = result.progress
+    }
+  },
+})
 
 // 从内容中的 <strong> 标签自动提取关键词
 function extractKeywords(html: string) {

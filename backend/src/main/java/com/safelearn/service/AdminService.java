@@ -52,6 +52,11 @@ public class AdminService {
         if (data.containsKey("role")) user.setRole((String) data.get("role"));
         if (data.containsKey("company")) user.setCompany((String) data.get("company"));
         if (data.containsKey("department")) user.setDepartment((String) data.get("department"));
+        if (data.containsKey("phone")) user.setPhone((String) data.get("phone"));
+        if (data.containsKey("avatarUrl")) user.setAvatarUrl((String) data.get("avatarUrl"));
+        if (data.containsKey("password") && data.get("password") != null && !((String) data.get("password")).isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode((String) data.get("password")));
+        }
         userRepo.save(user);
         return Map.of("success", true);
     }
@@ -210,6 +215,9 @@ public class AdminService {
         m.put("role", u.getRole());
         m.put("company", u.getCompany());
         m.put("department", u.getDepartment());
+        m.put("phone", u.getPhone());
+        m.put("avatarUrl", u.getAvatarUrl());
+        m.put("lastLoginAt", u.getLastLoginAt() != null ? u.getLastLoginAt().toString() : null);
         m.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : null);
         return m;
     }

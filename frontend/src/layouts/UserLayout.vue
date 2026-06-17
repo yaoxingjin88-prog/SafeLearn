@@ -40,18 +40,22 @@
             </el-sub-menu>
           </template>
 
-          <el-sub-menu v-if="isAdmin" index="/admin" class="nav-group nav-admin">
+          <el-sub-menu v-if="isAdmin" index="/admin-nav" class="nav-group nav-admin">
             <template #title>
               <el-icon class="nav-top-icon"><Setting /></el-icon>
-              <span class="nav-top-label">系统管理</span>
+              <span class="nav-top-label">管理后台</span>
             </template>
             <el-menu-item index="/admin/learning/courses" class="nav-sub-item">
               <el-icon class="nav-sub-icon"><EditPen /></el-icon>
-              <template #title>课程配置</template>
+              <template #title>课程管理</template>
             </el-menu-item>
             <el-menu-item index="/admin/users" class="nav-sub-item">
               <el-icon class="nav-sub-icon"><User /></el-icon>
               <template #title>用户管理</template>
+            </el-menu-item>
+            <el-menu-item index="/admin/settings" class="nav-sub-item">
+              <el-icon class="nav-sub-icon"><Setting /></el-icon>
+              <template #title>系统设置</template>
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
@@ -69,6 +73,7 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item disabled>{{ userStore.userInfo?.company || '储能企业' }}</el-dropdown-item>
+              <el-dropdown-item @click="$router.push('/user/account')">账号设置</el-dropdown-item>
               <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -172,7 +177,8 @@ function resolveActiveMenu(path: string): string {
   if (path.startsWith('/user/ai/')) return '/user/ai/chat'
   if (path.startsWith('/user/learning/')) return path
   if (path.startsWith('/admin/learning')) return '/admin/learning/courses'
-  if (path.startsWith('/admin/')) return '/admin/users'
+  if (path.startsWith('/admin/settings')) return '/admin/settings'
+  if (path.startsWith('/admin/users')) return '/admin/users'
 
   return path
 }
@@ -270,11 +276,12 @@ const breadcrumbMenus = computed(() => {
   }))
   if (isAdmin.value) {
     menus.push({
-      path: '/admin',
-      title: '系统管理',
+      path: '/admin-nav',
+      title: '管理后台',
       children: [
-        { path: '/admin/learning/courses', title: '课程配置' },
+        { path: '/admin/learning/courses', title: '课程管理' },
         { path: '/admin/users', title: '用户管理' },
+        { path: '/admin/settings', title: '系统设置' },
       ],
     })
   }
@@ -293,8 +300,8 @@ function resolveOpenIndex(path: string): string | null {
       return menu.path
     }
   }
-  if (isAdmin.value && (active.startsWith('/admin/learning') || active.startsWith('/admin/'))) {
-    return '/admin'
+  if (isAdmin.value && active.startsWith('/admin')) {
+    return '/admin-nav'
   }
   return null
 }

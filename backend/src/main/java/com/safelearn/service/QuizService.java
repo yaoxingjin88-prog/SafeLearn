@@ -17,7 +17,14 @@ import java.util.*;
 @RequiredArgsConstructor
 public class QuizService {
 
+    private static final int COMPREHENSIVE_DRAW_COUNT = 20;
+    private static final int COMPREHENSIVE_PASS_SCORE = 70;
+    private static final int COMPREHENSIVE_TIME_LIMIT = 45;
+    private static final int COMPREHENSIVE_MIN_POOL = 5;
+    private static final double COMPREHENSIVE_MIN_COMPLETION_RATIO = 0.6;
+
     private final ChapterQuizRepository quizRepo;
+    private final ComprehensiveExamAttemptRepository comprehensiveAttemptRepo;
     private final QuizAttemptRepository attemptRepo;
     private final UserRepository userRepo;
     private final UserProgressRepository progressRepo;
@@ -295,6 +302,209 @@ public class QuizService {
         return sanitizeQuiz(quiz);
     }
 
+    // ========== 综合考试 ==========
+
+    public Map<String, Object> getComprehensiveExamStatus(String userId, String courseId) {
+        Course course = courseRepo.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("课程不存在"));
+        List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
+        int totalChapters = chapters.size();
+        long completedCount = chapters.stream()
+                .filter(ch -> progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, ch.getId()))
+                .count();
+
+        int poolSize = countQuestionPool(courseId);
+        boolean available = poolSize >= COMPREHENSIVE_MIN_POOL;
+        boolean eligible = available && totalChapters > 0
+                && completedCount >= Math.ceil(totalChapters * COMPREHENSIVE_MIN_COMPLETION_RATIO);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("available", available);
+        result.put("eligible", eligible);
+        result.put("questionPoolSize", poolSize);
+        result.put("drawCount", Math.min(COMPREHENSIVE_DRAW_COUNT, poolSize));
+        result.put("passScore", COMPREHENSIVE_PASS_SCORE);
+        result.put("timeLimit", COMPREHENSIVE_TIME_LIMIT);
+        result.put("completedChapterCount", completedCount);
+        result.put("totalChapterCount", totalChapters);
+        result.put("requiredCompletionRatio", COMPREHENSIVE_MIN_COMPLETION_RATIO);
+        result.put("courseTitle", course.getTitle());
+
+        if (!available) {
+            result.put("eligibilityHint", "课程章节测验不足，暂无法参加综合考试");
+        } else if (!eligible) {
+            int required = (int) Math.ceil(totalChapters * COMPREHENSIVE_MIN_COMPLETION_RATIO);
+            result.put("eligibilityHint", "需完成至少 " + required + " 个章节（当前 " + completedCount + " 个）");
+        }
+
+        comprehensiveAttemptRepo.findTopByUserIdAndCourseIdAndPassedTrueOrderByScoreDesc(userId, courseId)
+                .ifPresentOrElse(attempt -> {
+                    result.put("examPassed", true);
+                    result.put("bestScore", attempt.getScore());
+                }, () -> {
+                    result.put("examPassed", false);
+                    List<ComprehensiveExamAttempt> attempts =
+                            comprehensiveAttemptRepo.findByUserIdAndCourseIdOrderByStartedAtDesc(userId, courseId);
+                    attempts.stream()
+                            .filter(a -> a.getCompletedAt() != null)
+                            .mapToInt(a -> a.getScore() != null ? a.getScore() : 0)
+                            .max()
+                            .ifPresent(best -> result.put("bestScore", best));
+                });
+
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> startComprehensiveExam(String userId, String courseId) {
+        Map<String, Object> status = getComprehensiveExamStatus(userId, courseId);
+        if (!Boolean.TRUE.equals(status.get("available"))) {
+            throw new RuntimeException("该课程暂不支持综合考试");
+        }
+        if (!Boolean.TRUE.equals(status.get("eligible"))) {
+            throw new RuntimeException((String) status.getOrDefault("eligibilityHint", "暂不符合参加条件"));
+        }
+        if (Boolean.TRUE.equals(status.get("examPassed"))) {
+            throw new RuntimeException("综合考试已通过，无需重复参加");
+        }
+
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        Course course = courseRepo.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("课程不存在"));
+
+        int drawCount = (int) status.get("drawCount");
+        List<Map<String, Object>> drawn = drawCrossChapterQuestions(courseId, drawCount);
+        if (drawn.isEmpty()) {
+            throw new RuntimeException("题库为空，无法开始综合考试");
+        }
+
+        ComprehensiveExamAttempt attempt = new ComprehensiveExamAttempt();
+        attempt.setId(UUID.randomUUID().toString());
+        attempt.setUser(user);
+        attempt.setCourseId(courseId);
+        attempt.setQuestions(toJson(drawn));
+        attempt.setPassScore(COMPREHENSIVE_PASS_SCORE);
+        attempt = comprehensiveAttemptRepo.save(attempt);
+
+        Map<String, Object> quiz = new LinkedHashMap<>();
+        quiz.put("id", "comprehensive-" + courseId);
+        quiz.put("courseId", courseId);
+        quiz.put("title", "综合考试：" + course.getTitle());
+        quiz.put("passScore", COMPREHENSIVE_PASS_SCORE);
+        quiz.put("timeLimit", COMPREHENSIVE_TIME_LIMIT);
+        quiz.put("questions", sanitizeDrawnQuestions(drawn));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("attemptId", attempt.getId());
+        result.put("quiz", quiz);
+        result.put("startedAt", attempt.getStartedAt());
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> submitComprehensiveExam(String userId, String attemptId, Map<String, Object> userAnswers) {
+        ComprehensiveExamAttempt attempt = comprehensiveAttemptRepo.findById(attemptId)
+                .orElseThrow(() -> new RuntimeException("考试记录不存在"));
+
+        if (!attempt.getUser().getId().equals(userId)) {
+            throw new RuntimeException("无权操作该考试记录");
+        }
+        if (attempt.getCompletedAt() != null) {
+            throw new RuntimeException("该考试已提交");
+        }
+
+        List<Map<String, Object>> questions = parseQuestions(attempt.getQuestions());
+        int passScore = attempt.getPassScore() != null ? attempt.getPassScore() : COMPREHENSIVE_PASS_SCORE;
+
+        int totalScore = 0;
+        List<Map<String, Object>> results = new ArrayList<>();
+        List<Map<String, Object>> wrongQuestions = new ArrayList<>();
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> answers = (Map<String, String>) userAnswers.get("answers");
+
+        for (Map<String, Object> q : questions) {
+            String questionId = (String) q.get("id");
+            String userAnswer = answers != null ? answers.get(questionId) : null;
+            boolean correct = checkAnswer(q, userAnswer);
+            int questionScore = correct ? (100 / questions.size()) : 0;
+            totalScore += questionScore;
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("questionId", questionId);
+            result.put("correct", correct);
+            result.put("userAnswer", userAnswer);
+            result.put("correctAnswer", getCorrectAnswer(q));
+            result.put("explanation", q.get("explanation"));
+            result.put("sourceChapterTitle", q.get("sourceChapterTitle"));
+            results.add(result);
+
+            if (!correct) {
+                Map<String, Object> wrong = new LinkedHashMap<>();
+                wrong.put("questionId", questionId);
+                wrong.put("question", q.get("question"));
+                wrong.put("options", q.get("options"));
+                wrong.put("userAnswer", userAnswer);
+                wrong.put("correctAnswer", getCorrectAnswer(q));
+                wrong.put("explanation", q.get("explanation"));
+                wrong.put("type", q.get("type"));
+                wrong.put("sourceChapterTitle", q.get("sourceChapterTitle"));
+                wrong.put("sourceChapterId", q.get("sourceChapterId"));
+                wrongQuestions.add(wrong);
+            }
+        }
+
+        totalScore = Math.min(totalScore, 100);
+        boolean passed = totalScore >= passScore;
+
+        Map<String, Object> answersData = new HashMap<>();
+        answersData.put("answers", answers);
+        answersData.put("results", results);
+        answersData.put("wrongQuestions", wrongQuestions);
+
+        attempt.setAnswers(toJson(answersData));
+        attempt.setScore(totalScore);
+        attempt.setPassed(passed);
+        attempt.setCompletedAt(LocalDateTime.now());
+        comprehensiveAttemptRepo.save(attempt);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("attemptId", attempt.getId());
+        response.put("examType", "comprehensive");
+        response.put("courseId", attempt.getCourseId());
+        response.put("score", totalScore);
+        response.put("passed", passed);
+        response.put("passScore", passScore);
+        response.put("masteryLevel", totalScore);
+        response.put("rating", calculateRating(totalScore));
+        response.put("feedback", buildComprehensiveFeedback(totalScore, wrongQuestions.size(), questions.size(), passed));
+        response.put("results", results);
+        response.put("wrongQuestions", wrongQuestions);
+        response.put("questions", sanitizeDrawnQuestions(questions));
+
+        if (passed) {
+            certificateService.tryIssueOnComprehensiveExamPass(userId, attempt.getCourseId(), totalScore)
+                    .ifPresent(cert -> response.put("newCertificate", cert));
+        }
+
+        return response;
+    }
+
+    public List<Map<String, Object>> getComprehensiveExamHistory(String userId, String courseId) {
+        return comprehensiveAttemptRepo.findByUserIdAndCourseIdOrderByStartedAtDesc(userId, courseId).stream()
+                .map(a -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", a.getId());
+                    m.put("courseId", a.getCourseId());
+                    m.put("score", a.getScore());
+                    m.put("passed", a.getPassed());
+                    m.put("startedAt", a.getStartedAt());
+                    m.put("completedAt", a.getCompletedAt());
+                    return m;
+                }).toList();
+    }
+
     // ========== 私有辅助方法 ==========
 
     private void markChapterCompleted(String userId, String chapterId, int masteryLevel) {
@@ -485,6 +695,95 @@ public class QuizService {
         }
 
         return feedback.toString();
+    }
+
+    private String buildComprehensiveFeedback(int score, int wrongCount, int totalCount, boolean passed) {
+        String base = buildFeedback(score, wrongCount, totalCount, passed);
+        return "综合考试：" + base;
+    }
+
+    private int countQuestionPool(String courseId) {
+        List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
+        if (chapters.isEmpty()) return 0;
+        List<String> chapterIds = chapters.stream().map(Chapter::getId).toList();
+        List<ChapterQuiz> quizzes = quizRepo.findByChapterIdIn(chapterIds);
+        int total = 0;
+        for (ChapterQuiz quiz : quizzes) {
+            total += parseQuestions(quiz.getQuestions()).size();
+        }
+        return total;
+    }
+
+    private List<Map<String, Object>> drawCrossChapterQuestions(String courseId, int drawCount) {
+        List<Chapter> chapters = chapterRepo.findByCourseIdOrderByOrderNumAsc(courseId);
+        Map<String, String> chapterTitles = new HashMap<>();
+        for (Chapter ch : chapters) {
+            chapterTitles.put(ch.getId(), ch.getTitle());
+        }
+
+        List<String> chapterIds = chapters.stream().map(Chapter::getId).toList();
+        List<ChapterQuiz> quizzes = quizRepo.findByChapterIdIn(chapterIds);
+
+        Map<String, List<Map<String, Object>>> byChapter = new LinkedHashMap<>();
+        for (ChapterQuiz quiz : quizzes) {
+            String chapterId = quiz.getChapterId();
+            List<Map<String, Object>> chapterQuestions = new ArrayList<>();
+            for (Map<String, Object> q : parseQuestions(quiz.getQuestions())) {
+                Map<String, Object> copy = new LinkedHashMap<>(q);
+                String originalId = (String) copy.get("id");
+                copy.put("sourceChapterId", chapterId);
+                copy.put("sourceChapterTitle", chapterTitles.getOrDefault(chapterId, "未知章节"));
+                copy.put("id", chapterId + "__" + originalId);
+                chapterQuestions.add(copy);
+            }
+            if (!chapterQuestions.isEmpty()) {
+                Collections.shuffle(chapterQuestions);
+                byChapter.put(chapterId, chapterQuestions);
+            }
+        }
+
+        List<Map<String, Object>> drawn = new ArrayList<>();
+        List<String> chapterKeys = new ArrayList<>(byChapter.keySet());
+        Collections.shuffle(chapterKeys);
+
+        // 先按章节轮询，保证跨章节覆盖
+        int safety = 0;
+        while (drawn.size() < drawCount && safety++ < drawCount * chapterKeys.size() + 10) {
+            boolean added = false;
+            for (String chapterId : chapterKeys) {
+                List<Map<String, Object>> pool = byChapter.get(chapterId);
+                if (pool == null || pool.isEmpty()) continue;
+                drawn.add(pool.remove(0));
+                added = true;
+                if (drawn.size() >= drawCount) break;
+            }
+            if (!added) break;
+        }
+
+        Collections.shuffle(drawn);
+        return drawn.size() > drawCount ? drawn.subList(0, drawCount) : drawn;
+    }
+
+    private List<Map<String, Object>> sanitizeDrawnQuestions(List<Map<String, Object>> questions) {
+        return questions.stream().map(q -> {
+            Map<String, Object> sanitized = new LinkedHashMap<>();
+            sanitized.put("id", q.get("id"));
+            sanitized.put("type", q.get("type"));
+            sanitized.put("question", q.get("question"));
+            sanitized.put("sourceChapterId", q.get("sourceChapterId"));
+            sanitized.put("sourceChapterTitle", q.get("sourceChapterTitle"));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> options = (List<Map<String, Object>>) q.get("options");
+            if (options != null) {
+                sanitized.put("options", options.stream().map(opt -> {
+                    Map<String, Object> cleanOpt = new LinkedHashMap<>();
+                    cleanOpt.put("id", opt.get("id"));
+                    cleanOpt.put("text", opt.get("text"));
+                    return cleanOpt;
+                }).toList());
+            }
+            return sanitized;
+        }).toList();
     }
 
     private Map<String, Object> toAttemptInfo(QuizAttempt a) {

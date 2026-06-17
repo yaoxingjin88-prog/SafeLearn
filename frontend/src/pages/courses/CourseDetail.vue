@@ -258,6 +258,43 @@
             </el-alert>
           </el-card>
 
+          <!-- 综合考试 -->
+          <el-card v-if="examStatus.available" class="comprehensive-exam-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">综合考试</span>
+                <el-tag v-if="examStatus.examPassed" type="success" size="small">已通过</el-tag>
+              </div>
+            </template>
+            <div class="exam-info">
+              <p class="exam-desc">从各章节题库随机抽题，检验跨章节综合能力</p>
+              <div class="exam-meta">
+                <span>{{ examStatus.drawCount }} 题 / {{ examStatus.timeLimit }} 分钟</span>
+                <span>及格 {{ examStatus.passScore }} 分</span>
+              </div>
+              <div v-if="examStatus.bestScore != null" class="exam-best">
+                历史最高：{{ examStatus.bestScore }} 分
+              </div>
+              <el-alert
+                v-if="!examStatus.eligible && examStatus.eligibilityHint"
+                :title="examStatus.eligibilityHint"
+                type="info"
+                :closable="false"
+                show-icon
+                class="exam-hint"
+              />
+              <el-button
+                type="warning"
+                class="w-full"
+                size="large"
+                :disabled="!examStatus.eligible || examStatus.examPassed"
+                @click="goToComprehensiveExam"
+              >
+                {{ examStatus.examPassed ? '已通过综合考试' : '参加综合考试' }}
+              </el-button>
+            </div>
+          </el-card>
+
           <!-- 课程简介卡片 -->
           <el-card class="description-card">
             <template #header>
@@ -352,6 +389,7 @@ import {
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { courseApi } from '@/api/course'
+import { getComprehensiveExamStatus, type ComprehensiveExamStatus } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
@@ -386,6 +424,17 @@ const masteryLevel = ref(0)
 const reviews = ref<any[]>([])
 const relatedCourses = ref<any[]>([])
 const courseTags = ref<string[]>([])
+const examStatus = ref<ComprehensiveExamStatus>({
+  available: false,
+  eligible: false,
+  questionPoolSize: 0,
+  drawCount: 0,
+  passScore: 70,
+  timeLimit: 45,
+  completedChapterCount: 0,
+  totalChapterCount: 0,
+  requiredCompletionRatio: 0.6,
+})
 
 const reviewForm = ref({
   rating: 5,
@@ -509,8 +558,12 @@ function printCourse() {
 }
 
 function viewProgressDetail() {
-  // 查看进度详情
   ElMessage.info('查看进度详情功能开发中')
+}
+
+function goToComprehensiveExam() {
+  if (!examStatus.value.eligible || examStatus.value.examPassed) return
+  router.push(p(`/courses/${course.value.id}/comprehensive-exam`))
 }
 
 function submitReview() {
@@ -523,11 +576,15 @@ onMounted(async () => {
   const id = route.params.id as string
   loading.value = true
   try {
-    const [detailRes, progressRes] = await Promise.all([
+    const [detailRes, progressRes, examRes] = await Promise.all([
       request.get(`/courses/${id}`),
       courseApi.getProgress(id).catch(() => ({ data: [] } as any)),
+      getComprehensiveExamStatus(id).catch(() => ({ data: null } as any)),
     ])
     course.value = detailRes.data
+    if (examRes.data) {
+      examStatus.value = examRes.data
+    }
     progressMap.value = {}
     completedChapters.value = 0
     ;(progressRes.data || []).forEach((p: any) => {
@@ -962,10 +1019,40 @@ onMounted(async () => {
 }
 
 .progress-card,
+.comprehensive-exam-card,
 .description-card,
 .related-card {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.exam-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exam-desc {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.exam-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #909399;
+}
+
+.exam-best {
+  font-size: 13px;
+  color: #e6a23c;
+}
+
+.exam-hint {
+  margin-bottom: 4px;
 }
 
 .progress-container {

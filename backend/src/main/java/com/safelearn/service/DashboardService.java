@@ -642,6 +642,9 @@ public class DashboardService {
     }
 
     private int chapterStudiedMinutes(UserProgress p) {
+        if (p.getStudySeconds() != null && p.getStudySeconds() > 0) {
+            return (int) Math.ceil(p.getStudySeconds() / 60.0);
+        }
         int duration = p.getChapter() != null && p.getChapter().getDuration() != null
                 ? p.getChapter().getDuration() : 30;
         if (Boolean.TRUE.equals(p.getCompleted())) return duration;

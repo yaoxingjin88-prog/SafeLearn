@@ -41,6 +41,10 @@ public class UserProgress {
     @Column(name = "mastery_level")
     private Integer masteryLevel = 0;
 
+    /** 累计有效学习时长（秒），由心跳上报累加 */
+    @Column(name = "study_seconds")
+    private Integer studySeconds = 0;
+
     @Column(name = "last_access_at")
     @UpdateTimestamp
     private LocalDateTime lastAccessAt;

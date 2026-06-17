@@ -92,7 +92,7 @@
             <div class="field">
               <div class="field-label-row">
                 <label>PASSWORD / 密码</label>
-                <a href="#" class="forgot-link" @click.prevent>忘记密码?</a>
+                <a href="#" class="forgot-link" @click.prevent="goForgot">忘记密码?</a>
               </div>
               <div class="input-wrap">
                 <svg class="input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,6 +155,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const props = defineProps<{
   isAdmin?: boolean
@@ -167,6 +168,7 @@ const emit = defineEmits<{
 }>()
 
 const isAdmin = computed(() => props.isAdmin ?? false)
+const router = useRouter()
 const showPassword = ref(false)
 const currentCharge = ref(78)
 
@@ -218,6 +220,10 @@ function fillDemo() {
     form.username = 'zhanggong'
     form.password = 'admin123'
   }
+}
+
+function goForgot() {
+  router.push('/forgot-password')
 }
 
 function handleSubmit() {
