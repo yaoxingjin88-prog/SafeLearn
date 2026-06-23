@@ -80,6 +80,10 @@ public class AiService {
         return systemConfig.getString("ai.apiKey", apiKey);
     }
 
+    private String apiUrlResolved() {
+        return systemConfig.getString("ai.apiUrl", apiUrl);
+    }
+
     private String aiModel() {
         return systemConfig.getString("ai.model", model);
     }
@@ -101,16 +105,7 @@ public class AiService {
         SseEmitter emitter = new SseEmitter(120_000L);
 
         List<ScoredKnowledge> matches = searchKnowledge(question);
-        List<Map<String, Object>> sources = matches.stream()
-                .limit(3)
-                .map(m -> {
-                    Map<String, Object> source = new LinkedHashMap<>();
-                    source.put("id", m.entry.getId());
-                    source.put("title", m.entry.getTitle());
-                    source.put("relevance", Math.round(m.score * 100.0) / 100.0);
-                    return source;
-                })
-                .toList();
+        List<Map<String, Object>> sources = buildSources(matches);
 
         streamExecutor.execute(() -> {
             StringBuilder full = new StringBuilder();
@@ -118,14 +113,16 @@ public class AiService {
                 emitter.send(SseEmitter.event().name("sources").data(sources));
 
                 boolean streamed = false;
-                if (aiEnabled() && apiUrl != null && !apiUrl.isBlank() && apiKey() != null && !apiKey().isBlank()) {
-                    streamed = streamWithQwen(question, matches, emitter, full);
+                String resolvedUrl = apiUrlResolved();
+                if (aiEnabled() && resolvedUrl != null && !resolvedUrl.isBlank()
+                        && apiKey() != null && !apiKey().isBlank()) {
+                    streamed = streamWithQwen(question, matches, resolvedUrl, emitter, full);
                 }
-                if (!streamed) {
-                    // 千问不可用：回退本地答案，仍按 delta 一次性发出
-                    String fallback = buildAnswer(question, matches);
+                String fallback = buildAnswer(question, matches);
+                if (!streamed || full.length() < Math.min(20, fallback.length())) {
+                    full.setLength(0);
                     full.append(fallback);
-                    emitter.send(SseEmitter.event().name("delta").data(Map.of("text", fallback)));
+                    emitter.send(SseEmitter.event().name("replace").data(Map.of("text", fallback)));
                 }
 
                 persistQa(userId, question, full.toString(), sources);
@@ -148,7 +145,7 @@ public class AiService {
 
     /** 调用千问流式接口，逐块通过 SSE 转发；成功流式返回 true。 */
     private boolean streamWithQwen(String question, List<ScoredKnowledge> matches,
-                                   SseEmitter emitter, StringBuilder full) {
+                                   String resolvedUrl, SseEmitter emitter, StringBuilder full) {
         String userContent = buildUserContent(question, matches);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", aiModel());
@@ -161,7 +158,7 @@ public class AiService {
 
         HttpURLConnection conn = null;
         try {
-            URL url = new URL(apiUrl);
+            URL url = new URL(resolvedUrl);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
@@ -234,16 +231,7 @@ public class AiService {
         String question = req.getQuestion().trim();
         List<ScoredKnowledge> matches = searchKnowledge(question);
         String answer = generateAnswer(question, matches);
-        List<Map<String, Object>> sources = matches.stream()
-                .limit(3)
-                .map(m -> {
-                    Map<String, Object> source = new LinkedHashMap<>();
-                    source.put("id", m.entry.getId());
-                    source.put("title", m.entry.getTitle());
-                    source.put("relevance", Math.round(m.score * 100.0) / 100.0);
-                    return source;
-                })
-                .toList();
+        List<Map<String, Object>> sources = buildSources(matches);
 
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         QaRecord record = new QaRecord();
@@ -359,7 +347,8 @@ public class AiService {
 
     /** 优先调用通义千问生成回答，失败时回退到知识库拼接答案。 */
     private String generateAnswer(String question, List<ScoredKnowledge> matches) {
-        if (aiEnabled() && apiUrl != null && !apiUrl.isBlank() && apiKey() != null && !apiKey().isBlank()) {
+        String resolvedUrl = apiUrlResolved();
+        if (aiEnabled() && resolvedUrl != null && !resolvedUrl.isBlank() && apiKey() != null && !apiKey().isBlank()) {
             try {
                 String llmAnswer = answerWithQwen(question, matches);
                 if (llmAnswer != null && !llmAnswer.isBlank()) {
@@ -405,7 +394,7 @@ public class AiService {
         );
 
         ResponseEntity<Map> resp = rest.exchange(
-                apiUrl,
+                apiUrlResolved(),
                 HttpMethod.POST,
                 new HttpEntity<>(body, headers),
                 Map.class
@@ -437,6 +426,25 @@ public class AiService {
                     .append(match.entry.getContent()).append("\n\n");
         }
         return answer.toString().trim();
+    }
+
+    /** 将检索得分归一化为 0~1，供前端展示相关度百分比。 */
+    private List<Map<String, Object>> buildSources(List<ScoredKnowledge> matches) {
+        if (matches.isEmpty()) return List.of();
+        double maxScore = matches.get(0).score;
+        if (maxScore <= 0) maxScore = 1.0;
+        double finalMax = maxScore;
+        return matches.stream()
+                .limit(3)
+                .map(m -> {
+                    Map<String, Object> source = new LinkedHashMap<>();
+                    source.put("id", m.entry.getId());
+                    source.put("title", m.entry.getTitle());
+                    double rel = Math.min(m.score / finalMax, 1.0);
+                    source.put("relevance", Math.round(rel * 100.0) / 100.0);
+                    return source;
+                })
+                .toList();
     }
 
     private List<String> pickRelatedQuestions(String question) {
