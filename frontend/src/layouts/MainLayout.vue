@@ -123,7 +123,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection, Files,
-  Bell, Message, QuestionFilled,
+  Bell, Message, QuestionFilled, OfficeBuilding,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
@@ -183,6 +183,7 @@ const adminMenus: NavMenu[] = [
     icon: UserFilled,
     adminOnly: true,
     children: [
+      { path: '/admin/org', title: '组织与部门', icon: OfficeBuilding },
       { path: '/admin/users', title: '用户管理', icon: User },
     ],
   },

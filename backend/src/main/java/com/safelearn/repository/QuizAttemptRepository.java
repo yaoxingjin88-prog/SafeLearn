@@ -14,6 +14,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, String
 
     List<QuizAttempt> findByUserIdAndQuizIdOrderByStartedAtDesc(String userId, String quizId);
 
+    List<QuizAttempt> findByUserIdOrderByStartedAtDesc(String userId);
+
     Optional<QuizAttempt> findTopByUserIdAndQuizIdOrderByScoreDesc(String userId, String quizId);
 
     @Query("SELECT qa FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.quiz.chapterId = :chapterId ORDER BY qa.startedAt DESC")

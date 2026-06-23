@@ -165,6 +165,90 @@ export const adminApi = {
   updateSystemConfig(id: string, data: { value: unknown }): Promise<ApiResponse<SystemConfigItem>> {
     return request.put(`/admin/system-configs/${id}`, data)
   },
+
+  getUsers(params?: AdminUserQuery): Promise<ApiResponse<AdminUserPage>> {
+    return request.get('/admin/users', { params })
+  },
+
+  getUserFilterOptions(): Promise<ApiResponse<AdminUserFilterOptions>> {
+    return request.get('/admin/users/filter-options')
+  },
+
+  createUser(data: AdminUserPayload): Promise<ApiResponse<AdminUserListItem>> {
+    return request.post('/admin/users', data)
+  },
+
+  updateUser(id: string, data: AdminUserPayload): Promise<ApiResponse<{ success: boolean }>> {
+    return request.put(`/admin/users/${id}`, data)
+  },
+
+  updateUserStatus(id: string, enabled: boolean): Promise<ApiResponse<{ success: boolean; enabled: boolean }>> {
+    return request.patch(`/admin/users/${id}/status`, { enabled })
+  },
+
+  batchOperateUsers(data: { ids: string[]; action: 'enable' | 'disable' | 'delete' }): Promise<ApiResponse<{ success: boolean; affected: number }>> {
+    return request.post('/admin/users/batch', data)
+  },
+
+  deleteUser(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/users/${id}`)
+  },
+
+  getUserDetail(id: string): Promise<ApiResponse<AdminUserDetail>> {
+    return request.get(`/admin/users/${id}/detail`)
+  },
+
+  updateUserTags(id: string, tags: string[]): Promise<ApiResponse<{ success: boolean; tags: string[] }>> {
+    return request.put(`/admin/users/${id}/tags`, { tags })
+  },
+
+  getOrgTree(keyword?: string): Promise<ApiResponse<AdminOrgTreeNode[]>> {
+    return request.get('/admin/org/tree', { params: keyword ? { keyword } : undefined })
+  },
+
+  getDepartmentDetail(id: string): Promise<ApiResponse<AdminDepartmentDetail>> {
+    return request.get(`/admin/departments/${id}`)
+  },
+
+  getDepartmentMembers(id: string, params?: AdminDepartmentMemberQuery): Promise<ApiResponse<AdminDepartmentMemberPage>> {
+    return request.get(`/admin/departments/${id}/members`, { params })
+  },
+
+  getDepartmentPositions(id: string): Promise<ApiResponse<AdminDepartmentPosition[]>> {
+    return request.get(`/admin/departments/${id}/positions`)
+  },
+
+  getDepartmentStats(id: string): Promise<ApiResponse<AdminDepartmentStatsDetail>> {
+    return request.get(`/admin/departments/${id}/stats`)
+  },
+
+  createDepartment(data: AdminDepartmentPayload): Promise<ApiResponse<{ id: string; name: string }>> {
+    return request.post('/admin/departments', data)
+  },
+
+  updateDepartment(id: string, data: AdminDepartmentPayload): Promise<ApiResponse<{ success: boolean }>> {
+    return request.put(`/admin/departments/${id}`, data)
+  },
+
+  deleteDepartment(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/departments/${id}`)
+  },
+
+  createDepartmentPosition(departmentId: string, data: AdminDepartmentPositionPayload): Promise<ApiResponse<AdminDepartmentPosition>> {
+    return request.post(`/admin/departments/${departmentId}/positions`, data)
+  },
+
+  updateDepartmentPosition(positionId: string, data: AdminDepartmentPositionPayload): Promise<ApiResponse<AdminDepartmentPosition>> {
+    return request.put(`/admin/departments/positions/${positionId}`, data)
+  },
+
+  deleteDepartmentPosition(positionId: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/departments/positions/${positionId}`)
+  },
+
+  removeDepartmentMember(departmentId: string, userId: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/departments/${departmentId}/members/${userId}`)
+  },
 }
 
 export interface AdminDashboardData {
@@ -608,4 +692,226 @@ export interface AdminPaperPayload {
   config?: Record<string, unknown>
   questionIds?: string[]
   questionsSnapshot?: unknown[]
+}
+
+export interface AdminUserQuery {
+  keyword?: string
+  department?: string
+  role?: string
+  status?: string
+  certStatus?: string
+  progressMin?: number
+  progressMax?: number
+  page?: number
+  pageSize?: number
+}
+
+export interface AdminUserPage {
+  items: AdminUserListItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface AdminUserListItem {
+  id: string
+  username: string
+  email?: string
+  role: string
+  company?: string
+  department?: string
+  position?: string
+  phone?: string
+  phoneMasked?: string
+  avatarUrl?: string
+  employeeNo?: string
+  enabled: boolean
+  accountStatus: 'active' | 'disabled'
+  trainingCompletionRate: number
+  certStatus: 'certified' | 'expired' | 'none'
+  lastLoginAt?: string
+  createdAt?: string
+}
+
+export interface AdminUserFilterOptions {
+  departments: string[]
+}
+
+export interface AdminUserPayload {
+  username?: string
+  email?: string
+  password?: string
+  role?: string
+  company?: string
+  department?: string
+  position?: string
+  employeeNo?: string
+  phone?: string
+  avatarUrl?: string
+  enabled?: boolean
+}
+
+export interface AdminUserDetail {
+  profile: AdminUserDetailProfile
+  stats: AdminUserDetailStats
+  trainingArchive: AdminUserTrainingArchive
+  examSummary: AdminUserExamSummary
+  certificateReminders: AdminUserCertReminder[]
+  recentCourses: AdminUserRecentCourse[]
+  warnings: AdminUserWarning[]
+}
+
+export interface AdminUserDetailProfile {
+  id: string
+  username: string
+  role: string
+  enabled: boolean
+  employeeNo?: string
+  department?: string
+  position?: string
+  phone?: string
+  phoneMasked?: string
+  email?: string
+  avatarUrl?: string
+  entryDate?: string
+  accountSource?: string
+  tags: string[]
+}
+
+export interface AdminUserDetailStats {
+  completedCourses: number
+  avgScore: number
+  certificateCount: number
+  warningCount: number
+}
+
+export interface AdminUserTrainingArchive {
+  progressRate: number
+  completed: number
+  inProgress: number
+  notStarted: number
+  expired: number
+}
+
+export interface AdminUserExamSummary {
+  avgScore: number
+  attemptCount: number
+  passRate: number
+  latestExam?: {
+    title: string
+    score: number
+    date?: string
+  }
+}
+
+export interface AdminUserCertReminder {
+  id: string
+  title: string
+  expiresAt: string
+  daysLeft: number
+  urgency: 'danger' | 'warning' | 'normal'
+}
+
+export interface AdminUserRecentCourse {
+  id: string
+  title: string
+  coverImage?: string
+  progress: number
+  completedAt?: string
+}
+
+export interface AdminUserWarning {
+  type: string
+  content: string
+  time?: string
+  status: 'pending' | 'processed'
+}
+
+export interface AdminOrgTreeNode {
+  id: string
+  name: string
+  parentId?: string
+  memberCount: number
+  children?: AdminOrgTreeNode[]
+}
+
+export interface AdminDepartmentDetail {
+  id: string
+  name: string
+  parentId?: string
+  leaderName?: string
+  leaderTitle?: string
+  memberCount: number
+  trainingCompletionRate: number
+  highRiskPositionCount: number
+  certExpiringCount: number
+  newMembersThisMonth: number
+  stats: AdminDepartmentStatsSummary
+}
+
+export interface AdminDepartmentStatsSummary {
+  totalMembers: number
+  trainingCompletionRate: number
+  highRiskPositionCount: number
+  certExpiringCount: number
+  newMembersThisMonth: number
+}
+
+export interface AdminDepartmentMemberQuery {
+  page?: number
+  pageSize?: number
+  keyword?: string
+}
+
+export interface AdminDepartmentMemberPage {
+  items: AdminDepartmentMember[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface AdminDepartmentMember {
+  id: string
+  username: string
+  employeeNo?: string
+  position?: string
+  role: string
+  avatarUrl?: string
+  trainingCompletionRate: number
+  certStatus: string
+  certStatusLabel: string
+}
+
+export interface AdminDepartmentPosition {
+  id: string
+  departmentId: string
+  name: string
+  highRisk: boolean
+  sortOrder?: number
+}
+
+export interface AdminDepartmentPayload {
+  name?: string
+  parentId?: string
+  leaderName?: string
+  leaderTitle?: string
+  sortOrder?: number
+}
+
+export interface AdminDepartmentPositionPayload {
+  name?: string
+  highRisk?: boolean
+  sortOrder?: number
+}
+
+export interface AdminDepartmentStatsDetail extends AdminDepartmentStatsSummary {
+  trainingBreakdown: {
+    completed: number
+    inProgress: number
+    notStarted: number
+  }
+  roleDistribution: Record<string, number>
+  certStatusDistribution: Record<string, number>
 }

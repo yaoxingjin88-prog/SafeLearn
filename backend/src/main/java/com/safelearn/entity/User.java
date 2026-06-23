@@ -45,6 +45,21 @@ public class User {
     @Column(length = 20)
     private String phone;
 
+    @Column(name = "employee_no", length = 32)
+    private String employeeNo;
+
+    @Column(length = 100)
+    private String position;
+
+    @Column(nullable = false, columnDefinition = "TINYINT(1) NOT NULL DEFAULT 1")
+    private Boolean enabled = true;
+
+    @Column(columnDefinition = "TEXT")
+    private String tags;
+
+    @Column(name = "account_source", length = 32)
+    private String accountSource = "manual";
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

@@ -101,6 +101,8 @@ const adminChildren: RouteRecordRaw[] = [
     meta: { title: '组织与账号', icon: 'UserFilled', roles: ['admin'] },
     children: [
       { path: 'users', name: 'UserManage', component: () => import('@/pages/admin/UserManage.vue'), meta: { title: '用户管理' } },
+      { path: 'users/:id', name: 'UserDetail', component: () => import('@/pages/admin/UserDetailPage.vue'), meta: { title: '用户详情' } },
+      { path: 'org', name: 'OrgDepartment', component: () => import('@/pages/admin/OrgDepartmentPage.vue'), meta: { title: '组织与部门' } },
       { path: 'settings', name: 'SystemSettings', component: () => import('@/pages/admin/SystemSettings.vue'), meta: { title: '系统设置' } },
       { path: 'account', name: 'AdminAccount', component: () => import('@/pages/auth/AccountSettingsPage.vue'), meta: { title: '账号设置' } },
       { path: 'courses', redirect: '/admin/learning/courses' },

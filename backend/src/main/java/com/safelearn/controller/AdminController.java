@@ -6,7 +6,9 @@ import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseMonitoringService;
 import com.safelearn.service.AdminExamService;
 import com.safelearn.service.AdminPaperAssemblyService;
+import com.safelearn.service.AdminOrganizationService;
 import com.safelearn.service.AdminQuestionBankService;
+import com.safelearn.service.AdminUserDetailService;
 import com.safelearn.service.AdminCourseService;
 import com.safelearn.service.AdminDashboardService;
 import com.safelearn.service.CourseCategoryService;
@@ -28,6 +30,8 @@ public class AdminController {
     private final AdminCourseMonitoringService adminCourseMonitoringService;
     private final AdminExamService adminExamService;
     private final AdminQuestionBankService adminQuestionBankService;
+    private final AdminUserDetailService adminUserDetailService;
+    private final AdminOrganizationService adminOrganizationService;
     private final AdminPaperAssemblyService adminPaperAssemblyService;
     private final AdminDashboardService adminDashboardService;
     private final CourseCategoryService courseCategoryService;
@@ -35,9 +39,23 @@ public class AdminController {
     private final SystemConfigService systemConfigService;
 
     @GetMapping("/users")
-    public ApiResponse<Map<String, Object>> getUsers() {
-        List<Map<String, Object>> users = adminService.getUsers();
-        return ApiResponse.success(Map.of("items", users, "total", users.size()));
+    public ApiResponse<Map<String, Object>> getUsers(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String certStatus,
+            @RequestParam(required = false) Integer progressMin,
+            @RequestParam(required = false) Integer progressMax,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(adminService.searchUsers(
+                keyword, department, role, status, certStatus, progressMin, progressMax, page, pageSize));
+    }
+
+    @GetMapping("/users/filter-options")
+    public ApiResponse<Map<String, Object>> getUserFilterOptions() {
+        return ApiResponse.success(adminService.getUserFilterOptions());
     }
 
     @PostMapping("/users")
@@ -50,9 +68,106 @@ public class AdminController {
         return ApiResponse.success(adminService.updateUser(id, body));
     }
 
+    @PatchMapping("/users/{id}/status")
+    public ApiResponse<Map<String, Object>> updateUserStatus(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        boolean enabled = body.get("enabled") instanceof Boolean b
+                ? b
+                : Boolean.parseBoolean(String.valueOf(body.getOrDefault("enabled", true)));
+        return ApiResponse.success(adminService.updateUserStatus(id, enabled));
+    }
+
+    @PostMapping("/users/batch")
+    public ApiResponse<Map<String, Object>> batchOperateUsers(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminService.batchOperateUsers(body));
+    }
+
     @DeleteMapping("/users/{id}")
     public ApiResponse<Map<String, Object>> deleteUser(@PathVariable String id) {
         return ApiResponse.success(adminService.deleteUser(id));
+    }
+
+    @GetMapping("/users/{id}/detail")
+    public ApiResponse<Map<String, Object>> getUserDetail(@PathVariable String id) {
+        return ApiResponse.success(adminUserDetailService.getUserDetail(id));
+    }
+
+    @PutMapping("/users/{id}/tags")
+    public ApiResponse<Map<String, Object>> updateUserTags(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        List<String> tags = body.get("tags") instanceof List<?> list
+                ? list.stream().map(String::valueOf).toList()
+                : List.of();
+        return ApiResponse.success(adminUserDetailService.updateUserTags(id, tags));
+    }
+
+    @GetMapping("/org/tree")
+    public ApiResponse<List<Map<String, Object>>> getOrgTree(
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.success(adminOrganizationService.getOrgTree(keyword));
+    }
+
+    @GetMapping("/departments/{id}")
+    public ApiResponse<Map<String, Object>> getDepartmentDetail(@PathVariable String id) {
+        return ApiResponse.success(adminOrganizationService.getDepartmentDetail(id));
+    }
+
+    @GetMapping("/departments/{id}/members")
+    public ApiResponse<Map<String, Object>> getDepartmentMembers(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.success(adminOrganizationService.getDepartmentMembers(id, page, pageSize, keyword));
+    }
+
+    @GetMapping("/departments/{id}/positions")
+    public ApiResponse<List<Map<String, Object>>> getDepartmentPositions(@PathVariable String id) {
+        return ApiResponse.success(adminOrganizationService.getDepartmentPositions(id));
+    }
+
+    @GetMapping("/departments/{id}/stats")
+    public ApiResponse<Map<String, Object>> getDepartmentStats(@PathVariable String id) {
+        return ApiResponse.success(adminOrganizationService.getDepartmentStats(id));
+    }
+
+    @PostMapping("/departments")
+    public ApiResponse<Map<String, Object>> createDepartment(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminOrganizationService.createDepartment(body));
+    }
+
+    @PutMapping("/departments/{id}")
+    public ApiResponse<Map<String, Object>> updateDepartment(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminOrganizationService.updateDepartment(id, body));
+    }
+
+    @DeleteMapping("/departments/{id}")
+    public ApiResponse<Map<String, Object>> deleteDepartment(@PathVariable String id) {
+        return ApiResponse.success(adminOrganizationService.deleteDepartment(id));
+    }
+
+    @PostMapping("/departments/{id}/positions")
+    public ApiResponse<Map<String, Object>> createDepartmentPosition(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminOrganizationService.createPosition(id, body));
+    }
+
+    @PutMapping("/departments/positions/{positionId}")
+    public ApiResponse<Map<String, Object>> updateDepartmentPosition(
+            @PathVariable String positionId, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminOrganizationService.updatePosition(positionId, body));
+    }
+
+    @DeleteMapping("/departments/positions/{positionId}")
+    public ApiResponse<Map<String, Object>> deleteDepartmentPosition(@PathVariable String positionId) {
+        return ApiResponse.success(adminOrganizationService.deletePosition(positionId));
+    }
+
+    @DeleteMapping("/departments/{id}/members/{userId}")
+    public ApiResponse<Map<String, Object>> removeDepartmentMember(
+            @PathVariable String id, @PathVariable String userId) {
+        return ApiResponse.success(adminOrganizationService.removeMemberFromDepartment(id, userId));
     }
 
     @GetMapping("/stats")
