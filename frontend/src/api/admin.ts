@@ -478,9 +478,31 @@ export interface AdminQuestionListItem {
 }
 
 export interface AdminQuestionDetail extends AdminQuestionListItem {
-  options?: string
+  options?: unknown
   explanation?: string
+  attachments?: AdminQuestionAttachments
+  settings?: AdminQuestionSettings
+  categoryPath?: string
   createdAt?: string
+}
+
+export interface AdminQuestionAttachmentFile {
+  name: string
+  size?: number
+  url?: string
+  type?: string
+}
+
+export interface AdminQuestionAttachments {
+  files: AdminQuestionAttachmentFile[]
+  images: AdminQuestionAttachmentFile[]
+  norms: AdminQuestionAttachmentFile[]
+}
+
+export interface AdminQuestionSettings {
+  allowComments: boolean
+  allowReport: boolean
+  showAnalysisInExam: boolean
 }
 
 export interface AdminQuestionPayload {
@@ -492,4 +514,6 @@ export interface AdminQuestionPayload {
   options?: unknown
   explanation?: string
   tags?: string[]
+  attachments?: AdminQuestionAttachments
+  settings?: AdminQuestionSettings
 }

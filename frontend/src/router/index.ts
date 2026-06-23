@@ -39,6 +39,18 @@ const adminChildren: RouteRecordRaw[] = [
         meta: { title: '题库管理' },
       },
       {
+        path: 'question-bank/new',
+        name: 'LearningQuestionCreate',
+        component: () => import('@/pages/admin/question-bank/QuestionEditPage.vue'),
+        meta: { title: '新建试题', hidden: true },
+      },
+      {
+        path: 'question-bank/:id/edit',
+        name: 'LearningQuestionEdit',
+        component: () => import('@/pages/admin/question-bank/QuestionEditPage.vue'),
+        meta: { title: '编辑试题', hidden: true },
+      },
+      {
         path: 'monitoring',
         name: 'LearningCourseMonitoring',
         component: () => import('@/pages/admin/courses/CourseMonitoringPage.vue'),

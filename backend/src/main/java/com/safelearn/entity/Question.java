@@ -49,6 +49,14 @@ public class Question {
     @Column(columnDefinition = "JSON")
     private String tags;
 
+    /** 附件：材料文件、图片、关联规范等 */
+    @Column(columnDefinition = "JSON")
+    private String attachments;
+
+    /** 设置项：评论、举报、考试中显示解析等 */
+    @Column(columnDefinition = "JSON")
+    private String settings;
+
     @Column(name = "usage_count", nullable = false)
     private Integer usageCount = 0;
 

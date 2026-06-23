@@ -296,6 +296,12 @@ public class AdminQuestionBankService {
         if (body.containsKey("tags")) {
             q.setTags(normalizeJson(body.get("tags")));
         }
+        if (body.containsKey("attachments")) {
+            q.setAttachments(normalizeJson(body.get("attachments")));
+        }
+        if (body.containsKey("settings")) {
+            q.setSettings(normalizeJson(body.get("settings")));
+        }
     }
 
     private String normalizeJson(Object value) {
@@ -334,10 +340,79 @@ public class AdminQuestionBankService {
 
     private Map<String, Object> toDetail(Question q) {
         Map<String, Object> m = toListItem(q);
-        m.put("options", q.getOptions());
+        m.put("options", parseOptions(q.getOptions()));
         m.put("explanation", q.getExplanation());
+        m.put("attachments", parseAttachments(q.getAttachments()));
+        m.put("settings", parseSettings(q.getSettings()));
+        m.put("categoryPath", buildCategoryPath(q.getCategoryId()));
         m.put("createdAt", q.getCreatedAt() != null ? q.getCreatedAt().format(DATE) : "");
         return m;
+    }
+
+    private List<Map<String, Object>> parseOptions(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(optionsJson, new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private Map<String, Object> parseAttachments(String attachmentsJson) {
+        if (attachmentsJson == null || attachmentsJson.isBlank()) {
+            return defaultAttachments();
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(attachmentsJson, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> result = defaultAttachments();
+            result.putAll(parsed);
+            return result;
+        } catch (Exception e) {
+            return defaultAttachments();
+        }
+    }
+
+    private Map<String, Object> defaultAttachments() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("files", List.of());
+        m.put("images", List.of());
+        m.put("norms", List.of());
+        return m;
+    }
+
+    private Map<String, Object> parseSettings(String settingsJson) {
+        if (settingsJson == null || settingsJson.isBlank()) {
+            return defaultSettings();
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(settingsJson, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> result = defaultSettings();
+            result.putAll(parsed);
+            return result;
+        } catch (Exception e) {
+            return defaultSettings();
+        }
+    }
+
+    private Map<String, Object> defaultSettings() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("allowComments", false);
+        m.put("allowReport", true);
+        m.put("showAnalysisInExam", true);
+        return m;
+    }
+
+    private String buildCategoryPath(String categoryId) {
+        List<String> names = new ArrayList<>();
+        String current = categoryId;
+        int guard = 0;
+        while (current != null && guard++ < 10) {
+            Optional<QuestionCategory> cat = categoryRepo.findById(current);
+            if (cat.isEmpty()) break;
+            names.add(0, cat.get().getName());
+            current = cat.get().getParentId();
+        }
+        return String.join(" / ", names);
     }
 
     private int resolveUsageCount(Question q) {

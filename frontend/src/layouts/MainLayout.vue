@@ -207,6 +207,9 @@ const activeMenu = computed(() => {
     return '/admin/learning/exams'
   }
   if (path.startsWith('/admin/learning/question-bank')) {
+    if (path.includes('/edit') || path.endsWith('/new')) {
+      return path
+    }
     return '/admin/learning/question-bank'
   }
   if (path.startsWith('/admin/learning/monitoring')) {

@@ -206,51 +206,12 @@
         <p v-if="previewing.explanation" class="preview-explanation">解析：{{ previewing.explanation }}</p>
       </div>
     </el-dialog>
-
-    <el-dialog v-model="editVisible" :title="editingId ? '编辑题目' : '新建题目'" width="640px">
-      <el-form label-width="88px">
-        <el-form-item label="所属分类" required>
-          <el-select v-model="editForm.categoryId" placeholder="请选择分类" style="width: 100%">
-            <el-option v-for="cat in leafCategories" :key="cat.id" :label="cat.label" :value="cat.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="题目类型" required>
-          <el-select v-model="editForm.type" style="width: 100%">
-            <el-option v-for="item in QUESTION_TYPE_OPTIONS.filter(i => i.value !== 'all')" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="难度">
-          <el-select v-model="editForm.difficulty" style="width: 100%">
-            <el-option v-for="item in QUESTION_DIFFICULTY_OPTIONS.filter(i => i.value !== 'all')" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="editForm.status" style="width: 100%">
-            <el-option v-for="item in QUESTION_STATUS_OPTIONS.filter(i => i.value !== 'all')" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="题干" required>
-          <el-input v-model="editForm.content" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item label="标签">
-          <el-select v-model="editForm.tags" multiple filterable allow-create default-first-option placeholder="输入或选择标签" style="width: 100%">
-            <el-option v-for="tag in allTags" :key="tag" :label="tag" :value="tag" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="解析">
-          <el-input v-model="editForm.explanation" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveQuestion">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, Search } from '@element-plus/icons-vue'
 import {
@@ -270,7 +231,9 @@ import {
   statusLabel,
   tagColorClass,
 } from './questionBankShared'
+import { parseOptions } from './questionEditShared'
 
+const router = useRouter()
 const loading = ref(false)
 const categories = ref<AdminQuestionCategoryNode[]>([])
 const categoryKeyword = ref('')
@@ -287,18 +250,6 @@ const indeterminate = ref(false)
 
 const previewVisible = ref(false)
 const previewing = ref<AdminQuestionDetail | null>(null)
-const editVisible = ref(false)
-const editingId = ref<string | null>(null)
-
-const editForm = reactive({
-  categoryId: '',
-  type: 'single',
-  difficulty: 'medium',
-  status: 'published',
-  content: '',
-  tags: [] as string[],
-  explanation: '',
-})
 
 const filters = reactive({
   type: 'all',
@@ -342,38 +293,7 @@ function onTreeNodeClick(data: AdminQuestionCategoryNode) {
   selectCategory(data.id)
 }
 
-const leafCategories = computed(() => {
-  const result: Array<{ id: string; label: string }> = []
-  for (const node of categories.value) {
-    if (node.id === 'all') continue
-    if (node.children?.length) {
-      for (const child of node.children) {
-        if (child.children?.length) {
-          for (const sub of child.children) {
-            result.push({ id: sub.id, label: `${node.name} / ${child.name} / ${sub.name}` })
-          }
-        } else {
-          result.push({ id: child.id, label: `${node.name} / ${child.name}` })
-        }
-      }
-    } else {
-      result.push({ id: node.id, label: node.name })
-    }
-  }
-  return result
-})
-
-const previewOptions = computed(() => {
-  if (!previewing.value?.options) return []
-  try {
-    const parsed = typeof previewing.value.options === 'string'
-      ? JSON.parse(previewing.value.options)
-      : previewing.value.options
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-})
+const previewOptions = computed(() => parseOptions(previewing.value?.options))
 
 function buildQueryParams() {
   return {
@@ -472,56 +392,17 @@ function syncCheckAllState() {
 watch(selectedIds, syncCheckAllState)
 
 function openCreate() {
-  editingId.value = null
-  editForm.categoryId = leafCategories.value[0]?.id || ''
-  editForm.type = 'single'
-  editForm.difficulty = 'medium'
-  editForm.status = 'published'
-  editForm.content = ''
-  editForm.tags = []
-  editForm.explanation = ''
-  editVisible.value = true
+  router.push('/admin/learning/question-bank/new')
 }
 
-async function openEdit(item: AdminQuestionListItem) {
-  const res = await adminApi.getQuestionById(item.id)
-  const detail = res.data
-  editingId.value = detail.id
-  editForm.categoryId = detail.categoryId
-  editForm.type = detail.type
-  editForm.difficulty = detail.difficulty
-  editForm.status = detail.status
-  editForm.content = detail.content
-  editForm.tags = [...(detail.tags || [])]
-  editForm.explanation = detail.explanation || ''
-  editVisible.value = true
+function openEdit(item: AdminQuestionListItem) {
+  router.push(`/admin/learning/question-bank/${item.id}/edit`)
 }
 
 async function openPreview(item: AdminQuestionListItem) {
   const res = await adminApi.getQuestionById(item.id)
   previewing.value = res.data
   previewVisible.value = true
-}
-
-async function saveQuestion() {
-  const payload = {
-    categoryId: editForm.categoryId,
-    type: editForm.type,
-    difficulty: editForm.difficulty,
-    status: editForm.status,
-    content: editForm.content,
-    tags: editForm.tags,
-    explanation: editForm.explanation,
-  }
-  if (editingId.value) {
-    await adminApi.updateQuestion(editingId.value, payload)
-    ElMessage.success('保存成功')
-  } else {
-    await adminApi.createQuestion(payload)
-    ElMessage.success('创建成功')
-  }
-  editVisible.value = false
-  await refreshAll()
 }
 
 async function handleMore(command: string, item: AdminQuestionListItem) {
