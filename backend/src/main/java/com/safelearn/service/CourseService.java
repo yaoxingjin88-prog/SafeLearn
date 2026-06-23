@@ -330,6 +330,7 @@ public class CourseService {
         m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
         m.put("updatedAt", c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : null);
         m.put("learnerCount", progressRepo.countDistinctUsersByCourseId(c.getId()));
+        mergeCourseMetadata(m, c.getExtraMetadata());
         m.put("chapters", c.getChapters() != null ? c.getChapters().stream().map(ch -> {
             Map<String, Object> cm = new HashMap<>();
             cm.put("id", ch.getId());
@@ -369,7 +370,20 @@ public class CourseService {
         m.put("difficultyLabel", DifficultyLevel.label(ch.getDifficultyLevel() != null ? ch.getDifficultyLevel() : 1));
         m.put("prerequisiteIds", parsePrereqIds(ch.getPrerequisiteIds()));
         m.put("scenarioId", ch.getScenarioId());
+        m.put("summary", ch.getSummary());
+        m.put("contentType", ch.getContentType() != null ? ch.getContentType() : "html");
+        m.put("required", ch.getRequired() != null ? ch.getRequired() : true);
+        m.put("allowDownload", ch.getAllowDownload() != null ? ch.getAllowDownload() : false);
         return m;
+    }
+
+    private void mergeCourseMetadata(Map<String, Object> target, String json) {
+        if (json == null || json.isBlank()) return;
+        try {
+            Map<String, Object> meta = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            target.putAll(meta);
+        } catch (Exception ignored) {
+        }
     }
 
     /** 记录章节访问时间，供工作台「上次学到」使用 */

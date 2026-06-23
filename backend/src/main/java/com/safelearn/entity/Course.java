@@ -41,6 +41,10 @@ public class Course {
     @Column(length = 20)
     private String status = "published";
 
+    /** 扩展字段：subtitle/instructor/objectives/tags 等 JSON */
+    @Column(name = "extra_metadata", columnDefinition = "JSON")
+    private String extraMetadata;
+
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orderNum ASC")
     private List<Chapter> chapters = new ArrayList<>();

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores'
 
-/** 管理端路由：工作台 + 内容配置 + 组织与账号 + 系统设置 */
+/** 管理端路由：工作台 + 培训课程 + 考试题库 + 组织与账号 + 系统设置 */
 const adminChildren: RouteRecordRaw[] = [
   {
     path: 'dashboard',
@@ -24,13 +24,55 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'admin/learning',
     name: 'AdminLearning',
     redirect: '/admin/learning/courses',
-    meta: { title: '内容配置', roles: ['admin'] },
+    meta: { title: '培训课程', roles: ['admin'] },
     children: [
       {
+        path: 'exams',
+        name: 'LearningExamList',
+        component: () => import('@/pages/admin/exams/ExamListPage.vue'),
+        meta: { title: '考试管理' },
+      },
+      {
+        path: 'question-bank',
+        name: 'LearningQuestionBank',
+        component: () => import('@/pages/admin/question-bank/QuestionBankPage.vue'),
+        meta: { title: '题库管理' },
+      },
+      {
+        path: 'monitoring',
+        name: 'LearningCourseMonitoring',
+        component: () => import('@/pages/admin/courses/CourseMonitoringPage.vue'),
+        meta: { title: '学习监控' },
+      },
+      {
         path: 'courses',
-        name: 'LearningCourseConfig',
-        component: () => import('@/pages/admin/CourseManage.vue'),
+        name: 'LearningCourseList',
+        component: () => import('@/pages/admin/courses/CourseListPage.vue'),
         meta: { title: '课程管理' },
+      },
+      {
+        path: 'courses/new',
+        name: 'LearningCourseCreate',
+        component: () => import('@/pages/admin/courses/CourseEditPage.vue'),
+        meta: { title: '新建课程', hidden: true },
+      },
+      {
+        path: 'courses/:id/edit',
+        name: 'LearningCourseEdit',
+        component: () => import('@/pages/admin/courses/CourseEditPage.vue'),
+        meta: { title: '编辑课程', hidden: true },
+      },
+      {
+        path: 'courses/:id',
+        name: 'LearningCourseDetail',
+        component: () => import('@/pages/admin/courses/CourseDetailPage.vue'),
+        meta: { title: '课程详情', hidden: true },
+      },
+      {
+        path: 'categories',
+        name: 'LearningCourseCategories',
+        component: () => import('@/pages/admin/courses/CourseCategoryPage.vue'),
+        meta: { title: '分类配置', hidden: true },
       },
     ],
   },

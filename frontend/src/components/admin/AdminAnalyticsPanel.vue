@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="loading" class="analytics-panel">
+  <div v-loading="loading" class="analytics-panel" :class="{ 'is-compact': compact }">
     <template v-if="data">
       <div class="charts-grid">
         <!-- 平台运营趋势（合并 4 条月度趋势） -->
@@ -29,7 +29,7 @@
         </div>
 
         <!-- 推演训练（得分 + 场景 + 雷达） -->
-        <div class="chart-card chart-card--wide">
+        <div v-if="!compact" class="chart-card chart-card--wide">
           <div class="chart-card-head">
             <span class="chart-title">推演训练分析</span>
             <span class="chart-sub">得分分布 · 场景成功率 · 决策维度均分</span>
@@ -38,7 +38,7 @@
         </div>
 
         <!-- 部门对比 -->
-        <div class="chart-card chart-card--wide">
+        <div v-if="!compact" class="chart-card chart-card--wide">
           <div class="chart-card-head">
             <span class="chart-title">部门对比</span>
             <span class="chart-sub">平均得分排行 · 近 8 周学习活跃度</span>
@@ -47,7 +47,7 @@
         </div>
 
         <!-- AI + 证书构成 -->
-        <div class="chart-card">
+        <div v-if="!compact" class="chart-card">
           <div class="chart-card-head">
             <span class="chart-title">服务构成</span>
             <span class="chart-sub">AI 问题分类 · 证书类型分布</span>
@@ -63,6 +63,8 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
+
+const { compact = false } = defineProps<{ compact?: boolean }>()
 
 interface ChartItem { name: string; value: number; color?: string }
 
@@ -330,10 +332,12 @@ function renderAll() {
   const d = data.value
   renderLearning(d)
   renderPlatformTrend(d)
-  renderSimulation(d)
   renderActivity(d)
-  renderDepartment(d)
-  renderComposition(d)
+  if (!compact) {
+    renderSimulation(d)
+    renderDepartment(d)
+    renderComposition(d)
+  }
 }
 
 function handleResize() {
@@ -411,12 +415,52 @@ onUnmounted(() => {
   height: 320px;
 }
 
+.analytics-panel.is-compact {
+  min-height: 190px;
+}
+
+.is-compact .charts-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.is-compact .chart-card,
+.is-compact .chart-card--wide {
+  grid-column: span 1;
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.is-compact .chart-card-head {
+  padding: 11px 12px 0;
+}
+
+.is-compact .chart-title {
+  font-size: 12px;
+}
+
+.is-compact .chart-sub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-compact .chart-box {
+  height: 190px;
+  padding-bottom: 4px;
+}
+
 @media (max-width: 960px) {
   .charts-grid {
     grid-template-columns: 1fr;
   }
   .chart-card--wide {
     grid-column: span 1;
+  }
+  .is-compact .charts-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

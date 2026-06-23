@@ -3,7 +3,7 @@
     <el-aside :width="collapsed ? '72px' : '240px'" class="admin-aside" :class="{ 'is-collapsed': collapsed }">
       <div class="brand" @click="$router.push('/dashboard')">
         <img src="@/assets/logo.png" class="brand-logo" alt="Logo" />
-        <span v-if="!collapsed" class="brand-name">储安云</span>
+        <span v-if="!collapsed" class="brand-name">储能安全培训管理平台</span>
       </div>
 
       <el-scrollbar class="menu-scroll">
@@ -69,8 +69,20 @@
             <Fold v-if="!collapsed" />
             <Expand v-else />
           </el-icon>
+          <div v-if="route.path === '/dashboard'" class="header-crumbs">
+            <span>首页</span><i>/</i><strong>概览</strong>
+          </div>
         </div>
         <div class="header-right">
+          <button type="button" class="header-icon-btn" title="通知">
+            <el-icon><Bell /></el-icon><em>12</em>
+          </button>
+          <button type="button" class="header-icon-btn" title="消息">
+            <el-icon><Message /></el-icon><em>5</em>
+          </button>
+          <button type="button" class="header-icon-btn" title="帮助">
+            <el-icon><QuestionFilled /></el-icon>
+          </button>
           <el-dropdown trigger="click">
             <div class="header-user">
               <el-avatar :size="32" class="header-avatar">{{ displayInitial }}</el-avatar>
@@ -110,7 +122,8 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled,
+  Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection,
+  Bell, Message, QuestionFilled,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
@@ -140,17 +153,27 @@ interface NavMenu {
 }
 
 /**
- * 管理端菜单按管理员工作流排列：
- * 首页（看数据）→ 内容配置（配课程）→ 组织与账号（管用户）→ 系统设置（调平台）
+ * 管理端菜单：首页 → 培训课程 / 考试题库 → 组织与账号 → 系统设置
  */
 const adminMenus: NavMenu[] = [
   {
-    path: '/admin/content',
-    title: '内容配置',
+    path: '/admin/training',
+    title: '培训课程',
     icon: Reading,
     adminOnly: true,
     children: [
       { path: '/admin/learning/courses', title: '课程管理', icon: EditPen },
+      { path: '/admin/learning/monitoring', title: '学习监控', icon: DataLine },
+    ],
+  },
+  {
+    path: '/admin/exams',
+    title: '考试题库',
+    icon: Document,
+    adminOnly: true,
+    children: [
+      { path: '/admin/learning/exams', title: '考试管理', icon: EditPen },
+      { path: '/admin/learning/question-bank', title: '题库管理', icon: Collection },
     ],
   },
   {
@@ -180,6 +203,15 @@ const visibleMenus = computed(() =>
 
 const activeMenu = computed(() => {
   const path = route.path
+  if (path.startsWith('/admin/learning/exams')) {
+    return '/admin/learning/exams'
+  }
+  if (path.startsWith('/admin/learning/question-bank')) {
+    return '/admin/learning/question-bank'
+  }
+  if (path.startsWith('/admin/learning/monitoring')) {
+    return '/admin/learning/monitoring'
+  }
   if (path.startsWith('/admin/learning')) {
     return '/admin/learning/courses'
   }
@@ -701,5 +733,188 @@ onMounted(async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* 深蓝运营驾驶舱主题 */
+.admin-layout {
+  background: #f2f5fa;
+}
+
+.admin-aside {
+  border-right: 0;
+  background: linear-gradient(180deg, #071936 0%, #092653 100%);
+  box-shadow: 4px 0 18px rgba(7, 24, 54, 0.12);
+}
+
+.brand {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.brand-name {
+  color: #fff;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.brand-logo {
+  border-radius: 7px;
+  background: #fff;
+  padding: 2px;
+}
+
+.admin-menu {
+  --nav-active-bg: linear-gradient(90deg, #0877f9, #1468df);
+  --nav-active-color: #fff;
+  --nav-indicator: #47b4ff;
+  background: transparent;
+}
+
+.admin-menu :deep(.nav-top-item),
+.admin-menu :deep(.el-sub-menu__title) {
+  color: #bdcbe0;
+}
+
+.admin-menu :deep(.nav-top-icon),
+.admin-menu :deep(.nav-sub-icon) {
+  color: #91a8c7;
+}
+
+.admin-menu :deep(.el-sub-menu__title:hover),
+.admin-menu :deep(.nav-top-item:hover) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+.admin-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title),
+.admin-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fff;
+}
+
+.admin-menu :deep(.nav-group.is-opened > .el-menu) {
+  border-left-color: rgba(74, 163, 255, 0.45);
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-menu :deep(.nav-sub-item) {
+  color: #aebed4;
+}
+
+.admin-menu :deep(.nav-sub-item:hover) {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #fff !important;
+}
+
+.admin-menu :deep(.nav-top-item.is-active),
+.admin-menu :deep(.nav-sub-item.is-active) {
+  background: linear-gradient(90deg, #0877f9, #1468df) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 18px rgba(3, 111, 246, 0.28);
+}
+
+.sidebar-user {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-user-inner:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-user-name {
+  color: #fff;
+}
+
+.sidebar-user-dept {
+  color: #8fa5c1;
+}
+
+.sidebar-avatar,
+.header-avatar {
+  background: #1382f4;
+}
+
+.admin-header {
+  border-bottom: 0;
+  background: linear-gradient(90deg, #071936, #0a2148);
+  box-shadow: 0 2px 12px rgba(7, 24, 54, 0.14);
+}
+
+.collapse-btn,
+.header-username {
+  color: #eaf2ff;
+}
+
+.admin-main {
+  background: #f2f5fa;
+}
+
+/* 参考管理驾驶舱：白色工具栏 + 深蓝导航 */
+.admin-header {
+  border-bottom: 1px solid #e9edf3;
+  background: #fff;
+  box-shadow: 0 2px 9px rgba(31, 49, 78, 0.035);
+}
+
+.collapse-btn {
+  color: #263246;
+}
+
+.header-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8a94a2;
+  font-size: 13px;
+}
+
+.header-crumbs i {
+  color: #c1c7d0;
+  font-style: normal;
+}
+
+.header-crumbs strong {
+  color: #3d4858;
+  font-weight: 600;
+}
+
+.header-icon-btn {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #526174;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.header-icon-btn:hover {
+  background: #f2f5fa;
+  color: #2f76e8;
+}
+
+.header-icon-btn em {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #ef3340;
+  color: #fff;
+  font-size: 8px;
+  font-style: normal;
+  line-height: 11px;
+  text-align: center;
+}
+
+.header-username {
+  color: #3c4859;
 }
 </style>

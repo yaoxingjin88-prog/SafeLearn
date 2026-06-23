@@ -51,6 +51,9 @@ public interface UserProgressRepository extends JpaRepository<UserProgress, Stri
     @Query("SELECT COUNT(DISTINCT up.user.id) FROM UserProgress up WHERE up.course.id = :courseId")
     long countDistinctUsersByCourseId(@Param("courseId") String courseId);
 
+    @Query("SELECT up FROM UserProgress up JOIN FETCH up.user WHERE up.course.id = :courseId")
+    List<UserProgress> findByCourseIdWithUser(@Param("courseId") String courseId);
+
     @Query("SELECT COUNT(up) FROM UserProgress up WHERE up.user.id = :userId AND up.course.id = :courseId AND up.completed = true")
     long countCompletedChaptersByUserIdAndCourseId(@Param("userId") String userId, @Param("courseId") String courseId);
 

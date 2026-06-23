@@ -33,6 +33,18 @@ public class Chapter {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
+    @Column(name = "content_type", length = 20)
+    private String contentType = "html";
+
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
+    @Column(name = "is_required")
+    private Boolean required = true;
+
+    @Column(name = "allow_download")
+    private Boolean allowDownload = false;
+
     private Integer duration;
 
     @Column(name = "order_num", nullable = false)

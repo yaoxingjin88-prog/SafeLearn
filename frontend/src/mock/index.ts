@@ -3,7 +3,7 @@ import axios from 'axios'
 import {
   mockUsers, mockCourses, mockScenarios, mockTrainingScenarios,
   mockTrainingRecords, mockTrainingReport, mockCases,
-  mockDashboardStats, mockRecentCourses, mockAdminStats, mockAIResponse,
+  mockDashboardStats, mockRecentCourses, mockAdminStats, mockAdminDashboard, mockAIResponse,
 } from './data'
 
 // Mock 开关 - 设为 false 则走真实 API，设为 true 则强制 mock
@@ -137,6 +137,8 @@ function handleMock(url: string, method: string, data?: any, params?: Record<str
     return ok({ success: true })
   } else if (url === 'admin/stats') {
     return ok(mockAdminStats)
+  } else if (url === 'admin/dashboard' && method === 'get') {
+    return ok(mockAdminDashboard())
   }
   // Progress
   else if (url === 'progress' && method === 'post') {

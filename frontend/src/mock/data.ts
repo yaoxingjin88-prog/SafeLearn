@@ -239,6 +239,8 @@ export const mockRecentCourses = [
 
 export const mockAdminStats = { totalUsers: 1256, totalCourses: 24, totalSimulations: 3842, avgScore: 82 }
 
+export { createFallbackDashboard as mockAdminDashboard } from '@/pages/dashboard/dashboardFallback'
+
 export const mockAIResponse = (question: string) => {
   const responses: Record<string, string> = {
     '冒烟': '储能柜冒烟处理步骤：1. 立即切断电源；2. 启动消防系统；3. 疏散周围人员；4. 通知消防部门；5. 在安全距离外观察。',
