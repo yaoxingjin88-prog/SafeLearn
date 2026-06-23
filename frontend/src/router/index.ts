@@ -51,6 +51,12 @@ const adminChildren: RouteRecordRaw[] = [
         meta: { title: '编辑试题', hidden: true },
       },
       {
+        path: 'paper-assembly',
+        name: 'LearningPaperAssembly',
+        component: () => import('@/pages/admin/paper-assembly/PaperAssemblyPage.vue'),
+        meta: { title: '组卷管理' },
+      },
+      {
         path: 'monitoring',
         name: 'LearningCourseMonitoring',
         component: () => import('@/pages/admin/courses/CourseMonitoringPage.vue'),

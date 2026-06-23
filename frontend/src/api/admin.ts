@@ -126,6 +126,38 @@ export const adminApi = {
     return request.post('/admin/questions/batch', data)
   },
 
+  getPaperCategoryOptions(): Promise<ApiResponse<Array<{ id: string; name: string }>>> {
+    return request.get('/admin/papers/category-options')
+  },
+
+  getPaperDefaultConfig(): Promise<ApiResponse<Record<string, unknown>>> {
+    return request.get('/admin/papers/default-config')
+  },
+
+  generatePaper(data: { config: Record<string, unknown> }): Promise<ApiResponse<AdminPaperGenerateResult>> {
+    return request.post('/admin/papers/generate', data)
+  },
+
+  getPaperById(id: string): Promise<ApiResponse<AdminPaperDetail>> {
+    return request.get(`/admin/papers/${id}`)
+  },
+
+  savePaper(data: AdminPaperPayload): Promise<ApiResponse<AdminPaperDetail>> {
+    return request.post('/admin/papers', data)
+  },
+
+  updatePaper(id: string, data: AdminPaperPayload): Promise<ApiResponse<AdminPaperDetail>> {
+    return request.put(`/admin/papers/${id}`, data)
+  },
+
+  publishPaper(id: string): Promise<ApiResponse<AdminPaperDetail>> {
+    return request.post(`/admin/papers/${id}/publish`)
+  },
+
+  publishPaperDirect(data: AdminPaperPayload): Promise<ApiResponse<AdminPaperDetail>> {
+    return request.post('/admin/papers/publish', data)
+  },
+
   getSystemConfigs(): Promise<ApiResponse<SystemConfigItem[]>> {
     return request.get('/admin/system-configs')
   },
@@ -402,7 +434,7 @@ export interface AdminExamPage {
 
 export interface AdminExamListItem {
   id: string
-  sourceType: 'chapter' | 'comprehensive'
+  sourceType: 'chapter' | 'comprehensive' | 'paper'
   title: string
   examType: 'formal' | 'mock'
   department: string
@@ -516,4 +548,64 @@ export interface AdminQuestionPayload {
   tags?: string[]
   attachments?: AdminQuestionAttachments
   settings?: AdminQuestionSettings
+}
+
+export interface AdminPaperTypeRule {
+  type: string
+  label?: string
+  count: number
+  scorePerQuestion: number
+  difficultyRatio: { easy: number; medium: number; hard: number }
+}
+
+export interface AdminPaperPreview {
+  totalQuestions: number
+  totalScore: number
+  distribution: Array<{
+    type: string
+    typeLabel: string
+    count: number
+    scorePerQuestion: number
+    subtotal: number
+    percent: number
+  }>
+}
+
+export interface AdminPaperGenerateResult extends AdminPaperPreview {
+  questionIds: string[]
+  questions: Array<{ id: string; type: string; question: string; score: number }>
+}
+
+export interface AdminPaperDetail {
+  id: string
+  title: string
+  mode: string
+  examType: string
+  status: string
+  timeLimit: number
+  totalScore: number
+  passScore: number
+  department?: string
+  config?: Record<string, unknown>
+  questionIds?: string[]
+  questions?: Array<{ id: string; type: string; question: string; score: number }>
+  preview?: AdminPaperPreview
+  publishedAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AdminPaperPayload {
+  id?: string
+  title?: string
+  mode?: string
+  examType?: string
+  status?: string
+  timeLimit?: number
+  totalScore?: number
+  passScore?: number
+  department?: string
+  config?: Record<string, unknown>
+  questionIds?: string[]
+  questionsSnapshot?: unknown[]
 }

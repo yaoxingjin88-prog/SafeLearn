@@ -5,6 +5,7 @@ import com.safelearn.service.AdminAnalyticsService;
 import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseMonitoringService;
 import com.safelearn.service.AdminExamService;
+import com.safelearn.service.AdminPaperAssemblyService;
 import com.safelearn.service.AdminQuestionBankService;
 import com.safelearn.service.AdminCourseService;
 import com.safelearn.service.AdminDashboardService;
@@ -27,6 +28,7 @@ public class AdminController {
     private final AdminCourseMonitoringService adminCourseMonitoringService;
     private final AdminExamService adminExamService;
     private final AdminQuestionBankService adminQuestionBankService;
+    private final AdminPaperAssemblyService adminPaperAssemblyService;
     private final AdminDashboardService adminDashboardService;
     private final CourseCategoryService courseCategoryService;
     private final DashboardService dashboardService;
@@ -295,6 +297,52 @@ public class AdminController {
         List<String> ids = (List<String>) body.get("ids");
         String action = String.valueOf(body.get("action"));
         return ApiResponse.success(adminQuestionBankService.batchOperate(ids, action));
+    }
+
+    /** 组卷：分类选项 */
+    @GetMapping("/papers/category-options")
+    public ApiResponse<List<Map<String, Object>>> getPaperCategoryOptions() {
+        return ApiResponse.success(adminPaperAssemblyService.getCategoryOptions());
+    }
+
+    /** 组卷：默认配置 */
+    @GetMapping("/papers/default-config")
+    public ApiResponse<Map<String, Object>> getPaperDefaultConfig() {
+        return ApiResponse.success(adminPaperAssemblyService.getDefaultConfig());
+    }
+
+    /** 组卷：智能抽题 */
+    @PostMapping("/papers/generate")
+    public ApiResponse<Map<String, Object>> generatePaper(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPaperAssemblyService.generatePaper(body));
+    }
+
+    @GetMapping("/papers/{id}")
+    public ApiResponse<Map<String, Object>> getPaperById(@PathVariable String id) {
+        return ApiResponse.success(adminPaperAssemblyService.getPaperById(id));
+    }
+
+    @PostMapping("/papers")
+    public ApiResponse<Map<String, Object>> savePaper(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPaperAssemblyService.savePaper(body));
+    }
+
+    @PutMapping("/papers/{id}")
+    public ApiResponse<Map<String, Object>> updatePaper(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        body.put("id", id);
+        return ApiResponse.success(adminPaperAssemblyService.savePaper(body));
+    }
+
+    @PostMapping("/papers/{id}/publish")
+    public ApiResponse<Map<String, Object>> publishPaper(@PathVariable String id) {
+        return ApiResponse.success(adminPaperAssemblyService.publishPaper(id));
+    }
+
+    @PostMapping("/papers/publish")
+    public ApiResponse<Map<String, Object>> publishPaperDirect(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPaperAssemblyService.publishDirect(body));
     }
 
     // ---------- 系统配置 ----------

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safelearn.entity.Chapter;
 import com.safelearn.entity.ChapterQuiz;
 import com.safelearn.entity.Course;
+import com.safelearn.entity.ExamPaper;
 import com.safelearn.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class AdminExamService {
     private final CourseRepository courseRepo;
     private final QuizAttemptRepository attemptRepo;
     private final ComprehensiveExamAttemptRepository comprehensiveAttemptRepo;
+    private final ExamPaperRepository paperRepo;
     private final ObjectMapper objectMapper;
 
     public Map<String, Object> searchExams(String keyword, String examType, String department,
@@ -124,6 +126,10 @@ public class AdminExamService {
         if (id.startsWith("comprehensive:")) {
             throw new RuntimeException("综合考试不可删除");
         }
+        if (paperRepo.existsById(id)) {
+            paperRepo.deleteById(id);
+            return Map.of("success", true);
+        }
         if (!quizRepo.existsById(id)) {
             throw new RuntimeException("考试不存在");
         }
@@ -154,7 +160,38 @@ public class AdminExamService {
             if (poolSize < COMPREHENSIVE_MIN_POOL) continue;
             rows.add(toComprehensiveExamRow(course, poolSize));
         }
+
+        for (ExamPaper paper : paperRepo.findAll()) {
+            rows.add(toPaperExamRow(paper));
+        }
         return rows;
+    }
+
+    private Map<String, Object> toPaperExamRow(ExamPaper paper) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", paper.getId());
+        row.put("sourceType", "paper");
+        row.put("title", paper.getTitle());
+        row.put("examType", paper.getExamType() != null ? paper.getExamType() : "formal");
+        row.put("department", paper.getDepartment() != null ? paper.getDepartment() : "全员");
+        row.put("questionCount", parseQuestionIdCount(paper.getQuestionIds()));
+        row.put("timeLimit", paper.getTimeLimit());
+        row.put("totalScore", paper.getTotalScore() != null ? paper.getTotalScore() : 100);
+        row.put("passScore", paper.getPassScore() != null ? paper.getPassScore() : 60);
+        row.put("status", paper.getStatus() != null ? paper.getStatus() : "draft");
+        row.put("attemptCount", 0);
+        row.put("createdAt", paper.getCreatedAt() != null ? paper.getCreatedAt().format(DT) : null);
+        return row;
+    }
+
+    private int parseQuestionIdCount(String questionIdsJson) {
+        if (questionIdsJson == null || questionIdsJson.isBlank()) return 0;
+        try {
+            List<?> list = objectMapper.readValue(questionIdsJson, List.class);
+            return list.size();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private Map<String, Object> toChapterExamRow(ChapterQuiz quiz, Chapter chapter, Course course) {

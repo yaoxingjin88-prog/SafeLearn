@@ -122,7 +122,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection,
+  Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection, Files,
   Bell, Message, QuestionFilled,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
@@ -174,6 +174,7 @@ const adminMenus: NavMenu[] = [
     children: [
       { path: '/admin/learning/exams', title: '考试管理', icon: EditPen },
       { path: '/admin/learning/question-bank', title: '题库管理', icon: Collection },
+      { path: '/admin/learning/paper-assembly', title: '组卷管理', icon: Files },
     ],
   },
   {
@@ -205,6 +206,9 @@ const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/admin/learning/exams')) {
     return '/admin/learning/exams'
+  }
+  if (path.startsWith('/admin/learning/paper-assembly')) {
+    return '/admin/learning/paper-assembly'
   }
   if (path.startsWith('/admin/learning/question-bank')) {
     if (path.includes('/edit') || path.endsWith('/new')) {
