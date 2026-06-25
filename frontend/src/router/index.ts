@@ -146,6 +146,12 @@ const userChildren: RouteRecordRaw[] = [
     meta: { title: '工作台' },
   },
   {
+    path: 'search',
+    name: 'UserSearch',
+    component: () => import('@/pages/user/UserSearchPage.vue'),
+    meta: { title: '搜索' },
+  },
+  {
     path: 'learning',
     redirect: '/user/learning/calendar',
     meta: { title: '学习中心' },
@@ -163,6 +169,8 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'list', name: 'UserCourseList', component: () => import('@/pages/courses/CourseList.vue'), meta: { title: '课程列表' } },
       { path: 'skill-tree', name: 'UserSkillTree', component: () => import('@/pages/courses/SkillTree.vue'), meta: { title: '安全进阶路径' } },
       { path: 'my-learning', name: 'UserMyLearning', component: () => import('@/pages/courses/MyLearning.vue'), meta: { title: '我的学习' } },
+      { path: 'exams', name: 'UserExamCenter', component: () => import('@/pages/user/ExamCenterPage.vue'), meta: { title: '考试中心' } },
+      { path: 'learning-report', name: 'UserLearningReport', component: () => import('@/pages/user/UserLearningReportPage.vue'), meta: { title: '学习报告' } },
       { path: 'wrong-questions', name: 'UserWrongQuestions', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '错题本' } },
       { path: 'wrong-questions/:chapterId', name: 'UserWrongQuestionChapter', component: () => import('@/pages/courses/WrongQuestions.vue'), meta: { title: '章节错题', hidden: true } },
       { path: ':id', name: 'UserCourseDetail', component: () => import('@/pages/courses/CourseDetail.vue'), meta: { title: '课程详情', hidden: true } },
@@ -217,6 +225,12 @@ const userChildren: RouteRecordRaw[] = [
       { path: 'chat', name: 'UserAIChat', component: () => import('@/pages/ai/AIChat.vue'), meta: { title: '智能问答' } },
       { path: 'history', name: 'UserAIHistory', component: () => import('@/pages/ai/AIHistory.vue'), meta: { title: '问答历史' } },
     ],
+  },
+  {
+    path: 'exams/:id',
+    name: 'UserPaperExam',
+    component: () => import('@/pages/user/PaperExamView.vue'),
+    meta: { title: '独立试卷', hidden: true, immersive: true },
   },
   {
     path: 'account',

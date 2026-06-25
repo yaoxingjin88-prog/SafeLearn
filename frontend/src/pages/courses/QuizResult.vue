@@ -119,14 +119,21 @@ const loading = ref(true)
 const result = ref<QuizSubmitResult | null>(null)
 const chapterId = ref('')
 const courseId = ref('')
-const examType = ref<'chapter' | 'comprehensive'>('chapter')
+const examType = ref<'chapter' | 'comprehensive' | 'paper'>('chapter')
+const paperId = ref('')
 const questionMap = ref<Record<string, string>>({})
 
 onMounted(async () => {
   try {
     chapterId.value = route.query.chapterId as string || ''
     courseId.value = route.query.courseId as string || ''
-    examType.value = route.query.examType === 'comprehensive' ? 'comprehensive' : 'chapter'
+    examType.value = route.query.examType === 'comprehensive'
+      ? 'comprehensive'
+      : route.query.examType === 'paper'
+        ? 'paper'
+        : 'chapter'
+
+    paperId.value = route.query.paperId as string || ''
 
     const storedResult = sessionStorage.getItem('quizResult')
     if (storedResult) {
@@ -182,7 +189,9 @@ function getRatingLabel(rating: string) {
 }
 
 function goBack() {
-  if (examType.value === 'comprehensive' && courseId.value) {
+  if (examType.value === 'paper') {
+    router.replace(p('/courses/exams'))
+  } else if (examType.value === 'comprehensive' && courseId.value) {
     router.replace(p(`/courses/${courseId.value}`))
   } else if (courseId.value && chapterId.value) {
     router.replace(p(`/courses/${courseId.value}/chapters/${chapterId.value}`))
@@ -192,7 +201,9 @@ function goBack() {
 }
 
 function retryQuiz() {
-  if (examType.value === 'comprehensive' && courseId.value) {
+  if (examType.value === 'paper' && paperId.value) {
+    router.replace(p(`/exams/${paperId.value}`))
+  } else if (examType.value === 'comprehensive' && courseId.value) {
     router.replace(p(`/courses/${courseId.value}/comprehensive-exam`))
   } else if (chapterId.value) {
     router.replace(p(`/courses/${courseId.value}/chapters/${chapterId.value}/quiz`))

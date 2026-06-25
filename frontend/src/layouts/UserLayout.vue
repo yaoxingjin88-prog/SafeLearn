@@ -72,7 +72,7 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item disabled>{{ userStore.userInfo?.company || '储能企业' }}</el-dropdown-item>
+              <el-dropdown-item disabled>{{ userStore.userInfo?.company?.trim() || '未设置企业' }}</el-dropdown-item>
               <el-dropdown-item @click="$router.push('/user/account')">账号设置</el-dropdown-item>
               <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
@@ -134,7 +134,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Monitor, Reading, Warning, Cpu, Document, ChatDotRound, Setting,
+  Monitor, Reading, Warning, Cpu, Document, ChatDotRound, Setting, DataAnalysis,
   Fold, Expand, Search, Sunny,
   List, Guide, Notebook, Calendar, Star, Medal,
   VideoPlay, Tickets, Files, Clock,
@@ -145,7 +145,7 @@ import { ElMessageBox, type MenuInstance } from 'element-plus'
 import { useUserStore } from '@/stores'
 import { useBreadcrumbs } from '@/composables/useBreadcrumbs'
 import UserNotificationPopover from '@/components/user/UserNotificationPopover.vue'
-import request from '@/api/request'
+import { dashboardApi } from '@/api/dashboard'
 
 const route = useRoute()
 const router = useRouter()
@@ -164,11 +164,15 @@ function resolveActiveMenu(path: string): string {
   if (exact) return exact.path
 
   if (path.startsWith('/user/courses/')) {
+    if (path.includes('/learning-report')) return '/user/courses/learning-report'
+    if (path.includes('/exams')) return '/user/courses/exams'
     if (path.includes('/chapters/') || path.includes('/quiz')) {
       return '/user/courses/my-learning'
     }
     return '/user/courses/list'
   }
+  if (path.startsWith('/user/exams/')) return '/user/courses/exams'
+  if (path.startsWith('/user/search')) return '/user/dashboard'
   if (path.startsWith('/user/simulation/')) return '/user/simulation/scenarios'
   if (path.startsWith('/user/training/records')) return '/user/training/records'
   if (path.startsWith('/user/training/')) return '/user/training/scenarios'
@@ -189,7 +193,7 @@ const isImmersive = computed(() => Boolean(route.meta.immersive))
 
 const isAdmin = computed(() => userStore.role === 'admin')
 const displayInitial = computed(() => (displayName.value || '用').charAt(0))
-const displayDepartment = computed(() => userStore.userInfo?.department || '生产安全部')
+const displayDepartment = computed(() => userStore.userInfo?.department?.trim() || '未设置部门')
 
 interface NavChild {
   path: string
@@ -217,6 +221,8 @@ const userMenus: NavMenu[] = [
       { path: '/user/courses/list', title: '课程列表', icon: List },
       { path: '/user/courses/skill-tree', title: '安全进阶路径', icon: Guide },
       { path: '/user/courses/my-learning', title: '我的学习', icon: Notebook },
+      { path: '/user/courses/exams', title: '考试中心', icon: Tickets },
+      { path: '/user/courses/learning-report', title: '学习报告', icon: DataAnalysis },
       { path: '/user/courses/wrong-questions', title: '错题本', icon: DocumentChecked },
     ],
   },
@@ -324,7 +330,7 @@ watch(
 function handleSearch() {
   const q = searchText.value.trim()
   if (!q) return
-  router.push({ path: '/user/courses/list', query: { keyword: q } })
+  router.push({ path: '/user/search', query: { q } })
 }
 
 async function handleLogout() {
@@ -346,7 +352,7 @@ onMounted(async () => {
     try { await userStore.getUserInfo() } catch { /* ignore */ }
   }
   try {
-    const res = await request.get('/dashboard/overview')
+    const res = await dashboardApi.getOverview()
     streakDays.value = res.data.streakDays || 0
     displayName.value = res.data.displayName || userStore.username
   } catch {
