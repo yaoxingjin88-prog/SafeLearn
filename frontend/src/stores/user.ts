@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import type { UserInfo } from '@/types'
+import { buildPermissionCode } from '@/utils/permissions'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
@@ -10,12 +11,26 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
   const username = computed(() => userInfo.value?.username || '')
   const role = computed(() => userInfo.value?.role || 'trainee')
+  const permissions = computed(() => userInfo.value?.permissions ?? [])
+  const permissionRoleName = computed(() => userInfo.value?.permissionRoleName || '')
+
+  function hasPermission(module: string, action = 'view') {
+    if (role.value !== 'admin') return false
+    const code = buildPermissionCode(module, action)
+    const list = permissions.value
+    if (!list.length) return true
+    return list.includes(code)
+  }
 
   async function login(username: string, password: string) {
     const res = await authApi.login({ username, password })
     token.value = res.data.token
     localStorage.setItem('token', res.data.token)
-    await getUserInfo()
+    if (res.data.user) {
+      userInfo.value = res.data.user as UserInfo
+    } else {
+      await getUserInfo()
+    }
     return res
   }
 
@@ -37,6 +52,9 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     username,
     role,
+    permissions,
+    permissionRoleName,
+    hasPermission,
     login,
     getUserInfo,
     logout,

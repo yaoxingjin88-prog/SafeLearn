@@ -3,14 +3,14 @@
     <nav class="page-breadcrumb" aria-label="面包屑">
       <button type="button" @click="router.push('/dashboard')">首页</button>
       <span>/</span>
-      <span>安全预警</span>
+      <button type="button" @click="router.push('/admin/learning/courses')">培训课程</button>
       <span>/</span>
-      <strong>最新安全预警</strong>
+      <strong>预警管理</strong>
     </nav>
 
     <header class="page-header">
       <div>
-        <h1>最新安全预警</h1>
+        <h1>预警管理</h1>
         <p>查看、筛选与跟踪培训过程中的异常预警信息</p>
       </div>
     </header>

@@ -9,7 +9,7 @@
       <el-scrollbar class="menu-scroll">
         <el-menu ref="menuRef" :default-active="activeMenu" :default-openeds="defaultOpeneds" :collapse="collapsed"
           :collapse-transition="false" unique-opened router class="admin-menu">
-          <el-menu-item index="/dashboard" class="nav-top-item">
+          <el-menu-item index="/dashboard" class="nav-top-item" v-if="canAccessModule('dashboard')">
             <el-icon class="nav-top-icon">
               <Monitor />
             </el-icon>
@@ -74,8 +74,8 @@
           </div>
         </div>
         <div class="header-right">
-          <AdminNotificationPopover v-if="isAdmin" />
-          <AdminMessagePopover v-if="isAdmin" />
+          <AdminNotificationPopover v-if="showInboxTools" />
+          <AdminMessagePopover v-if="showInboxTools" />
           <AdminHelpDrawer v-if="isAdmin" />
           <el-dropdown trigger="click">
             <div class="header-user">
@@ -95,7 +95,7 @@
         </div>
       </el-header>
 
-      <div v-if="breadcrumbs.length && route.path !== '/dashboard'" class="breadcrumb-bar">
+      <div v-if="breadcrumbs.length && route.path !== '/dashboard' && !route.meta.hideLayoutBreadcrumb" class="breadcrumb-bar">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="`${item.path ?? item.title}-${index}`"
             :to="item.path ? { path: item.path } : undefined">
@@ -120,7 +120,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection, Files,
-  OfficeBuilding,
+  OfficeBuilding, DataAnalysis, BellFilled, Key,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
@@ -142,6 +142,7 @@ interface NavChild {
   path: string
   title: string
   icon: Component
+  permissionModule?: string
 }
 
 interface NavMenu {
@@ -150,6 +151,7 @@ interface NavMenu {
   icon: Component
   children?: NavChild[]
   adminOnly?: boolean
+  permissionModule?: string
 }
 
 /**
@@ -162,8 +164,10 @@ const adminMenus: NavMenu[] = [
     icon: Reading,
     adminOnly: true,
     children: [
-      { path: '/admin/learning/courses', title: '课程管理', icon: EditPen },
-      { path: '/admin/learning/monitoring', title: '学习监控', icon: DataLine },
+      { path: '/admin/learning/courses', title: '课程管理', icon: EditPen, permissionModule: 'training' },
+      { path: '/admin/learning/monitoring', title: '学习监控', icon: DataLine, permissionModule: 'training' },
+      { path: '/dashboard/reports', title: '学习报表', icon: DataAnalysis, permissionModule: 'report' },
+      { path: '/dashboard/alerts', title: '预警管理', icon: BellFilled, permissionModule: 'hazard' },
     ],
   },
   {
@@ -172,9 +176,9 @@ const adminMenus: NavMenu[] = [
     icon: Document,
     adminOnly: true,
     children: [
-      { path: '/admin/learning/exams', title: '考试管理', icon: EditPen },
-      { path: '/admin/learning/question-bank', title: '题库管理', icon: Collection },
-      { path: '/admin/learning/paper-assembly', title: '组卷管理', icon: Files },
+      { path: '/admin/learning/exams', title: '考试管理', icon: EditPen, permissionModule: 'exam' },
+      { path: '/admin/learning/question-bank', title: '题库管理', icon: Collection, permissionModule: 'exam' },
+      { path: '/admin/learning/paper-assembly', title: '组卷管理', icon: Files, permissionModule: 'exam' },
     ],
   },
   {
@@ -183,8 +187,9 @@ const adminMenus: NavMenu[] = [
     icon: UserFilled,
     adminOnly: true,
     children: [
-      { path: '/admin/org', title: '组织与部门', icon: OfficeBuilding },
-      { path: '/admin/users', title: '用户管理', icon: User },
+      { path: '/admin/org', title: '组织与部门', icon: OfficeBuilding, permissionModule: 'organization' },
+      { path: '/admin/users', title: '用户管理', icon: User, permissionModule: 'organization' },
+      { path: '/admin/roles', title: '角色与权限', icon: Key, permissionModule: 'permission' },
     ],
   },
   {
@@ -192,6 +197,7 @@ const adminMenus: NavMenu[] = [
     title: '系统设置',
     icon: Setting,
     adminOnly: true,
+    permissionModule: 'permission',
   },
 ]
 
@@ -199,12 +205,35 @@ const isAdmin = computed(() => userStore.role === 'admin')
 const displayInitial = computed(() => (displayName.value || '管').charAt(0))
 const displayDepartment = computed(() => userStore.userInfo?.department || '安全管理部')
 
+function canAccessModule(module?: string) {
+  if (!module) return true
+  return userStore.hasPermission(module, 'view')
+}
+
 const visibleMenus = computed(() =>
-  adminMenus.filter(m => !m.adminOnly || isAdmin.value),
+  adminMenus
+    .filter(m => !m.adminOnly || isAdmin.value)
+    .map(menu => {
+      if (!menu.children?.length) {
+        return canAccessModule(menu.permissionModule) ? menu : null
+      }
+      const children = menu.children.filter(child => canAccessModule(child.permissionModule))
+      if (!children.length) return null
+      return { ...menu, children }
+    })
+    .filter((menu): menu is NavMenu => menu !== null),
 )
+
+const showInboxTools = computed(() => isAdmin.value && canAccessModule('dashboard'))
 
 const activeMenu = computed(() => {
   const path = route.path
+  if (path.startsWith('/dashboard/reports')) {
+    return '/dashboard/reports'
+  }
+  if (path.startsWith('/dashboard/alerts')) {
+    return '/dashboard/alerts'
+  }
   if (path.startsWith('/admin/learning/exams')) {
     return '/admin/learning/exams'
   }
@@ -228,6 +257,12 @@ const activeMenu = computed(() => {
   }
   if (path.startsWith('/admin/users')) {
     return '/admin/users'
+  }
+  if (path.startsWith('/admin/roles')) {
+    return '/admin/roles'
+  }
+  if (path.startsWith('/admin/org')) {
+    return '/admin/org'
   }
   return path
 })

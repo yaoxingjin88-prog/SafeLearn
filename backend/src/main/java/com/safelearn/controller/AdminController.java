@@ -374,6 +374,26 @@ public class AdminController {
                 parseDate(from), parseDate(to), trendDays, page, pageSize));
     }
 
+    /** 向待跟进学员发送学习提醒。 */
+    @PostMapping("/learning-report/remind")
+    public ApiResponse<Map<String, Object>> remindLearner(@RequestBody Map<String, Object> body) {
+        String userId = body.get("userId") != null ? String.valueOf(body.get("userId")).trim() : "";
+        String courseId = body.get("courseId") != null ? String.valueOf(body.get("courseId")).trim() : "";
+        if (userId.isBlank() || courseId.isBlank()) {
+            throw new RuntimeException("学员与课程不能为空");
+        }
+        String warningStatus = body.get("warningStatus") != null
+                ? String.valueOf(body.get("warningStatus")).trim() : null;
+        Integer progress = null;
+        if (body.get("progress") instanceof Number number) {
+            progress = number.intValue();
+        } else if (body.get("progress") != null && !String.valueOf(body.get("progress")).isBlank()) {
+            progress = Integer.parseInt(String.valueOf(body.get("progress")));
+        }
+        return ApiResponse.success(adminLearningReportService.sendReminder(
+                userId, courseId, currentUserId(), warningStatus, progress));
+    }
+
     /** 学习总览：在线/总学习人数与各部门进度，用于管理端工作台。 */
     @GetMapping("/learning-overview")
     public ApiResponse<Map<String, Object>> getLearningOverview() {

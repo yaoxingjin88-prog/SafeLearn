@@ -29,6 +29,7 @@ public class AdminLearningReportService {
     private final ChapterRepository chapterRepo;
     private final UserProgressRepository progressRepo;
     private final QuizAttemptRepository quizAttemptRepo;
+    private final UserNotificationService userNotificationService;
 
     @Transactional(readOnly = true)
     public Map<String, Object> getReport(String keyword, String department, String category,
@@ -378,6 +379,13 @@ public class AdminLearningReportService {
         result.put("pageSize", safeSize);
         result.put("totalPages", safeSize == 0 ? 0 : (int) Math.ceil(total * 1.0 / safeSize));
         return result;
+    }
+
+    @Transactional
+    public Map<String, Object> sendReminder(String userId, String courseId, String senderId,
+                                            String warningStatus, Integer progress) {
+        return userNotificationService.sendLearningReminder(
+                userId, courseId, senderId, warningStatus, progress);
     }
 
     private String formatStudyHours(int seconds) {

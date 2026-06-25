@@ -29,8 +29,8 @@
     </section>
 
     <section class="filter-panel">
-      <div class="filter-grid">
-        <div class="filter-field span-2">
+      <div class="filter-row">
+        <div class="filter-field filter-field--keyword">
           <span class="filter-label">关键词</span>
           <el-input v-model="filters.keyword" placeholder="搜索学员/课程/部门" clearable @keyup.enter="search" />
         </div>
@@ -58,31 +58,31 @@
             <el-option v-for="item in LEARNING_STATUS_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-        <div class="filter-field span-2">
+        <div class="filter-field filter-field--date">
           <span class="filter-label">统计时间</span>
           <el-date-picker
             v-model="filters.dateRange"
             type="daterange"
-            range-separator="-"
+            range-separator="~"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
             class="w-full"
           />
         </div>
-      </div>
-      <div class="filter-actions">
-        <el-button type="primary" @click="search">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
-        <el-button @click="exportReport">
-          <el-icon><Upload /></el-icon>
-          导出
-        </el-button>
+        <div class="filter-actions">
+          <el-button type="primary" @click="search">查询</el-button>
+          <el-button @click="resetFilters">重置</el-button>
+          <el-button @click="exportReport">
+            <el-icon><Download /></el-icon>
+            导出
+          </el-button>
+        </div>
       </div>
     </section>
 
     <section v-if="data" class="charts-grid">
-      <article class="panel chart-panel chart-panel--wide">
+      <article class="panel chart-panel">
         <header class="panel-header">
           <div>
             <h2>学习趋势分析</h2>
@@ -94,7 +94,10 @@
             <el-option label="近30天" :value="30" />
           </el-select>
         </header>
-        <VChart class="chart-box" :option="trendOption" autoresize />
+        <div class="chart-wrap">
+          <VChart class="chart-box" :option="trendOption" autoresize />
+          <div v-if="!hasTrendData" class="chart-empty">暂无趋势数据</div>
+        </div>
       </article>
 
       <article class="panel chart-panel">
@@ -113,24 +116,30 @@
         </div>
       </article>
 
-      <article class="panel chart-panel">
+      <article class="panel chart-panel chart-panel--compact">
         <header class="panel-header">
           <div>
             <h2>部门学习完成率</h2>
             <p>各部门学员完成情况</p>
           </div>
         </header>
-        <VChart class="chart-box" :option="departmentBarOption" autoresize />
+        <div class="chart-wrap">
+          <VChart class="chart-box chart-box--compact" :option="departmentBarOption" autoresize />
+          <div v-if="!hasDepartmentData" class="chart-empty">暂无部门数据</div>
+        </div>
       </article>
 
-      <article class="panel chart-panel">
+      <article class="panel chart-panel chart-panel--compact">
         <header class="panel-header">
           <div>
             <h2>考试成绩分布</h2>
-            <p>测验成绩区间统计</p>
+            <p>按分数区间统计</p>
           </div>
         </header>
-        <VChart class="chart-box" :option="examBarOption" autoresize />
+        <div class="chart-wrap">
+          <VChart class="chart-box chart-box--compact" :option="examBarOption" autoresize />
+          <div v-if="!hasExamData" class="chart-empty">暂无考试数据</div>
+        </div>
       </article>
     </section>
 
@@ -164,7 +173,9 @@
               <td class="course-cell">{{ row.courseTitle }}</td>
               <td>
                 <div class="progress-cell">
-                  <span class="progress-track"><i :style="{ width: `${row.progress}%` }" /></span>
+                  <span class="progress-track">
+                    <i :class="{ done: row.progress >= 100 }" :style="{ width: `${Math.max(row.progress, row.progress > 0 ? 4 : 0)}%` }" />
+                  </span>
                   <small>{{ row.progress }}%</small>
                 </div>
               </td>
@@ -177,6 +188,13 @@
               </td>
               <td class="action-cell">
                 <button type="button" @click="goMonitoring(row)">查看</button>
+                <button
+                  type="button"
+                  :disabled="remindingKey === `${row.userId}-${row.courseId}`"
+                  @click="remindLearner(row)"
+                >
+                  {{ remindingKey === `${row.userId}-${row.courseId}` ? '发送中…' : '提醒' }}
+                </button>
                 <button type="button" @click="goUserDetail(row)">详情</button>
               </td>
             </tr>
@@ -214,8 +232,8 @@ import type { EChartsOption } from 'echarts'
 import {
   CircleCheckFilled,
   Clock,
+  Download,
   Reading,
-  Upload,
   UserFilled,
 } from '@element-plus/icons-vue'
 import {
@@ -244,6 +262,7 @@ const WARNING_LABELS: Record<string, string> = {
 
 const router = useRouter()
 const loading = ref(false)
+const remindingKey = ref<string | null>(null)
 const data = ref<AdminLearningReportData | null>(null)
 const page = ref(1)
 const pageSize = ref(10)
@@ -300,7 +319,7 @@ const summaryCards = computed(() => {
       label: '平均学习时长',
       value: summary.avgStudyHours,
       unit: 'h',
-      subText: '人均统计',
+      subText: '人均本月',
       subTone: 'muted',
       tone: 'orange',
       icon: Clock,
@@ -318,13 +337,27 @@ const summaryCards = computed(() => {
   ]
 })
 
+const hasTrendData = computed(() => {
+  const trend = data.value?.charts.learningTrend
+  if (!trend) return false
+  return (trend.learners ?? []).some(v => v > 0) || (trend.completedCourses ?? []).some(v => v > 0)
+})
+
+const hasDepartmentData = computed(() =>
+  (data.value?.charts.departmentCompletion ?? []).some(item => item.rate > 0),
+)
+
+const hasExamData = computed(() =>
+  (data.value?.charts.examScoreDistribution ?? []).some(item => item.value > 0),
+)
+
 const trendOption = computed<EChartsOption>(() => {
   const trend = data.value?.charts.learningTrend
   return {
     color: ['#5b96f7', '#34b75b'],
     tooltip: { trigger: 'axis' },
-    legend: { top: 4, left: 8, itemWidth: 14, itemHeight: 4, textStyle: { color: '#6b7687', fontSize: 11 } },
-    grid: { left: 42, right: 20, top: 42, bottom: 28 },
+    legend: { top: 0, right: 8, itemWidth: 14, itemHeight: 4, textStyle: { color: '#6b7687', fontSize: 11 } },
+    grid: { left: 44, right: 16, top: 36, bottom: 24 },
     xAxis: {
       type: 'category',
       data: trend?.labels ?? [],
@@ -345,7 +378,8 @@ const trendOption = computed<EChartsOption>(() => {
         smooth: true,
         data: trend?.learners ?? [],
         symbolSize: 6,
-        lineStyle: { width: 2 },
+        lineStyle: { width: 2.5 },
+        areaStyle: { color: 'rgba(91, 150, 247, 0.08)' },
       },
       {
         name: '完成课程数',
@@ -353,63 +387,78 @@ const trendOption = computed<EChartsOption>(() => {
         smooth: true,
         data: trend?.completedCourses ?? [],
         symbolSize: 6,
-        lineStyle: { width: 2 },
+        lineStyle: { width: 2.5 },
+        areaStyle: { color: 'rgba(52, 183, 91, 0.08)' },
       },
     ],
   }
 })
 
-const courseDonutOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
-  legend: {
-    orient: 'vertical',
-    right: 8,
-    top: 'center',
-    itemWidth: 8,
-    itemHeight: 8,
-    textStyle: { color: '#586578', fontSize: 11 },
-    formatter: (name: string) => {
-      const item = data.value?.charts.courseCompletion.items.find(entry => entry.name === name)
-      return `${name}  ${item?.rate ?? 0}%`
+const courseDonutOption = computed<EChartsOption>(() => {
+  const items = data.value?.charts.courseCompletion.items ?? []
+  const hasRate = items.some(item => item.rate > 0)
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
+    legend: {
+      orient: 'vertical',
+      right: 12,
+      top: 'middle',
+      itemWidth: 8,
+      itemHeight: 8,
+      itemGap: 10,
+      textStyle: { color: '#586578', fontSize: 11 },
+      formatter: (name: string) => {
+        const item = items.find(entry => entry.name === name)
+        const label = name.length > 8 ? `${name.slice(0, 8)}…` : name
+        return `${label}  ${item?.rate ?? 0}%`
+      },
     },
-  },
-  series: [{
-    type: 'pie',
-    center: ['34%', '52%'],
-    radius: ['48%', '68%'],
-    label: { show: false },
-    itemStyle: { borderColor: '#fff', borderWidth: 2 },
-    data: (data.value?.charts.courseCompletion.items ?? []).map(item => ({
-      name: item.name,
-      value: item.rate,
-      itemStyle: { color: item.color },
-    })),
-  }],
-}))
+    series: [{
+      type: 'pie',
+      center: ['36%', '54%'],
+      radius: ['52%', '72%'],
+      label: { show: false },
+      emphasis: { scale: true, scaleSize: 4 },
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      data: hasRate
+        ? items.map(item => ({
+          name: item.name,
+          value: Math.max(item.rate, 0.01),
+          itemStyle: { color: item.color },
+        }))
+        : [{ name: '暂无数据', value: 1, itemStyle: { color: '#edf1f6' } }],
+    }],
+  }
+})
 
 const departmentBarOption = computed<EChartsOption>(() => {
   const items = [...(data.value?.charts.departmentCompletion ?? [])].reverse()
   return {
     tooltip: { trigger: 'axis', formatter: '{b}: {c}%' },
-    grid: { left: 88, right: 48, top: 16, bottom: 16 },
+    grid: { left: 84, right: 52, top: 8, bottom: 8 },
     xAxis: {
       type: 'value',
       max: 100,
-      splitLine: { lineStyle: { color: '#eef2f7' } },
-      axisLabel: { color: '#8791a1', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#eef2f7', type: 'dashed' } },
+      axisLabel: { color: '#8791a1', fontSize: 10, formatter: '{value}%' },
     },
     yAxis: {
       type: 'category',
       data: items.map(item => item.name),
+      axisTick: { show: false },
+      axisLine: { show: false },
       axisLabel: { color: '#586578', fontSize: 11 },
     },
     series: [{
       type: 'bar',
       data: items.map(item => ({
         value: item.rate,
-        itemStyle: { color: '#5b96f7', borderRadius: [0, 4, 4, 0] },
+        itemStyle: {
+          color: item.rate > 0 ? '#5b96f7' : '#e8edf4',
+          borderRadius: [0, 4, 4, 0],
+        },
       })),
-      barWidth: 14,
+      barWidth: 12,
       label: { show: true, position: 'right', formatter: '{c}%', color: '#8791a1', fontSize: 10 },
     }],
   }
@@ -417,17 +466,19 @@ const departmentBarOption = computed<EChartsOption>(() => {
 
 const examBarOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
-  grid: { left: 42, right: 16, top: 16, bottom: 28 },
+  grid: { left: 40, right: 12, top: 12, bottom: 24 },
   xAxis: {
     type: 'category',
     data: (data.value?.charts.examScoreDistribution ?? []).map(item => item.name),
+    axisTick: { show: false },
+    axisLine: { lineStyle: { color: '#e8edf4' } },
     axisLabel: { color: '#8791a1', fontSize: 10 },
   },
   yAxis: {
     type: 'value',
     minInterval: 1,
-    splitLine: { lineStyle: { color: '#eef2f7' } },
-    axisLabel: { color: '#8791a1' },
+    splitLine: { lineStyle: { color: '#eef2f7', type: 'dashed' } },
+    axisLabel: { color: '#8791a1', fontSize: 10 },
   },
   series: [{
     type: 'bar',
@@ -435,7 +486,14 @@ const examBarOption = computed<EChartsOption>(() => ({
       value: item.value,
       itemStyle: { color: item.color, borderRadius: [4, 4, 0, 0] },
     })),
-    barWidth: 28,
+    barWidth: 32,
+    label: {
+      show: true,
+      position: 'top',
+      color: '#8791a1',
+      fontSize: 10,
+      formatter: (params: { value: number }) => (params.value > 0 ? String(params.value) : ''),
+    },
   }],
 }))
 
@@ -495,6 +553,32 @@ function goMonitoring(row: AdminLearningReportFollowUpItem) {
 
 function goUserDetail(row: AdminLearningReportFollowUpItem) {
   router.push(`/admin/users/${row.userId}`)
+}
+
+function remindLearner(row: AdminLearningReportFollowUpItem) {
+  const key = `${row.userId}-${row.courseId}`
+  remindingKey.value = key
+  adminApi.sendLearningReminder({
+    userId: row.userId,
+    courseId: row.courseId,
+    warningStatus: row.warningStatus,
+    progress: row.progress,
+  })
+    .then(res => {
+      if (res.data.duplicate) {
+        ElMessage.warning(res.data.message || '今日已提醒过该学员')
+        return
+      }
+      ElMessage.success(res.data.message || `已向 ${row.username} 发送学习提醒`)
+    })
+    .catch(() => {
+      ElMessage.error('发送提醒失败')
+    })
+    .finally(() => {
+      if (remindingKey.value === key) {
+        remindingKey.value = null
+      }
+    })
 }
 
 function csvCell(value: string | number | undefined | null) {
@@ -601,23 +685,27 @@ onMounted(loadData)
 }
 
 .stat-card {
+  min-width: 0;
+  height: 108px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: 14px;
+  padding: 18px;
+  box-sizing: border-box;
   background: #fff;
-  border: 1px solid #e8edf5;
-  border-radius: 10px;
+  border: 1px solid #e7ebf1;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(34, 54, 86, 0.04);
 }
 
 .stat-icon {
-  width: 44px;
-  height: 44px;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 22px;
-  flex-shrink: 0;
+  font-size: 24px;
 }
 
 .tone-blue { color: #3478ef; background: #edf3ff; }
@@ -660,8 +748,10 @@ onMounted(loadData)
 .filter-panel,
 .panel {
   background: #fff;
-  border: 1px solid #e8edf5;
-  border-radius: 10px;
+  border: 1px solid #e7ebf1;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(34, 54, 86, 0.04);
+  overflow: hidden;
 }
 
 .filter-panel {
@@ -669,9 +759,10 @@ onMounted(loadData)
   margin-bottom: 14px;
 }
 
-.filter-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px;
 }
 
@@ -679,10 +770,18 @@ onMounted(loadData)
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 120px;
+  flex: 1;
 }
 
-.filter-field.span-2 {
-  grid-column: span 2;
+.filter-field--keyword {
+  flex: 1.4;
+  min-width: 180px;
+}
+
+.filter-field--date {
+  flex: 1.2;
+  min-width: 240px;
 }
 
 .filter-label {
@@ -692,9 +791,9 @@ onMounted(loadData)
 
 .filter-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .w-full { width: 100%; }
@@ -704,47 +803,86 @@ onMounted(loadData)
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
+  align-items: stretch;
 }
 
-.chart-panel--wide {
-  grid-column: span 2;
+.chart-panel {
+  min-width: 0;
+  height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-panel--compact {
+  height: 280px;
 }
 
 .panel-header {
+  min-height: 56px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px 16px 0;
+  padding: 14px 16px 8px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .panel-header h2 {
   margin: 0;
   font-size: 15px;
+  font-weight: 700;
+  color: #263246;
 }
 
 .panel-header p {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #8b95a4;
+  color: #9ba4b0;
 }
 
 .trend-select {
-  width: 96px;
+  width: 88px;
+}
+
+.trend-select :deep(.el-select__wrapper) {
+  min-height: 28px;
+  font-size: 11px;
+  box-shadow: none;
+  background: #f8fafc;
+}
+
+.chart-wrap,
+.donut-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .chart-box {
-  height: 280px;
+  height: 100%;
+  min-height: 220px;
 }
 
-.donut-wrap {
-  position: relative;
+.chart-box--compact {
+  min-height: 190px;
+}
+
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #b0b8c4;
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .donut-center {
   position: absolute;
-  left: 34%;
-  top: 52%;
+  left: 36%;
+  top: 54%;
+  width: 96px;
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
@@ -752,7 +890,7 @@ onMounted(loadData)
 
 .donut-center span {
   display: block;
-  color: #8b95a4;
+  color: #8994a3;
   font-size: 11px;
 }
 
@@ -760,7 +898,8 @@ onMounted(loadData)
   display: block;
   margin-top: 4px;
   font-size: 22px;
-  color: #1c2738;
+  font-weight: 700;
+  color: #263247;
 }
 
 .table-panel {
@@ -776,7 +915,9 @@ onMounted(loadData)
 
 .table-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #263246;
 }
 
 .table-header p {
@@ -816,7 +957,12 @@ onMounted(loadData)
 .report-table th {
   color: #8b95a4;
   font-weight: 500;
+  font-size: 12px;
   background: #fafbfc;
+}
+
+.report-table tbody tr:hover {
+  background: #fafcff;
 }
 
 .course-cell {
@@ -842,8 +988,13 @@ onMounted(loadData)
 .progress-track i {
   display: block;
   height: 100%;
-  background: #4b87f2;
+  background: linear-gradient(90deg, #4b87f2, #6ba0ff);
   border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.progress-track i.done {
+  background: linear-gradient(90deg, #20ad82, #3ec99a);
 }
 
 .progress-cell small {
@@ -878,6 +1029,11 @@ onMounted(loadData)
   padding: 0;
 }
 
+.action-cell button:disabled {
+  color: #b0b8c4;
+  cursor: not-allowed;
+}
+
 .pagination-bar {
   display: flex;
   justify-content: space-between;
@@ -889,14 +1045,18 @@ onMounted(loadData)
 
 @media (max-width: 1100px) {
   .stats-grid,
-  .charts-grid,
-  .filter-grid {
+  .charts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .chart-panel--wide,
-  .filter-field.span-2 {
-    grid-column: span 2;
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-actions {
+    margin-left: 0;
+    justify-content: flex-end;
   }
 }
 
@@ -906,14 +1066,14 @@ onMounted(loadData)
   }
 
   .stats-grid,
-  .charts-grid,
-  .filter-grid {
+  .charts-grid {
     grid-template-columns: 1fr;
   }
 
-  .chart-panel--wide,
-  .filter-field.span-2 {
-    grid-column: span 1;
+  .chart-panel,
+  .chart-panel--compact {
+    height: auto;
+    min-height: 280px;
   }
 }
 </style>

@@ -6,6 +6,7 @@ import com.safelearn.entity.PasswordResetToken;
 import com.safelearn.entity.User;
 import com.safelearn.repository.PasswordResetTokenRepository;
 import com.safelearn.repository.UserRepository;
+import com.safelearn.service.UserPermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final MailNotificationService mailService;
+    private final UserPermissionService userPermissionService;
 
     public Map<String, Object> register(RegisterRequest req) {
         if (userRepo.existsByUsername(req.getUsername())) {
@@ -46,11 +48,14 @@ public class AuthService {
         user.setDepartment(req.getDepartment());
         user = userRepo.save(user);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+        String token = jwtUtil.generateToken(
+                user.getId(), user.getUsername(), user.getRole(),
+                resolved.permissionCodes(), resolved.permissionRoleId(), resolved.permissionRoleCode());
 
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
-        result.put("user", toUserInfo(user));
+        result.put("user", toUserInfo(user, resolved));
         return result;
     }
 
@@ -66,18 +71,22 @@ public class AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepo.save(user);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+        String token = jwtUtil.generateToken(
+                user.getId(), user.getUsername(), user.getRole(),
+                resolved.permissionCodes(), resolved.permissionRoleId(), resolved.permissionRoleCode());
 
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
-        result.put("user", toUserInfo(user));
+        result.put("user", toUserInfo(user, resolved));
         return result;
     }
 
     public Map<String, Object> getUserInfo(String userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        return toUserInfo(user);
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+        return toUserInfo(user, resolved);
     }
 
     @Transactional
@@ -99,7 +108,8 @@ public class AuthService {
         }
 
         userRepo.save(user);
-        return toUserInfo(user);
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+        return toUserInfo(user, resolved);
     }
 
     @Transactional
@@ -163,9 +173,12 @@ public class AuthService {
 
     public Map<String, Object> refreshToken(String oldToken) {
         String userId = jwtUtil.getUserId(oldToken);
-        String username = jwtUtil.getUsername(oldToken);
-        String role = jwtUtil.getRole(oldToken);
-        String newToken = jwtUtil.generateToken(userId, username, role);
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+        String newToken = jwtUtil.generateToken(
+                user.getId(), user.getUsername(), user.getRole(),
+                resolved.permissionCodes(), resolved.permissionRoleId(), resolved.permissionRoleCode());
         return Map.of("token", newToken);
     }
 
@@ -175,7 +188,7 @@ public class AuthService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private Map<String, Object> toUserInfo(User user) {
+    private Map<String, Object> toUserInfo(User user, UserPermissionService.ResolvedUserPermission resolved) {
         Map<String, Object> info = new HashMap<>();
         info.put("id", user.getId());
         info.put("username", user.getUsername());
@@ -187,6 +200,9 @@ public class AuthService {
         info.put("avatarUrl", user.getAvatarUrl());
         info.put("lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null);
         info.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        if (resolved != null) {
+            info.putAll(resolved.toMap());
+        }
         return info;
     }
 }

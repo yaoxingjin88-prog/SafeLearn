@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtUtil {
@@ -24,10 +25,18 @@ public class JwtUtil {
     }
 
     public String generateToken(String userId, String username, String role) {
+        return generateToken(userId, username, role, List.of(), null, null);
+    }
+
+    public String generateToken(String userId, String username, String role,
+                                List<String> permissions, String permissionRoleId, String permissionRoleCode) {
         return Jwts.builder()
                 .subject(userId)
                 .claim("username", username)
                 .claim("role", role)
+                .claim("perms", permissions)
+                .claim("permissionRoleId", permissionRoleId)
+                .claim("permissionRoleCode", permissionRoleCode)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
@@ -52,6 +61,15 @@ public class JwtUtil {
 
     public String getRole(String token) {
         return parseToken(token).get("role", String.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> getPermissions(String token) {
+        Object value = parseToken(token).get("perms");
+        if (value instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return List.of();
     }
 
     public boolean isExpired(String token) {

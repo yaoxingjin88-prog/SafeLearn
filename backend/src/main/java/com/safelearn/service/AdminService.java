@@ -6,7 +6,9 @@ import com.safelearn.entity.TrainingRecord;
 import com.safelearn.entity.User;
 import com.safelearn.repository.*;
 import com.safelearn.deduction.repository.SimulationSessionRepository;
+import com.safelearn.security.PermissionContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ public class AdminService {
     private final ChapterRepository chapterRepo;
     private final AccidentCaseRepository caseRepo;
     private final PasswordEncoder passwordEncoder;
+    private final UserPermissionService userPermissionService;
 
     public List<Map<String, Object>> getUsers() {
         return userRepo.findAll().stream().map(u -> toUserListItem(u, buildProgressMap(), buildCertStatusMap())).toList();
@@ -48,6 +51,7 @@ public class AdminService {
                 .filter(row -> matchUserStatus(row, status))
                 .filter(row -> matchUserCertStatus(row, certStatus))
                 .filter(row -> matchUserProgress(row, progressMin, progressMax))
+                .filter(this::matchDataScope)
                 .sorted(Comparator.comparing(r -> String.valueOf(r.get("username"))))
                 .toList();
 
@@ -92,6 +96,9 @@ public class AdminService {
         if (data.containsKey("employeeNo")) user.setEmployeeNo((String) data.get("employeeNo"));
         if (data.containsKey("avatarUrl")) user.setAvatarUrl((String) data.get("avatarUrl"));
         if (data.containsKey("enabled")) user.setEnabled(parseBoolean(data.get("enabled"), true));
+        if (data.containsKey("permissionRoleId")) {
+            user.setPermissionRoleId(blankToNull(String.valueOf(data.get("permissionRoleId"))));
+        }
         user = userRepo.save(user);
         return toUserListItem(user, buildProgressMap(), buildCertStatusMap());
     }
@@ -108,6 +115,9 @@ public class AdminService {
         if (data.containsKey("position")) user.setPosition((String) data.get("position"));
         if (data.containsKey("employeeNo")) user.setEmployeeNo((String) data.get("employeeNo"));
         if (data.containsKey("enabled")) user.setEnabled(parseBoolean(data.get("enabled"), user.getEnabled()));
+        if (data.containsKey("permissionRoleId")) {
+            user.setPermissionRoleId(blankToNull(String.valueOf(data.get("permissionRoleId"))));
+        }
         if (data.containsKey("password") && data.get("password") != null && !((String) data.get("password")).isBlank()) {
             user.setPasswordHash(passwordEncoder.encode((String) data.get("password")));
         }
@@ -299,6 +309,7 @@ public class AdminService {
         m.put("username", u.getUsername());
         m.put("email", u.getEmail());
         m.put("role", u.getRole());
+        m.put("permissionRoleId", u.getPermissionRoleId());
         m.put("company", u.getCompany());
         m.put("department", u.getDepartment());
         m.put("position", u.getPosition());
@@ -415,5 +426,38 @@ public class AdminService {
         if (value == null) return defaultValue;
         if (value instanceof Boolean b) return b;
         return Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private boolean matchDataScope(Map<String, Object> row) {
+        PermissionContext.UserPermissionSnapshot snapshot = PermissionContext.get();
+        if (snapshot == null || snapshot.dataScope() == null || "all".equals(snapshot.dataScope())) {
+            return true;
+        }
+        String operatorId = currentOperatorId();
+        if (operatorId == null) {
+            return true;
+        }
+        User operator = userRepo.findById(operatorId).orElse(null);
+        User target = userRepo.findById(String.valueOf(row.get("id"))).orElse(null);
+        if (operator == null || target == null) {
+            return true;
+        }
+        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(operator);
+        return userPermissionService.userInDataScope(target, operator, resolved);
+    }
+
+    private String currentOperatorId() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return null;
+        }
+        return String.valueOf(auth.getPrincipal());
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value)) {
+            return null;
+        }
+        return value.trim();
     }
 }

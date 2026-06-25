@@ -1,6 +1,9 @@
 package com.safelearn.filter;
 
 import com.safelearn.common.JwtUtil;
+import com.safelearn.entity.User;
+import com.safelearn.repository.UserRepository;
+import com.safelearn.service.UserPermissionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -20,6 +24,8 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepo;
+    private final UserPermissionService userPermissionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -32,9 +38,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtUtil.getUsername(token);
                 String role = jwtUtil.getRole(token);
 
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
+
+                userRepo.findById(userId).ifPresent(user -> {
+                    if ("admin".equalsIgnoreCase(user.getRole())) {
+                        UserPermissionService.ResolvedUserPermission resolved = userPermissionService.resolve(user);
+                        resolved.permissionCodes().forEach(code ->
+                                authorities.add(new SimpleGrantedAuthority(code)));
+                    }
+                });
+
+                if (authorities.stream().noneMatch(item -> item.getAuthority().startsWith("perm:"))) {
+                    jwtUtil.getPermissions(token).forEach(code ->
+                            authorities.add(new SimpleGrantedAuthority(code)));
+                }
+
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        userId, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                        userId, null, authorities
                 );
                 auth.setDetails(username);
                 SecurityContextHolder.getContext().setAuthentication(auth);

@@ -195,9 +195,19 @@
           <el-input v-model="form.password" type="password" show-password placeholder="留空则不修改" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
+          <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%" @change="onRoleChange">
             <el-option label="普通学员" value="trainee" />
             <el-option label="安全管理员" value="admin" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.role === 'admin'" label="权限角色">
+          <el-select v-model="form.permissionRoleId" clearable placeholder="默认系统管理员（全部权限）" style="width: 100%">
+            <el-option
+              v-for="role in permissionRoleOptions"
+              :key="role.id"
+              :label="`${role.name} (${role.code})`"
+              :value="role.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="所属部门">
@@ -229,7 +239,7 @@ import { useRouter } from 'vue-router'
 import { Plus, Upload, Download, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { adminApi, type AdminUserListItem, type AdminUserPayload } from '@/api/admin'
+import { adminApi, type AdminRoleSummary, type AdminUserListItem, type AdminUserPayload } from '@/api/admin'
 import {
   USER_ROLE_OPTIONS,
   USER_STATUS_OPTIONS,
@@ -251,6 +261,7 @@ const users = ref<AdminUserListItem[]>([])
 const total = ref(0)
 const selectedIds = ref<string[]>([])
 const departmentOptions = ref<string[]>([...DEFAULT_DEPARTMENTS])
+const permissionRoleOptions = ref<AdminRoleSummary[]>([])
 
 const filters = reactive({
   keyword: '',
@@ -272,6 +283,7 @@ const form = reactive({
   phone: '',
   password: '',
   role: 'trainee',
+  permissionRoleId: '' as string | null,
   company: '',
   department: '',
   position: '',
@@ -289,11 +301,22 @@ const rules: FormRules = {
 
 async function loadFilterOptions() {
   try {
-    const res = await adminApi.getUserFilterOptions()
-    const depts = res.data?.departments || []
+    const [optionsRes, rolesRes] = await Promise.all([
+      adminApi.getUserFilterOptions(),
+      adminApi.listRoles(),
+    ])
+    const depts = optionsRes.data?.departments || []
     departmentOptions.value = [...new Set([...DEFAULT_DEPARTMENTS, ...depts])]
+    permissionRoleOptions.value = rolesRes.data || []
   } catch {
     departmentOptions.value = [...DEFAULT_DEPARTMENTS]
+    permissionRoleOptions.value = []
+  }
+}
+
+function onRoleChange(role: string) {
+  if (role !== 'admin') {
+    form.permissionRoleId = null
   }
 }
 
@@ -357,7 +380,7 @@ function showAddDialog() {
   isEdit.value = false
   Object.assign(form, {
     id: '', username: '', employeeNo: '', email: '', phone: '', password: '',
-    role: 'trainee', company: '', department: '', position: '', avatarUrl: '',
+    role: 'trainee', permissionRoleId: null, company: '', department: '', position: '', avatarUrl: '',
   })
   dialogVisible.value = true
 }
@@ -457,6 +480,9 @@ async function handleSubmit() {
       employeeNo: form.employeeNo,
       phone: form.phone,
       avatarUrl: form.avatarUrl,
+    }
+    if (form.role === 'admin') {
+      payload.permissionRoleId = form.permissionRoleId || null
     }
     if (form.password) payload.password = form.password
 

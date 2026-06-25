@@ -11,6 +11,12 @@ export interface UserInfo {
   avatar?: string;
   lastLoginAt?: string;
   createdAt?: string;
+  permissionRoleId?: string | null;
+  permissionRoleCode?: string | null;
+  permissionRoleName?: string | null;
+  dataScope?: string;
+  customDeptNames?: string[];
+  permissions?: string[];
 }
 
 export interface LoginForm {

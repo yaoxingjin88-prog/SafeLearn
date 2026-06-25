@@ -33,6 +33,10 @@ public class User {
     @Column(nullable = false, length = 20)
     private String role = "trainee";
 
+    /** 管理端权限角色（关联 admin_roles），仅 role=admin 时生效。 */
+    @Column(name = "permission_role_id", columnDefinition = "CHAR(36)")
+    private String permissionRoleId;
+
     @Column(length = 100)
     private String company;
 

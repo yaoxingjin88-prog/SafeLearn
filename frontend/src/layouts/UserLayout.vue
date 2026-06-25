@@ -103,9 +103,7 @@
             <el-icon><Sunny /></el-icon>
             连续学习 {{ streakDays }} 天
           </div>
-          <el-badge :value="3" :max="9" class="notify-badge">
-            <el-button circle :icon="Bell" />
-          </el-badge>
+          <UserNotificationPopover />
         </div>
       </el-header>
 
@@ -137,7 +135,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Reading, Warning, Cpu, Document, ChatDotRound, Setting,
-  Fold, Expand, Search, Bell, Sunny,
+  Fold, Expand, Search, Sunny,
   List, Guide, Notebook, Calendar, Star, Medal,
   VideoPlay, Tickets, Files, Clock,
   User, Collection, DocumentChecked, EditPen,
@@ -146,6 +144,7 @@ import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
 import { useUserStore } from '@/stores'
 import { useBreadcrumbs } from '@/composables/useBreadcrumbs'
+import UserNotificationPopover from '@/components/user/UserNotificationPopover.vue'
 import request from '@/api/request'
 
 const route = useRoute()

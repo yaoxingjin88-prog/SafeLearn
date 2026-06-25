@@ -2,6 +2,7 @@ package com.safelearn.service;
 
 import com.safelearn.entity.User;
 import com.safelearn.repository.UserRepository;
+import com.safelearn.security.PermissionContext;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +45,7 @@ final class AnalyticsScope {
 
         List<User> learners = userRepo.findAll().stream()
                 .filter(user -> !"admin".equalsIgnoreCase(user.getRole()))
+                .filter(AnalyticsScope::matchPermissionDataScope)
                 .toList();
 
         Set<String> deptSet = new LinkedHashSet<>();
@@ -108,5 +110,20 @@ final class AnalyticsScope {
             return months.subList(months.size() - maxMonths, months.size());
         }
         return months;
+    }
+
+    private static boolean matchPermissionDataScope(User user) {
+        PermissionContext.UserPermissionSnapshot snapshot = PermissionContext.get();
+        if (snapshot == null || snapshot.dataScope() == null || "all".equals(snapshot.dataScope())) {
+            return true;
+        }
+        String targetDept = deptName(user);
+        return switch (snapshot.dataScope()) {
+            case "department", "dept_tree" -> normalizeDepartment(snapshot.department()) == null
+                    || targetDept.equals(normalizeDepartment(snapshot.department()));
+            case "self" -> user.getId().equals(snapshot.userId());
+            case "custom" -> snapshot.customDeptNames() != null && snapshot.customDeptNames().contains(targetDept);
+            default -> true;
+        };
     }
 }

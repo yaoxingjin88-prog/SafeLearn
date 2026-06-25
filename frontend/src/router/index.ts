@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores'
+import { resolveRoutePermission } from '@/utils/permissions'
 
 /** 管理端路由：工作台 + 培训课程 + 考试题库 + 组织与账号 + 系统设置 */
 const adminChildren: RouteRecordRaw[] = [
@@ -14,7 +15,7 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'dashboard/alerts',
     name: 'AlertCenter',
     component: () => import('@/pages/dashboard/AlertCenterPage.vue'),
-    meta: { title: '最新安全预警', hidden: true },
+    meta: { title: '预警管理', hideLayoutBreadcrumb: true },
   },
   {
     path: 'dashboard/notifications',
@@ -32,7 +33,7 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'dashboard/reports',
     name: 'LearningReports',
     component: () => import('@/pages/dashboard/LearningReportPage.vue'),
-    meta: { title: '学习报表', hidden: true },
+    meta: { title: '学习报表', hideLayoutBreadcrumb: true },
   },
   // 旧版业务路径重定向至学员端
   { path: 'courses/:pathMatch(.*)*', redirect: to => `/user/courses/${to.params.pathMatch}` },
@@ -127,6 +128,7 @@ const adminChildren: RouteRecordRaw[] = [
       { path: 'users', name: 'UserManage', component: () => import('@/pages/admin/UserManage.vue'), meta: { title: '用户管理' } },
       { path: 'users/:id', name: 'UserDetail', component: () => import('@/pages/admin/UserDetailPage.vue'), meta: { title: '用户详情' } },
       { path: 'org', name: 'OrgDepartment', component: () => import('@/pages/admin/OrgDepartmentPage.vue'), meta: { title: '组织与部门' } },
+      { path: 'roles', name: 'RolePermission', component: () => import('@/pages/admin/RolePermissionPage.vue'), meta: { title: '角色与权限' } },
       { path: 'settings', name: 'SystemSettings', component: () => import('@/pages/admin/SystemSettings.vue'), meta: { title: '系统设置' } },
       { path: 'account', name: 'AdminAccount', component: () => import('@/pages/auth/AccountSettingsPage.vue'), meta: { title: '账号设置' } },
       { path: 'courses', redirect: '/admin/learning/courses' },
@@ -307,6 +309,13 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.fullPath.startsWith('/admin') && userStore.role !== 'admin') {
     return next('/dashboard')
+  }
+
+  if (userStore.role === 'admin') {
+    const permission = resolveRoutePermission(to.path)
+    if (permission && !userStore.hasPermission(permission.module, permission.action || 'view')) {
+      return next('/dashboard')
+    }
   }
 
   return next()

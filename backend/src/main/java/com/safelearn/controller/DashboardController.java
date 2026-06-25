@@ -2,6 +2,7 @@ package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
 import com.safelearn.service.DashboardService;
+import com.safelearn.service.UserNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.*;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final UserNotificationService userNotificationService;
 
     @GetMapping("/stats")
     public ApiResponse<Map<String, Object>> getStats(Authentication auth) {
@@ -61,5 +63,24 @@ public class DashboardController {
     public ApiResponse<List<Map<String, Object>>> getLearningHistory(Authentication auth) {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(dashboardService.getLearningHistory(userId));
+    }
+
+    @GetMapping("/notifications/summary")
+    public ApiResponse<Map<String, Object>> getNotificationSummary(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(userNotificationService.getSummary(userId));
+    }
+
+    @PutMapping("/notifications/{id}/read")
+    public ApiResponse<Map<String, Object>> markNotificationRead(
+            Authentication auth, @PathVariable String id) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(userNotificationService.markRead(id, userId));
+    }
+
+    @PutMapping("/notifications/read-all")
+    public ApiResponse<Map<String, Object>> markAllNotificationsRead(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(userNotificationService.markAllRead(userId));
     }
 }

@@ -40,9 +40,13 @@ service.interceptors.response.use(
     return res
   },
   (error) => {
-    if (error.response?.status === 403 || error.response?.status === 401) {
+    if (error.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.href = '/login'
+      return Promise.reject(error)
+    }
+    if (error.response?.status === 403) {
+      ElMessage.error(error.response?.data?.message || '权限不足')
       return Promise.reject(error)
     }
     console.error('API error:', error)

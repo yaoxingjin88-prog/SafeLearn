@@ -14,6 +14,38 @@ export const adminApi = {
     return request.get('/admin/learning-report', { params })
   },
 
+  sendLearningReminder(data: AdminLearningReminderPayload): Promise<ApiResponse<AdminLearningReminderResult>> {
+    return request.post('/admin/learning-report/remind', data)
+  },
+
+  listRoles(): Promise<ApiResponse<AdminRoleSummary[]>> {
+    return request.get('/admin/roles')
+  },
+
+  getRoleModules(): Promise<ApiResponse<AdminRoleModuleMeta>> {
+    return request.get('/admin/roles/modules')
+  },
+
+  getRole(id: string): Promise<ApiResponse<AdminRoleDetail>> {
+    return request.get(`/admin/roles/${encodeURIComponent(id)}`)
+  },
+
+  createRole(data: AdminRolePayload): Promise<ApiResponse<AdminRoleDetail>> {
+    return request.post('/admin/roles', data)
+  },
+
+  updateRole(id: string, data: Partial<AdminRolePayload>): Promise<ApiResponse<AdminRoleDetail>> {
+    return request.put(`/admin/roles/${encodeURIComponent(id)}`, data)
+  },
+
+  publishRole(id: string): Promise<ApiResponse<AdminRoleDetail & { message?: string }>> {
+    return request.post(`/admin/roles/${encodeURIComponent(id)}/publish`)
+  },
+
+  deleteRole(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/roles/${encodeURIComponent(id)}`)
+  },
+
   getAlertCenter(params?: AdminAlertSearchParams): Promise<ApiResponse<AdminAlertCenterPage>> {
     return request.get('/admin/alerts', { params })
   },
@@ -529,6 +561,67 @@ export interface AdminLearningReportFollowUpItem {
   examLabel: string
   learningStatus: string
   warningStatus: string
+}
+
+export interface AdminLearningReminderPayload {
+  userId: string
+  courseId: string
+  warningStatus?: string
+  progress?: number
+}
+
+export interface AdminLearningReminderResult {
+  id: string
+  type: string
+  title: string
+  content: string
+  courseId?: string
+  actionPath?: string
+  time?: string
+  read: boolean
+  duplicate?: boolean
+  message?: string
+}
+
+export interface AdminRoleSummary {
+  id: string
+  code: string
+  name: string
+  roleType: 'system' | 'custom'
+  status: 'draft' | 'published'
+}
+
+export interface AdminRoleModule {
+  code: string
+  name: string
+  supportsApprove: boolean
+  approveOnly?: boolean
+}
+
+export interface AdminRoleModuleMeta {
+  modules: AdminRoleModule[]
+  actions: Array<{ code: string; label: string }>
+  dataScopes: Array<{ code: string; label: string }>
+}
+
+export interface AdminRoleDetail extends AdminRoleSummary {
+  description?: string
+  dataScope: string
+  customDeptIds: string[]
+  permissions: Record<string, Record<string, boolean>>
+  createdAt?: string
+  updatedAt?: string
+  roleTypeLabel?: string
+  statusLabel?: string
+}
+
+export interface AdminRolePayload {
+  code?: string
+  name: string
+  description?: string
+  dataScope?: string
+  customDeptIds?: string[]
+  permissions?: Record<string, Record<string, boolean>>
 }
 
 export interface AdminAlertStats {
@@ -1050,6 +1143,7 @@ export interface AdminUserListItem {
   username: string
   email?: string
   role: string
+  permissionRoleId?: string | null
   company?: string
   department?: string
   position?: string
@@ -1074,6 +1168,7 @@ export interface AdminUserPayload {
   email?: string
   password?: string
   role?: string
+  permissionRoleId?: string | null
   company?: string
   department?: string
   position?: string
