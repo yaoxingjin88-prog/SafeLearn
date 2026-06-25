@@ -86,18 +86,7 @@
             </div>
           </article>
 
-          <article class="panel notice-panel">
-            <header class="panel-header panel-header--small">
-              <h2>公告通知</h2><span class="more-link">更多 <el-icon><ArrowRight /></el-icon></span>
-            </header>
-            <ul class="notice-list">
-              <li v-for="notice in dashboard.announcements" :key="`${notice.title}-${notice.date}`">
-                <span class="notice-title">{{ notice.title }}</span>
-                <time>{{ notice.date.slice(5) }}</time>
-                <em v-if="notice.pinned">置顶</em>
-              </li>
-            </ul>
-          </article>
+          <DashboardAnnouncementPanel />
         </aside>
       </section>
 
@@ -142,7 +131,7 @@
         <article id="alerts" class="panel alerts-panel">
           <header class="panel-header">
             <div><h2>最新安全预警</h2><p>基于考试、培训进度与证书状态</p></div>
-            <span class="more-link">更多 <el-icon><ArrowRight /></el-icon></span>
+            <span class="more-link" @click="router.push('/dashboard/alerts')">更多 <el-icon><ArrowRight /></el-icon></span>
           </header>
           <div class="alert-list">
             <div v-for="alert in dashboard.alerts" :key="`${alert.title}-${alert.time}`" class="alert-item">
@@ -202,6 +191,7 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import { adminApi, type AdminDashboardData } from '@/api/admin'
+import DashboardAnnouncementPanel from '@/components/admin/DashboardAnnouncementPanel.vue'
 import { createFallbackDashboard } from './dashboardFallback'
 
 use([CanvasRenderer, BarChart, LineChart, PieChart, GridComponent, LegendComponent, TooltipComponent])
@@ -365,8 +355,8 @@ const quickActions = [
   { label: '添加课程', icon: Reading, target: '/admin/learning/courses', tone: 'green' },
   { label: '新建考试', icon: DocumentAdd, target: '/admin/learning/exams', tone: 'purple' },
   { label: '导入用户', icon: UploadFilled, target: '/admin/users', tone: 'orange' },
-  { label: '学习报表', icon: DataAnalysis, target: '#plans', tone: 'cyan' },
-  { label: '预警管理', icon: BellFilled, target: '#alerts', tone: 'red' },
+  { label: '学习报表', icon: DataAnalysis, target: '/dashboard/reports', tone: 'cyan' },
+  { label: '预警管理', icon: BellFilled, target: '/dashboard/alerts', tone: 'red' },
 ]
 
 const calendarTitle = computed(() => `${calendarDate.value.getFullYear()}年${calendarDate.value.getMonth() + 1}月`)
@@ -644,39 +634,6 @@ onMounted(loadDashboard)
 .quick-grid button:hover .quick-icon { filter: brightness(0.95); transform: scale(1.05); transition: transform 0.15s; }
 
 .notice-panel { min-height: 0; }
-.notice-list {
-  margin: 0;
-  padding: 0 14px 10px;
-  list-style: none;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-.notice-list li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 24px;
-  font-size: 11px;
-  padding: 4px 0;
-}
-.notice-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #485568;
-}
-.notice-list time { color: #a1a9b4; white-space: nowrap; }
-.notice-list em {
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: #ffe9e9;
-  color: #ef5d62;
-  font-style: normal;
-  font-size: 10px;
-}
 
 .plans-panel { grid-column: span 5; min-height: 340px; }
 .alerts-panel { grid-column: span 4; min-height: 340px; }

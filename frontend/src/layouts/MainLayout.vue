@@ -74,19 +74,16 @@
           </div>
         </div>
         <div class="header-right">
-          <button type="button" class="header-icon-btn" title="通知">
-            <el-icon><Bell /></el-icon><em>12</em>
-          </button>
-          <button type="button" class="header-icon-btn" title="消息">
-            <el-icon><Message /></el-icon><em>5</em>
-          </button>
-          <button type="button" class="header-icon-btn" title="帮助">
-            <el-icon><QuestionFilled /></el-icon>
-          </button>
+          <AdminNotificationPopover v-if="isAdmin" />
+          <AdminMessagePopover v-if="isAdmin" />
+          <AdminHelpDrawer v-if="isAdmin" />
           <el-dropdown trigger="click">
             <div class="header-user">
               <el-avatar :size="32" class="header-avatar">{{ displayInitial }}</el-avatar>
-              <span class="header-username">{{ displayName }}</span>
+              <div class="header-user-text">
+                <span class="header-username">{{ displayName }}</span>
+                <span v-if="isAdmin" class="header-role-tag">管理员</span>
+              </div>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -123,12 +120,15 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection, Files,
-  Bell, Message, QuestionFilled, OfficeBuilding,
+  OfficeBuilding,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
 import { useUserStore } from '@/stores'
 import { useBreadcrumbs } from '@/composables/useBreadcrumbs'
+import AdminNotificationPopover from '@/components/admin/AdminNotificationPopover.vue'
+import AdminMessagePopover from '@/components/admin/AdminMessagePopover.vue'
+import AdminHelpDrawer from '@/components/admin/AdminHelpDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -689,6 +689,22 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.header-user-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.header-role-tag {
+  font-size: 10px;
+  color: #2b5aed;
+  background: #edf3ff;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
 .header-avatar {
   background: #2b5aed;
   color: #fff;
@@ -885,7 +901,7 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.header-icon-btn {
+:deep(.header-icon-btn) {
   position: relative;
   display: grid;
   width: 32px;
@@ -899,12 +915,12 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.header-icon-btn:hover {
+:deep(.header-icon-btn:hover) {
   background: #f2f5fa;
   color: #2f76e8;
 }
 
-.header-icon-btn em {
+:deep(.header-icon-btn em) {
   position: absolute;
   top: -2px;
   right: -2px;

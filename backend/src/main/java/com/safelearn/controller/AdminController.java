@@ -1,22 +1,30 @@
 package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
-import com.safelearn.service.AdminAnalyticsService;
+import com.safelearn.service.AdminAlertCenterService;
+import com.safelearn.service.AdminLearningReportService;
 import com.safelearn.service.AdminService;
 import com.safelearn.service.AdminCourseMonitoringService;
 import com.safelearn.service.AdminExamService;
 import com.safelearn.service.AdminPaperAssemblyService;
+import com.safelearn.service.AdminInboxService;
+import com.safelearn.service.AdminInboxStreamService;
 import com.safelearn.service.AdminOrganizationService;
 import com.safelearn.service.AdminQuestionBankService;
 import com.safelearn.service.AdminUserDetailService;
 import com.safelearn.service.AdminCourseService;
 import com.safelearn.service.AdminDashboardService;
+import com.safelearn.service.AdminAnalyticsService;
 import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.DashboardService;
 import com.safelearn.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -26,12 +34,16 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AdminAnalyticsService adminAnalyticsService;
+    private final AdminLearningReportService adminLearningReportService;
     private final AdminCourseService adminCourseService;
     private final AdminCourseMonitoringService adminCourseMonitoringService;
     private final AdminExamService adminExamService;
     private final AdminQuestionBankService adminQuestionBankService;
     private final AdminUserDetailService adminUserDetailService;
     private final AdminOrganizationService adminOrganizationService;
+    private final AdminInboxService adminInboxService;
+    private final AdminInboxStreamService adminInboxStreamService;
+    private final AdminAlertCenterService adminAlertCenterService;
     private final AdminPaperAssemblyService adminPaperAssemblyService;
     private final AdminDashboardService adminDashboardService;
     private final CourseCategoryService courseCategoryService;
@@ -164,6 +176,12 @@ public class AdminController {
         return ApiResponse.success(adminOrganizationService.deletePosition(positionId));
     }
 
+    @PutMapping("/departments/{id}/members/{userId}")
+    public ApiResponse<Map<String, Object>> updateDepartmentMember(
+            @PathVariable String id, @PathVariable String userId, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminOrganizationService.updateDepartmentMember(id, userId, body));
+    }
+
     @DeleteMapping("/departments/{id}/members/{userId}")
     public ApiResponse<Map<String, Object>> removeDepartmentMember(
             @PathVariable String id, @PathVariable String userId) {
@@ -181,6 +199,142 @@ public class AdminController {
         return ApiResponse.success(adminDashboardService.getDashboard());
     }
 
+    @GetMapping("/alerts")
+    public ApiResponse<Map<String, Object>> getAlerts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(adminAlertCenterService.searchAlerts(
+                keyword, level, type, department, status, dateFrom, dateTo, page, pageSize));
+    }
+
+    @GetMapping("/alerts/stats")
+    public ApiResponse<Map<String, Object>> getAlertStats() {
+        return ApiResponse.success(adminAlertCenterService.getStats());
+    }
+
+    @GetMapping("/alerts/export")
+    public ApiResponse<List<Map<String, Object>>> exportAlerts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo) {
+        return ApiResponse.success(adminAlertCenterService.exportAlerts(
+                keyword, level, type, department, status, dateFrom, dateTo));
+    }
+
+    @GetMapping("/alerts/{id}")
+    public ApiResponse<Map<String, Object>> getAlertDetail(@PathVariable String id) {
+        return ApiResponse.success(adminAlertCenterService.getAlert(id));
+    }
+
+    @PostMapping("/alerts")
+    public ApiResponse<Map<String, Object>> createAlert(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminAlertCenterService.createAlert(body));
+    }
+
+    @PutMapping("/alerts/{id}")
+    public ApiResponse<Map<String, Object>> updateAlert(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        String manualId = id.startsWith("manual:") ? id.substring("manual:".length()) : id;
+        return ApiResponse.success(adminAlertCenterService.updateAlert(manualId, body));
+    }
+
+    @PatchMapping("/alerts/{id}/status")
+    public ApiResponse<Map<String, Object>> updateAlertStatus(@PathVariable String id,
+                                                                @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminAlertCenterService.updateStatus(id, body));
+    }
+
+    @GetMapping("/notifications/summary")
+    public ApiResponse<Map<String, Object>> getNotificationSummary() {
+        return ApiResponse.success(adminInboxService.getNotificationSummary());
+    }
+
+    @GetMapping("/messages/summary")
+    public ApiResponse<Map<String, Object>> getMessageSummary() {
+        return ApiResponse.success(adminInboxService.getMessageSummary());
+    }
+
+    @GetMapping("/notifications")
+    public ApiResponse<Map<String, Object>> listNotifications(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
+        return ApiResponse.success(adminInboxService.listNotifications(page, pageSize, unreadOnly));
+    }
+
+    @GetMapping("/messages")
+    public ApiResponse<Map<String, Object>> listMessages(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
+        return ApiResponse.success(adminInboxService.listMessages(page, pageSize, unreadOnly));
+    }
+
+    @PostMapping("/messages")
+    public ApiResponse<Map<String, Object>> createMessage(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminInboxService.createMessage(body));
+    }
+
+    @GetMapping("/messages/{id}")
+    public ApiResponse<Map<String, Object>> getMessage(@PathVariable String id) {
+        return ApiResponse.success(adminInboxService.getMessage(id));
+    }
+
+    @PutMapping("/messages/{id}")
+    public ApiResponse<Map<String, Object>> updateMessage(@PathVariable String id,
+                                                          @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminInboxService.updateMessage(id, body));
+    }
+
+    @DeleteMapping("/messages/{id}")
+    public ApiResponse<Map<String, Object>> deleteMessage(@PathVariable String id) {
+        return ApiResponse.success(adminInboxService.deleteMessage(id));
+    }
+
+    @PutMapping("/notifications/{id}/read")
+    public ApiResponse<Map<String, Object>> markNotificationRead(@PathVariable String id) {
+        return ApiResponse.success(adminInboxService.markNotificationRead(id, currentUserId()));
+    }
+
+    @PutMapping("/notifications/read-all")
+    public ApiResponse<Map<String, Object>> markAllNotificationsRead() {
+        return ApiResponse.success(adminInboxService.markAllNotificationsRead(currentUserId()));
+    }
+
+    @PutMapping("/messages/{id}/read")
+    public ApiResponse<Map<String, Object>> markMessageRead(@PathVariable String id) {
+        return ApiResponse.success(adminInboxService.markMessageRead(id, currentUserId()));
+    }
+
+    @PutMapping("/messages/read-all")
+    public ApiResponse<Map<String, Object>> markAllMessagesRead() {
+        return ApiResponse.success(adminInboxService.markAllMessagesRead(currentUserId()));
+    }
+
+    /** 管理端收件箱 SSE：有新通知/消息时推送 inbox 事件，前端收到后刷新 summary。 */
+    @GetMapping(value = "/inbox/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter inboxStream() {
+        return adminInboxStreamService.subscribe(currentUserId());
+    }
+
+    private String currentUserId() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return null;
+        }
+        return String.valueOf(auth.getPrincipal());
+    }
+
     @GetMapping("/charts")
     public ApiResponse<Map<String, Object>> getCharts() {
         return ApiResponse.success(adminService.getCharts());
@@ -188,8 +342,36 @@ public class AdminController {
 
     /** 管理端数据分析：学习效果、推演效果、活跃度、部门对比、AI、证书 */
     @GetMapping("/analytics")
-    public ApiResponse<Map<String, Object>> getAnalytics() {
-        return ApiResponse.success(adminAnalyticsService.getAnalytics());
+    public ApiResponse<Map<String, Object>> getAnalytics(
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        return ApiResponse.success(adminAnalyticsService.getAnalytics(
+                department, parseDate(from), parseDate(to)));
+    }
+
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return LocalDate.parse(value.trim());
+    }
+
+    /** 学习报表：概览、图表与待跟进学员。 */
+    @GetMapping("/learning-report")
+    public ApiResponse<Map<String, Object>> getLearningReport(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String learningStatus,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "7") int trendDays,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(adminLearningReportService.getReport(
+                keyword, department, category, learningStatus,
+                parseDate(from), parseDate(to), trendDays, page, pageSize));
     }
 
     /** 学习总览：在线/总学习人数与各部门进度，用于管理端工作台。 */

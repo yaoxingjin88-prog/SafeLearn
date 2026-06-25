@@ -10,6 +10,30 @@ const adminChildren: RouteRecordRaw[] = [
     component: () => import('@/pages/dashboard/DashboardPage.vue'),
     meta: { title: '首页', icon: 'Monitor' },
   },
+  {
+    path: 'dashboard/alerts',
+    name: 'AlertCenter',
+    component: () => import('@/pages/dashboard/AlertCenterPage.vue'),
+    meta: { title: '最新安全预警', hidden: true },
+  },
+  {
+    path: 'dashboard/notifications',
+    name: 'NotificationCenter',
+    component: () => import('@/pages/dashboard/NotificationCenterPage.vue'),
+    meta: { title: '通知中心', hidden: true },
+  },
+  {
+    path: 'dashboard/messages',
+    name: 'MessageCenter',
+    component: () => import('@/pages/dashboard/MessageCenterPage.vue'),
+    meta: { title: '消息中心', hidden: true },
+  },
+  {
+    path: 'dashboard/reports',
+    name: 'LearningReports',
+    component: () => import('@/pages/dashboard/LearningReportPage.vue'),
+    meta: { title: '学习报表', hidden: true },
+  },
   // 旧版业务路径重定向至学员端
   { path: 'courses/:pathMatch(.*)*', redirect: to => `/user/courses/${to.params.pathMatch}` },
   { path: 'courses', redirect: '/user/courses/list' },

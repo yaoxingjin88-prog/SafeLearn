@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
@@ -43,27 +44,96 @@ public class AdminAnalyticsService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getAnalytics() {
+        return getAnalytics(null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAnalytics(String department, LocalDate from, LocalDate to) {
+        AnalyticsScope scope = AnalyticsScope.create(userRepo, department, from, to);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("learningEffect", buildLearningEffect());
-        result.put("simulationEffect", buildSimulationEffect());
-        result.put("userActivity", buildUserActivity());
-        result.put("departmentCompare", buildDepartmentCompare());
-        result.put("aiUsage", buildAiUsage());
-        result.put("certificates", buildCertificates());
+        result.put("summary", buildSummary(scope));
+        result.put("filters", Map.of(
+                "department", scope.department == null ? "all" : scope.department,
+                "from", scope.from.toString(),
+                "to", scope.to.toString()
+        ));
+        result.put("departments", scope.departments);
+        result.put("learningEffect", buildLearningEffect(scope));
+        result.put("simulationEffect", buildSimulationEffect(scope));
+        result.put("userActivity", buildUserActivity(scope));
+        result.put("departmentCompare", buildDepartmentCompare(scope));
+        result.put("aiUsage", buildAiUsage(scope));
+        result.put("certificates", buildCertificates(scope));
+        result.put("exportRows", buildExportRows(scope));
+        result.put("generatedAt", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
         return result;
+    }
+
+    private Map<String, Object> buildSummary(AnalyticsScope scope) {
+        List<UserProgress> progress = progressRepo.findAll().stream()
+                .filter(item -> scope.containsUser(item.getUser()))
+                .filter(item -> scope.inRange(item.getLastAccessAt()))
+                .toList();
+        Set<String> completedLearners = progress.stream()
+                .filter(item -> Boolean.TRUE.equals(item.getCompleted()))
+                .map(item -> item.getUser().getId())
+                .collect(Collectors.toSet());
+
+        List<QuizAttempt> attempts = quizAttemptRepo.findAll().stream()
+                .filter(item -> scope.containsUser(item.getUser()))
+                .filter(item -> scope.inRange(item.getCompletedAt() != null
+                        ? item.getCompletedAt() : item.getStartedAt()))
+                .toList();
+        long passed = attempts.stream().filter(item -> Boolean.TRUE.equals(item.getPassed())).count();
+        int traineeCount = scope.userIds.size();
+        double completionRate = traineeCount == 0 ? 0
+                : round(completedLearners.size() * 100.0 / traineeCount, 1);
+        double examPassRate = attempts.isEmpty() ? 0 : round(passed * 100.0 / attempts.size(), 1);
+        int incomplete = Math.max(0, traineeCount - completedLearners.size());
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("traineeCount", traineeCount);
+        summary.put("completionRate", completionRate);
+        summary.put("examPassRate", examPassRate);
+        summary.put("incompleteTraining", incomplete);
+        return summary;
+    }
+
+    private List<Map<String, Object>> buildExportRows(AnalyticsScope scope) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> item : buildCourseCompletionRank(scope, null)) {
+            if ("暂无课程数据".equals(item.get("name"))) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("section", "课程完成率");
+            row.put("name", item.get("name"));
+            row.put("value", item.get("value") + "%");
+            row.put("learners", item.get("learners"));
+            row.put("completed", item.get("completed"));
+            rows.add(row);
+        }
+        for (Map<String, Object> item : buildDeptScoreRank(scope)) {
+            if ("暂无部门得分".equals(item.get("name"))) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("section", "部门均分");
+            row.put("name", item.get("name"));
+            row.put("value", item.get("value"));
+            row.put("samples", item.get("samples"));
+            rows.add(row);
+        }
+        return rows;
     }
 
     // ── 1. 学习效果分析 ──
 
-    private Map<String, Object> buildLearningEffect() {
+    private Map<String, Object> buildLearningEffect(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("courseCompletionRank", buildCourseCompletionRank());
-        section.put("quizPassRateTrend", buildQuizPassRateTrend());
-        section.put("masteryDistribution", buildMasteryDistribution());
+        section.put("courseCompletionRank", buildCourseCompletionRank(scope, 5));
+        section.put("quizPassRateTrend", buildQuizPassRateTrend(scope));
+        section.put("masteryDistribution", buildMasteryDistribution(scope));
         return section;
     }
 
-    private List<Map<String, Object>> buildCourseCompletionRank() {
+    private List<Map<String, Object>> buildCourseCompletionRank(AnalyticsScope scope, Integer limit) {
         List<Course> courses = courseRepo.findByStatusOrderByCreatedAtDesc("published");
         Map<String, Integer> chapterCounts = new HashMap<>();
         for (Course c : courses) {
@@ -74,7 +144,7 @@ public class AdminAnalyticsService {
         Map<String, Map<String, Set<String>>> completedChaptersByUserCourse = new HashMap<>();
 
         for (UserProgress up : progressRepo.findAll()) {
-            if (up.getCourse() == null || up.getUser() == null) continue;
+            if (up.getCourse() == null || up.getUser() == null || !scope.containsUser(up.getUser())) continue;
             String courseId = up.getCourse().getId();
             String userId = up.getUser().getId();
             usersByCourse.computeIfAbsent(courseId, k -> new HashSet<>()).add(userId);
@@ -110,30 +180,28 @@ public class AdminAnalyticsService {
         }
 
         ranked.sort((a, b) -> Integer.compare((Integer) b.get("value"), (Integer) a.get("value")));
-        List<Map<String, Object>> top5 = new ArrayList<>(ranked.stream().limit(5).toList());
-        for (int i = 0; i < top5.size(); i++) {
-            top5.get(i).put("color", CHART_COLORS.get(i % CHART_COLORS.size()));
+        List<Map<String, Object>> result = limit == null
+                ? new ArrayList<>(ranked)
+                : new ArrayList<>(ranked.stream().limit(limit).toList());
+        for (int i = 0; i < result.size(); i++) {
+            result.get(i).put("color", CHART_COLORS.get(i % CHART_COLORS.size()));
         }
-        return top5.isEmpty() ? List.of(chartItem("暂无课程数据", 0, "#d1d5db")) : top5;
+        return result.isEmpty() ? List.of(chartItem("暂无课程数据", 0, "#d1d5db")) : result;
     }
 
-    private Map<String, Object> buildQuizPassRateTrend() {
-        LocalDate now = LocalDate.now();
+    private Map<String, Object> buildQuizPassRateTrend(AnalyticsScope scope) {
         List<String> months = new ArrayList<>();
         List<Integer> rates = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M月");
 
-        for (int i = 5; i >= 0; i--) {
-            LocalDate month = now.minusMonths(i);
+        for (YearMonth month : scope.monthsInRange(12)) {
             months.add(month.format(fmt));
-            int year = month.getYear();
-            int monthValue = month.getMonthValue();
-
             List<QuizAttempt> attempts = quizAttemptRepo.findAll().stream()
+                    .filter(a -> scope.containsUser(a.getUser()))
                     .filter(a -> a.getCompletedAt() != null || a.getStartedAt() != null)
                     .filter(a -> {
                         LocalDateTime t = a.getCompletedAt() != null ? a.getCompletedAt() : a.getStartedAt();
-                        return t.getYear() == year && t.getMonthValue() == monthValue;
+                        return YearMonth.from(t).equals(month);
                     })
                     .toList();
 
@@ -151,7 +219,7 @@ public class AdminAnalyticsService {
         return trend;
     }
 
-    private List<Map<String, Object>> buildMasteryDistribution() {
+    private List<Map<String, Object>> buildMasteryDistribution(AnalyticsScope scope) {
         Map<String, Long> buckets = new LinkedHashMap<>();
         buckets.put("未掌握", 0L);
         buckets.put("初步了解", 0L);
@@ -160,7 +228,7 @@ public class AdminAnalyticsService {
         buckets.put("精通", 0L);
 
         for (UserProgress up : progressRepo.findAll()) {
-            if (!Boolean.TRUE.equals(up.getCompleted())) continue;
+            if (!scope.containsUser(up.getUser()) || !Boolean.TRUE.equals(up.getCompleted())) continue;
             int level = up.getMasteryLevel() != null ? up.getMasteryLevel() : 0;
             if (level <= 0) {
                 int progress = up.getProgress() != null ? up.getProgress() : 0;
@@ -192,20 +260,20 @@ public class AdminAnalyticsService {
 
     // ── 2. 训练推演效果 ──
 
-    private Map<String, Object> buildSimulationEffect() {
+    private Map<String, Object> buildSimulationEffect(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("scoreDistribution", buildScoreDistribution());
-        section.put("scenarioSuccessRate", buildScenarioSuccessRate());
-        section.put("decisionRadar", buildDecisionRadar());
+        section.put("scoreDistribution", buildScoreDistribution(scope));
+        section.put("scenarioSuccessRate", buildScenarioSuccessRate(scope));
+        section.put("decisionRadar", buildDecisionRadar(scope));
         return section;
     }
 
-    private List<Map<String, Object>> buildScoreDistribution() {
+    private List<Map<String, Object>> buildScoreDistribution(AnalyticsScope scope) {
         String[] labels = {"0-59分", "60-69分", "70-79分", "80-89分", "90-100分"};
         long[] counts = new long[5];
 
         for (SimulationSession s : simulationSessionRepo.findAll()) {
-            if (s.getTotalScore() == null) continue;
+            if (!scope.containsUserId(s.getUserId()) || s.getTotalScore() == null) continue;
             int score = s.getTotalScore();
             if (score < 60) counts[0]++;
             else if (score < 70) counts[1]++;
@@ -225,9 +293,10 @@ public class AdminAnalyticsService {
         return result;
     }
 
-    private List<Map<String, Object>> buildScenarioSuccessRate() {
+    private List<Map<String, Object>> buildScenarioSuccessRate(AnalyticsScope scope) {
         Map<String, long[]> stats = new LinkedHashMap<>();
         for (SimulationSession s : simulationSessionRepo.findAll()) {
+            if (!scope.containsUserId(s.getUserId())) continue;
             if (!"completed".equals(s.getStatus()) && s.getFinishedAt() == null) continue;
             stats.computeIfAbsent(s.getScenarioId(), k -> new long[2]);
             stats.get(s.getScenarioId())[0]++;
@@ -260,8 +329,15 @@ public class AdminAnalyticsService {
         return result.stream().limit(8).toList();
     }
 
-    private Map<String, Object> buildDecisionRadar() {
-        List<SimulationScoreReport> reports = scoreReportRepo.findAll();
+    private Map<String, Object> buildDecisionRadar(AnalyticsScope scope) {
+        Set<String> scopedSessionIds = simulationSessionRepo.findAll().stream()
+                .filter(session -> scope.containsUserId(session.getUserId()))
+                .map(SimulationSession::getId)
+                .collect(Collectors.toSet());
+        List<SimulationScoreReport> reports = scoreReportRepo.findAll().stream()
+                .filter(report -> scopedSessionIds.contains(report.getSessionId()))
+                .filter(report -> scope.inRange(report.getCreatedAt()))
+                .toList();
         Map<String, String> dimLabels = Map.of(
                 "timeliness", "时效性",
                 "procedure", "规范性",
@@ -290,35 +366,36 @@ public class AdminAnalyticsService {
 
     // ── 3. 用户活跃度 ──
 
-    private Map<String, Object> buildUserActivity() {
+    private Map<String, Object> buildUserActivity(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("weeklyActiveTrend", buildWeeklyActiveTrend());
-        section.put("studyDurationDistribution", buildStudyDurationDistribution());
-        section.put("newUserTrend", buildNewUserTrend());
+        section.put("weeklyActiveTrend", buildWeeklyActiveTrend(scope));
+        section.put("studyDurationDistribution", buildStudyDurationDistribution(scope));
+        section.put("newUserTrend", buildNewUserTrend(scope));
         return section;
     }
 
-    private Map<String, Object> buildWeeklyActiveTrend() {
-        LocalDate now = LocalDate.now();
+    private Map<String, Object> buildWeeklyActiveTrend(AnalyticsScope scope) {
         WeekFields wf = WeekFields.ISO;
         List<String> weeks = new ArrayList<>();
         List<Long> counts = new ArrayList<>();
+        LocalDate cursor = scope.to.minusWeeks(11).with(wf.dayOfWeek(), 1);
+        if (cursor.isBefore(scope.from)) {
+            cursor = scope.from.with(wf.dayOfWeek(), 1);
+        }
 
-        for (int i = 11; i >= 0; i--) {
-            LocalDate weekStart = now.minusWeeks(i).with(wf.dayOfWeek(), 1);
-            LocalDate weekEnd = weekStart.plusDays(6);
-            weeks.add(weekStart.getMonthValue() + "/" + weekStart.getDayOfMonth());
-
-            LocalDateTime start = weekStart.atStartOfDay();
-            LocalDateTime end = weekEnd.plusDays(1).atStartOfDay();
-
+        while (!cursor.isAfter(scope.to)) {
+            weeks.add(cursor.getMonthValue() + "/" + cursor.getDayOfMonth());
+            LocalDateTime start = cursor.atStartOfDay();
+            LocalDateTime end = cursor.plusDays(7).atStartOfDay();
             long active = progressRepo.findAll().stream()
-                    .filter(p -> p.getLastAccessAt() != null)
+                    .filter(p -> p.getLastAccessAt() != null && scope.containsUser(p.getUser()))
                     .filter(p -> !p.getLastAccessAt().isBefore(start) && p.getLastAccessAt().isBefore(end))
                     .map(p -> p.getUser().getId())
                     .distinct()
                     .count();
             counts.add(active);
+            cursor = cursor.plusWeeks(1);
+            if (weeks.size() >= 12) break;
         }
 
         Map<String, Object> trend = new LinkedHashMap<>();
@@ -327,19 +404,20 @@ public class AdminAnalyticsService {
         return trend;
     }
 
-    private List<Map<String, Object>> buildStudyDurationDistribution() {
+    private List<Map<String, Object>> buildStudyDurationDistribution(AnalyticsScope scope) {
         Map<String, Integer> userMinutes = new HashMap<>();
 
         for (UserProgress p : progressRepo.findAll()) {
-            if (p.getUser() == null) continue;
-            String uid = p.getUser().getId();
-            userMinutes.merge(uid, chapterStudiedMinutes(p), Integer::sum);
+            if (!scope.containsUser(p.getUser())) continue;
+            userMinutes.merge(p.getUser().getId(), chapterStudiedMinutes(p), Integer::sum);
         }
         for (TrainingRecord r : trainingRecordRepo.findAll()) {
-            if (r.getUser() == null || r.getEndTime() == null) continue;
+            if (!scope.containsUser(r.getUser()) || r.getEndTime() == null) continue;
+            if (!scope.inRange(r.getEndTime())) continue;
             userMinutes.merge(r.getUser().getId(), trainingStudiedMinutes(r), Integer::sum);
         }
         for (SimulationSession s : simulationSessionRepo.findAll()) {
+            if (!scope.containsUserId(s.getUserId())) continue;
             if (!"completed".equals(s.getStatus()) && s.getFinishedAt() == null) continue;
             int mins = s.getElapsedMs() != null && s.getElapsedMs() > 0
                     ? (int) Math.ceil(s.getElapsedMs() / 60000.0) : 5;
@@ -348,7 +426,8 @@ public class AdminAnalyticsService {
 
         long[] buckets = new long[5];
         String[] labels = {"0-1小时", "1-3小时", "3-5小时", "5-10小时", "10小时以上"};
-        for (int mins : userMinutes.values()) {
+        for (String userId : scope.userIds) {
+            int mins = userMinutes.getOrDefault(userId, 0);
             double hours = mins / 60.0;
             if (hours < 1) buckets[0]++;
             else if (hours < 3) buckets[1]++;
@@ -364,21 +443,16 @@ public class AdminAnalyticsService {
         return result;
     }
 
-    private Map<String, Object> buildNewUserTrend() {
-        LocalDate now = LocalDate.now();
+    private Map<String, Object> buildNewUserTrend(AnalyticsScope scope) {
         List<String> months = new ArrayList<>();
         List<Long> counts = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M月");
 
-        for (int i = 5; i >= 0; i--) {
-            LocalDate month = now.minusMonths(i);
+        for (YearMonth month : scope.monthsInRange(12)) {
             months.add(month.format(fmt));
-            int year = month.getYear();
-            int monthValue = month.getMonthValue();
-            long count = userRepo.findAll().stream()
-                    .filter(u -> !"admin".equalsIgnoreCase(u.getRole()))
-                    .filter(u -> u.getCreatedAt() != null)
-                    .filter(u -> u.getCreatedAt().getYear() == year && u.getCreatedAt().getMonthValue() == monthValue)
+            long count = scope.usersById.values().stream()
+                    .filter(user -> user.getCreatedAt() != null)
+                    .filter(user -> YearMonth.from(user.getCreatedAt()).equals(month))
                     .count();
             counts.add(count);
         }
@@ -391,39 +465,37 @@ public class AdminAnalyticsService {
 
     // ── 4. 部门对比 ──
 
-    private Map<String, Object> buildDepartmentCompare() {
+    private Map<String, Object> buildDepartmentCompare(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("deptScoreRank", buildDeptScoreRank());
-        section.put("deptActivityHeatmap", buildDeptActivityHeatmap());
+        section.put("deptScoreRank", buildDeptScoreRank(scope));
+        section.put("deptActivityHeatmap", buildDeptActivityHeatmap(scope));
         return section;
     }
 
-    private List<Map<String, Object>> buildDeptScoreRank() {
+    private List<Map<String, Object>> buildDeptScoreRank(AnalyticsScope scope) {
         Map<String, List<Integer>> scoresByDept = new HashMap<>();
-        Map<String, User> userMap = userRepo.findAll().stream()
-                .filter(u -> !"admin".equalsIgnoreCase(u.getRole()))
-                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
 
         for (TrainingRecord r : trainingRecordRepo.findAll()) {
-            if (r.getUser() == null || r.getTotalScore() == null) continue;
+            if (!scope.containsUser(r.getUser()) || r.getTotalScore() == null) continue;
+            if (!scope.inRange(r.getEndTime())) continue;
             String dept = deptName(r.getUser());
-            scoresByDept.computeIfAbsent(dept, k -> new ArrayList<>()).add(r.getTotalScore());
+            scoresByDept.computeIfAbsent(dept, key -> new ArrayList<>()).add(r.getTotalScore());
         }
         for (SimulationSession s : simulationSessionRepo.findAll()) {
-            if (s.getTotalScore() == null) continue;
-            User u = userMap.get(s.getUserId());
-            if (u == null) continue;
-            String dept = deptName(u);
-            scoresByDept.computeIfAbsent(dept, k -> new ArrayList<>()).add(s.getTotalScore());
+            if (!scope.containsUserId(s.getUserId()) || s.getTotalScore() == null) continue;
+            User user = scope.usersById.get(s.getUserId());
+            if (user == null) continue;
+            String dept = deptName(user);
+            scoresByDept.computeIfAbsent(dept, key -> new ArrayList<>()).add(s.getTotalScore());
         }
 
         List<Map<String, Object>> ranked = new ArrayList<>();
-        for (var e : scoresByDept.entrySet()) {
-            double avg = e.getValue().stream().mapToInt(Integer::intValue).average().orElse(0);
+        for (var entry : scoresByDept.entrySet()) {
+            double avg = entry.getValue().stream().mapToInt(Integer::intValue).average().orElse(0);
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("name", e.getKey());
+            item.put("name", entry.getKey());
             item.put("value", (int) Math.round(avg));
-            item.put("samples", e.getValue().size());
+            item.put("samples", entry.getValue().size());
             ranked.add(item);
         }
         ranked.sort((a, b) -> Integer.compare((Integer) b.get("value"), (Integer) a.get("value")));
@@ -434,33 +506,33 @@ public class AdminAnalyticsService {
         return ranked.isEmpty() ? List.of(chartItem("暂无部门得分", 0, "#d1d5db")) : ranked;
     }
 
-    private Map<String, Object> buildDeptActivityHeatmap() {
-        Map<String, User> userMap = userRepo.findAll().stream()
-                .filter(u -> !"admin".equalsIgnoreCase(u.getRole()))
-                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+    private Map<String, Object> buildDeptActivityHeatmap(AnalyticsScope scope) {
+        List<String> departments = scope.department != null
+                ? List.of(scope.department)
+                : new ArrayList<>(scope.departments);
+        if (departments.isEmpty()) departments = List.of("未分配部门");
 
-        Set<String> deptSet = new LinkedHashSet<>();
-        userMap.values().forEach(u -> deptSet.add(deptName(u)));
-        List<String> departments = new ArrayList<>(deptSet);
-        if (departments.isEmpty()) departments.add("未分配部门");
-
-        LocalDate now = LocalDate.now();
+        WeekFields wf = WeekFields.ISO;
         List<String> weeks = new ArrayList<>();
-        for (int i = 7; i >= 0; i--) {
-            LocalDate ws = now.minusWeeks(i).with(WeekFields.ISO.dayOfWeek(), 1);
-            weeks.add(ws.getMonthValue() + "/" + ws.getDayOfMonth());
+        List<LocalDate> weekStarts = new ArrayList<>();
+        LocalDate cursor = scope.to.minusWeeks(7).with(wf.dayOfWeek(), 1);
+        if (cursor.isBefore(scope.from)) {
+            cursor = scope.from.with(wf.dayOfWeek(), 1);
+        }
+        while (!cursor.isAfter(scope.to) && weeks.size() < 8) {
+            weeks.add(cursor.getMonthValue() + "/" + cursor.getDayOfMonth());
+            weekStarts.add(cursor);
+            cursor = cursor.plusWeeks(1);
         }
 
         List<List<Object>> data = new ArrayList<>();
-        for (int w = 0; w < 8; w++) {
-            LocalDate weekStart = now.minusWeeks(7 - w).with(WeekFields.ISO.dayOfWeek(), 1);
-            LocalDateTime start = weekStart.atStartOfDay();
-            LocalDateTime end = weekStart.plusDays(7).atStartOfDay();
-
+        for (int w = 0; w < weekStarts.size(); w++) {
+            LocalDateTime start = weekStarts.get(w).atStartOfDay();
+            LocalDateTime end = weekStarts.get(w).plusDays(7).atStartOfDay();
             for (int d = 0; d < departments.size(); d++) {
                 String dept = departments.get(d);
                 long active = progressRepo.findAll().stream()
-                        .filter(p -> p.getLastAccessAt() != null && p.getUser() != null)
+                        .filter(p -> p.getLastAccessAt() != null && scope.containsUser(p.getUser()))
                         .filter(p -> !p.getLastAccessAt().isBefore(start) && p.getLastAccessAt().isBefore(end))
                         .filter(p -> dept.equals(deptName(p.getUser())))
                         .map(p -> p.getUser().getId())
@@ -479,27 +551,24 @@ public class AdminAnalyticsService {
 
     // ── 5. AI 助手 ──
 
-    private Map<String, Object> buildAiUsage() {
+    private Map<String, Object> buildAiUsage(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("qaTrend", buildQaTrend());
-        section.put("qaCategoryDistribution", buildQaCategoryDistribution());
+        section.put("qaTrend", buildQaTrend(scope));
+        section.put("qaCategoryDistribution", buildQaCategoryDistribution(scope));
         return section;
     }
 
-    private Map<String, Object> buildQaTrend() {
-        LocalDate now = LocalDate.now();
+    private Map<String, Object> buildQaTrend(AnalyticsScope scope) {
         List<String> months = new ArrayList<>();
         List<Long> counts = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M月");
 
-        for (int i = 5; i >= 0; i--) {
-            LocalDate month = now.minusMonths(i);
+        for (YearMonth month : scope.monthsInRange(12)) {
             months.add(month.format(fmt));
-            int year = month.getYear();
-            int monthValue = month.getMonthValue();
             long count = qaRecordRepo.findAll().stream()
                     .filter(q -> q.getCreatedAt() != null)
-                    .filter(q -> q.getCreatedAt().getYear() == year && q.getCreatedAt().getMonthValue() == monthValue)
+                    .filter(q -> scope.containsUser(q.getUser()))
+                    .filter(q -> YearMonth.from(q.getCreatedAt()).equals(month))
                     .count();
             counts.add(count);
         }
@@ -510,7 +579,7 @@ public class AdminAnalyticsService {
         return trend;
     }
 
-    private List<Map<String, Object>> buildQaCategoryDistribution() {
+    private List<Map<String, Object>> buildQaCategoryDistribution(AnalyticsScope scope) {
         Map<String, Long> categories = new LinkedHashMap<>();
         categories.put("消防安全", 0L);
         categories.put("隐患排查", 0L);
@@ -519,15 +588,16 @@ public class AdminAnalyticsService {
         categories.put("其他", 0L);
 
         for (QaRecord q : qaRecordRepo.findAll()) {
+            if (!scope.containsUser(q.getUser()) || !scope.inRange(q.getCreatedAt())) continue;
             String cat = classifyQuestion(q.getQuestion());
             categories.merge(cat, 1L, Long::sum);
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
         int i = 0;
-        for (var e : categories.entrySet()) {
-            if (e.getValue() > 0) {
-                result.add(chartItem(e.getKey(), e.getValue(), CHART_COLORS.get(i++ % CHART_COLORS.size())));
+        for (var entry : categories.entrySet()) {
+            if (entry.getValue() > 0) {
+                result.add(chartItem(entry.getKey(), entry.getValue(), CHART_COLORS.get(i++ % CHART_COLORS.size())));
             }
         }
         return result.isEmpty() ? List.of(chartItem("暂无问答", 0, "#d1d5db")) : result;
@@ -535,27 +605,24 @@ public class AdminAnalyticsService {
 
     // ── 6. 证书成就 ──
 
-    private Map<String, Object> buildCertificates() {
+    private Map<String, Object> buildCertificates(AnalyticsScope scope) {
         Map<String, Object> section = new LinkedHashMap<>();
-        section.put("issueTrend", buildCertIssueTrend());
-        section.put("typeDistribution", buildCertTypeDistribution());
+        section.put("issueTrend", buildCertIssueTrend(scope));
+        section.put("typeDistribution", buildCertTypeDistribution(scope));
         return section;
     }
 
-    private Map<String, Object> buildCertIssueTrend() {
-        LocalDate now = LocalDate.now();
+    private Map<String, Object> buildCertIssueTrend(AnalyticsScope scope) {
         List<String> months = new ArrayList<>();
         List<Long> counts = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M月");
 
-        for (int i = 5; i >= 0; i--) {
-            LocalDate month = now.minusMonths(i);
+        for (YearMonth month : scope.monthsInRange(12)) {
             months.add(month.format(fmt));
-            int year = month.getYear();
-            int monthValue = month.getMonthValue();
             long count = certificateRepo.findAll().stream()
-                    .filter(c -> c.getIssuedAt() != null)
-                    .filter(c -> c.getIssuedAt().getYear() == year && c.getIssuedAt().getMonthValue() == monthValue)
+                    .filter(cert -> cert.getIssuedAt() != null)
+                    .filter(cert -> scope.containsUserId(cert.getUserId()))
+                    .filter(cert -> YearMonth.from(cert.getIssuedAt()).equals(month))
                     .count();
             counts.add(count);
         }
@@ -566,9 +633,11 @@ public class AdminAnalyticsService {
         return trend;
     }
 
-    private List<Map<String, Object>> buildCertTypeDistribution() {
+    private List<Map<String, Object>> buildCertTypeDistribution(AnalyticsScope scope) {
         Map<String, Long> grouped = certificateRepo.findAll().stream()
-                .collect(Collectors.groupingBy(c -> certLevelLabel(c.getCertLevel()), Collectors.counting()));
+                .filter(cert -> scope.containsUserId(cert.getUserId()))
+                .filter(cert -> scope.inRange(cert.getIssuedAt()))
+                .collect(Collectors.groupingBy(cert -> certLevelLabel(cert.getCertLevel()), Collectors.counting()));
 
         if (grouped.isEmpty()) {
             return List.of(chartItem("暂无证书", 0, "#d1d5db"));
@@ -576,8 +645,8 @@ public class AdminAnalyticsService {
 
         List<Map<String, Object>> result = new ArrayList<>();
         int i = 0;
-        for (var e : grouped.entrySet()) {
-            result.add(chartItem(e.getKey(), e.getValue(), CHART_COLORS.get(i++ % CHART_COLORS.size())));
+        for (var entry : grouped.entrySet()) {
+            result.add(chartItem(entry.getKey(), entry.getValue(), CHART_COLORS.get(i++ % CHART_COLORS.size())));
         }
         return result;
     }
@@ -667,5 +736,10 @@ public class AdminAnalyticsService {
         item.put("value", value);
         item.put("color", color);
         return item;
+    }
+
+    private double round(double value, int scale) {
+        double factor = Math.pow(10, scale);
+        return Math.round(value * factor) / factor;
     }
 }

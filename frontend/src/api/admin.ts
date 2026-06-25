@@ -6,6 +6,90 @@ export const adminApi = {
     return request.get('/admin/dashboard')
   },
 
+  getAnalytics(params?: AdminAnalyticsQuery): Promise<ApiResponse<AdminAnalyticsData>> {
+    return request.get('/admin/analytics', { params })
+  },
+
+  getLearningReport(params?: AdminLearningReportQuery): Promise<ApiResponse<AdminLearningReportData>> {
+    return request.get('/admin/learning-report', { params })
+  },
+
+  getAlertCenter(params?: AdminAlertSearchParams): Promise<ApiResponse<AdminAlertCenterPage>> {
+    return request.get('/admin/alerts', { params })
+  },
+
+  getAlertStats(): Promise<ApiResponse<AdminAlertStats>> {
+    return request.get('/admin/alerts/stats')
+  },
+
+  getAlertDetail(id: string): Promise<ApiResponse<AdminTrainingAlertItem>> {
+    return request.get(`/admin/alerts/${encodeURIComponent(id)}`)
+  },
+
+  createAlert(data: Partial<AdminTrainingAlertItem>): Promise<ApiResponse<AdminTrainingAlertItem>> {
+    return request.post('/admin/alerts', data)
+  },
+
+  updateAlert(id: string, data: Partial<AdminTrainingAlertItem>): Promise<ApiResponse<AdminTrainingAlertItem>> {
+    return request.put(`/admin/alerts/${encodeURIComponent(id)}`, data)
+  },
+
+  updateAlertStatus(id: string, data: { status: string; responsiblePerson?: string; remark?: string }): Promise<ApiResponse<AdminTrainingAlertItem>> {
+    return request.patch(`/admin/alerts/${encodeURIComponent(id)}/status`, data)
+  },
+
+  exportAlerts(params?: AdminAlertSearchParams): Promise<ApiResponse<AdminTrainingAlertItem[]>> {
+    return request.get('/admin/alerts/export', { params })
+  },
+
+  getNotificationSummary(): Promise<ApiResponse<AdminInboxSummary<AdminNotificationItem>>> {
+    return request.get('/admin/notifications/summary')
+  },
+
+  getMessageSummary(): Promise<ApiResponse<AdminInboxSummary<AdminMessageItem>>> {
+    return request.get('/admin/messages/summary')
+  },
+
+  listNotifications(params?: { page?: number; pageSize?: number; unreadOnly?: boolean }): Promise<ApiResponse<AdminInboxPage<AdminNotificationItem>>> {
+    return request.get('/admin/notifications', { params })
+  },
+
+  listMessages(params?: { page?: number; pageSize?: number; unreadOnly?: boolean }): Promise<ApiResponse<AdminInboxPage<AdminMessageItem>>> {
+    return request.get('/admin/messages', { params })
+  },
+
+  markNotificationRead(id: string): Promise<ApiResponse<AdminNotificationItem>> {
+    return request.put(`/admin/notifications/${encodeURIComponent(id)}/read`)
+  },
+
+  markAllNotificationsRead(): Promise<ApiResponse<{ success: boolean }>> {
+    return request.put('/admin/notifications/read-all')
+  },
+
+  markMessageRead(id: string): Promise<ApiResponse<AdminMessageItem>> {
+    return request.put(`/admin/messages/${encodeURIComponent(id)}/read`)
+  },
+
+  markAllMessagesRead(): Promise<ApiResponse<{ success: boolean }>> {
+    return request.put('/admin/messages/read-all')
+  },
+
+  createMessage(data: AdminMessagePayload): Promise<ApiResponse<AdminMessageItem>> {
+    return request.post('/admin/messages', data)
+  },
+
+  getMessage(id: string): Promise<ApiResponse<AdminMessageItem>> {
+    return request.get(`/admin/messages/${encodeURIComponent(id)}`)
+  },
+
+  updateMessage(id: string, data: Partial<AdminMessagePayload>): Promise<ApiResponse<AdminMessageItem>> {
+    return request.put(`/admin/messages/${encodeURIComponent(id)}`, data)
+  },
+
+  deleteMessage(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/messages/${encodeURIComponent(id)}`)
+  },
+
   getCourseCategories(): Promise<ApiResponse<CourseCategory[]>> {
     return request.get('/admin/course-categories')
   },
@@ -249,6 +333,14 @@ export const adminApi = {
   removeDepartmentMember(departmentId: string, userId: string): Promise<ApiResponse<{ success: boolean }>> {
     return request.delete(`/admin/departments/${departmentId}/members/${userId}`)
   },
+
+  updateDepartmentMember(
+    departmentId: string,
+    userId: string,
+    data: AdminDepartmentMemberPayload,
+  ): Promise<ApiResponse<AdminDepartmentMember>> {
+    return request.put(`/admin/departments/${departmentId}/members/${userId}`, data)
+  },
 }
 
 export interface AdminDashboardData {
@@ -293,21 +385,260 @@ export interface AdminDashboardData {
     status: 'completed' | 'in_progress' | 'not_started'
   }>
   alerts: Array<{
+    id?: string
+    type?: string
     title: string
     description: string
     level: 'danger' | 'warning' | 'info'
     time: string
+    actionPath?: string
   }>
   announcements: Array<{
+    id?: string
     title: string
     date: string
     pinned: boolean
+    type?: string
+    actionPath?: string
   }>
   calendarEvents: Array<{
     date: string
     type: 'planned' | 'in_progress' | 'completed'
   }>
   generatedAt: string
+}
+
+export interface AdminAnalyticsChartItem {
+  name: string
+  value: number
+  color?: string
+  learners?: number
+  completed?: number
+  fullName?: string
+  total?: number
+  samples?: number
+}
+
+export interface AdminAnalyticsData {
+  summary?: {
+    traineeCount: number
+    completionRate: number
+    examPassRate: number
+    incompleteTraining: number
+  }
+  filters?: {
+    department: string
+    from: string
+    to: string
+  }
+  departments?: string[]
+  exportRows?: Array<{
+    section: string
+    name: string
+    value: string | number
+    learners?: number
+    completed?: number
+    samples?: number
+  }>
+  generatedAt?: string
+  learningEffect: {
+    courseCompletionRank: AdminAnalyticsChartItem[]
+    quizPassRateTrend: { months: string[]; rates: number[] }
+    masteryDistribution: AdminAnalyticsChartItem[]
+  }
+  simulationEffect: {
+    scoreDistribution: AdminAnalyticsChartItem[]
+    scenarioSuccessRate: AdminAnalyticsChartItem[]
+    decisionRadar: { indicators: Array<{ name: string; max: number }>; values: number[] }
+  }
+  userActivity: {
+    weeklyActiveTrend: { weeks: string[]; counts: number[] }
+    studyDurationDistribution: AdminAnalyticsChartItem[]
+    newUserTrend: { months: string[]; counts: number[] }
+  }
+  departmentCompare: {
+    deptScoreRank: AdminAnalyticsChartItem[]
+    deptActivityHeatmap: { departments: string[]; weeks: string[]; data: Array<[number, number, number]> }
+  }
+  aiUsage: {
+    qaTrend: { months: string[]; counts: number[] }
+    qaCategoryDistribution: AdminAnalyticsChartItem[]
+  }
+  certificates: {
+    issueTrend: { months: string[]; counts: number[] }
+    typeDistribution: AdminAnalyticsChartItem[]
+  }
+}
+
+export interface AdminAnalyticsQuery {
+  department?: string
+  from?: string
+  to?: string
+}
+
+export interface AdminLearningReportQuery {
+  keyword?: string
+  department?: string
+  category?: string
+  learningStatus?: string
+  from?: string
+  to?: string
+  trendDays?: number
+  page?: number
+  pageSize?: number
+}
+
+export interface AdminLearningReportData {
+  summary: {
+    traineeCount: number
+    traineeDelta: number
+    completionRate: number
+    completedCount: number
+    avgStudyHours: number
+    examPassRate: number
+    passedCount: number
+  }
+  charts: {
+    learningTrend: { labels: string[]; learners: number[]; completedCourses: number[] }
+    courseCompletion: { items: AdminAnalyticsChartItem[]; overallRate: number }
+    departmentCompletion: Array<{ name: string; rate: number }>
+    examScoreDistribution: AdminAnalyticsChartItem[]
+  }
+  followUp: {
+    items: AdminLearningReportFollowUpItem[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }
+  departments: string[]
+  categories: Array<{ code: string; name: string }>
+  generatedAt: string
+}
+
+export interface AdminLearningReportFollowUpItem {
+  userId: string
+  username: string
+  department: string
+  courseId: string
+  courseTitle: string
+  progress: number
+  studyHours: number
+  studyDuration: string
+  examScore?: number | null
+  examLabel: string
+  learningStatus: string
+  warningStatus: string
+}
+
+export interface AdminAlertStats {
+  total: number
+  totalDelta: number
+  examFailCount: number
+  examFailRate: number
+  progressLagCount: number
+  progressLagRate: number
+  pendingCount: number
+  pendingRate: number
+  dangerCount: number
+  warningCount: number
+  infoCount: number
+  generatedAt?: string
+}
+
+export interface AdminTrainingAlertItem {
+  id: string
+  alertNo?: string
+  type: string
+  level: 'danger' | 'warning' | 'info'
+  title: string
+  description: string
+  department?: string
+  responsiblePerson?: string
+  traineeName?: string
+  courseName?: string
+  time?: string
+  status: 'pending' | 'processing' | 'closed'
+  actionPath?: string
+  manual?: boolean
+  remark?: string
+}
+
+export interface AdminAlertSearchParams {
+  keyword?: string
+  level?: string
+  type?: string
+  department?: string
+  status?: string
+  dateFrom?: string
+  dateTo?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface AdminAlertCenterPage {
+  items: AdminTrainingAlertItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  stats?: AdminAlertStats
+  departments?: string[]
+  generatedAt?: string
+}
+
+export interface AdminAlertCenter {
+  items: AdminDashboardData['alerts']
+  total: number
+  dangerCount: number
+  warningCount: number
+  infoCount: number
+  generatedAt?: string
+}
+
+export interface AdminInboxSummary<T> {
+  items: T[]
+  total: number
+  unreadCount?: number
+  generatedAt?: string
+}
+
+export interface AdminInboxPage<T> extends AdminInboxSummary<T> {
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface AdminNotificationItem {
+  id: string
+  type: string
+  title: string
+  description: string
+  level: 'danger' | 'warning' | 'info'
+  time?: string
+  actionPath?: string
+  read?: boolean
+  persisted?: boolean
+}
+
+export interface AdminMessageItem {
+  id: string
+  title: string
+  date: string
+  pinned: boolean
+  type?: string
+  body?: string
+  actionPath?: string
+  read?: boolean
+  persisted?: boolean
+}
+
+export interface AdminMessagePayload {
+  title: string
+  body?: string
+  type?: string
+  pinned?: boolean
+  actionPath?: string
 }
 
 export interface SystemConfigItem {
@@ -878,10 +1209,21 @@ export interface AdminDepartmentMember {
   employeeNo?: string
   position?: string
   role: string
+  phone?: string
+  enabled?: boolean
+  department?: string
   avatarUrl?: string
   trainingCompletionRate: number
   certStatus: string
   certStatusLabel: string
+}
+
+export interface AdminDepartmentMemberPayload {
+  employeeNo?: string
+  position?: string
+  role?: string
+  phone?: string
+  enabled?: boolean
 }
 
 export interface AdminDepartmentPosition {

@@ -28,6 +28,7 @@ public class AdminPaperAssemblyService {
     private final QuestionRepository questionRepo;
     private final QuestionCategoryRepository categoryRepo;
     private final ObjectMapper objectMapper;
+    private final AdminNotificationService notificationService;
 
     public List<Map<String, Object>> getCategoryOptions() {
         return categoryRepo.findByParentIdIsNullOrderBySortOrderAscNameAsc().stream()
@@ -124,12 +125,22 @@ public class AdminPaperAssemblyService {
         if (questionIds.isEmpty()) {
             throw new RuntimeException("请先组卷后再发布");
         }
+        boolean wasPublished = "published".equals(paper.getStatus());
         paper.setStatus("published");
         paper.setPublishedAt(LocalDateTime.now());
         if (paper.getQuestionsSnapshot() == null || paper.getQuestionsSnapshot().isBlank()) {
             paper.setQuestionsSnapshot(buildSnapshotJson(questionIds, paper.getConfig()));
         }
-        return toDetail(paperRepo.save(paper));
+        ExamPaper saved = paperRepo.save(paper);
+        if (!wasPublished) {
+            String title = saved.getTitle() != null ? saved.getTitle() : "未命名考试";
+            String body = "《" + title + "》已发布，共 " + questionIds.size() + " 题，请及时通知相关人员参加。";
+            notificationService.createMessage("paper-publish:" + saved.getId(), "exam",
+                    "考试《" + title + "》已发布", body, "/admin/learning/exams", false, null);
+            notificationService.createNotification("paper-publish-notice:" + saved.getId(), "exam", "info",
+                    "考试发布提醒", body, "/admin/learning/exams", null);
+        }
+        return toDetail(saved);
     }
 
     @Transactional

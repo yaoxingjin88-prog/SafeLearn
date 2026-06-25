@@ -26,6 +26,7 @@ public class AdminCourseMonitoringService {
     private final UserCertificateRepository certificateRepo;
     private final CourseCategoryRepository categoryRepo;
     private final ObjectMapper objectMapper;
+    private final AdminInboxScheduler inboxScheduler;
 
     public Map<String, Object> getMonitoringSummary(String courseId) {
         Course course = courseRepo.findById(courseId)
@@ -58,6 +59,8 @@ public class AdminCourseMonitoringService {
         stats.put("incompleteCount", incompleteCount);
         stats.put("warningCount", warningCount);
         stats.put("chapterCount", chapterCount);
+
+        inboxScheduler.notifyCourseLowProgress(course, warningCount);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("course", courseInfo);

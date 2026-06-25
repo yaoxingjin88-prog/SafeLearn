@@ -191,6 +191,23 @@ public class AdminOrganizationService {
         return Map.of("success", true);
     }
 
+    @Transactional
+    public Map<String, Object> updateDepartmentMember(String departmentId, String userId, Map<String, Object> body) {
+        Department dept = departmentRepo.findById(departmentId).orElseThrow(() -> new RuntimeException("部门不存在"));
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
+        Set<String> deptNames = collectDepartmentNames(dept);
+        if (user.getDepartment() == null || !deptNames.contains(user.getDepartment())) {
+            throw new RuntimeException("该用户不属于此部门");
+        }
+        if (body.containsKey("employeeNo")) user.setEmployeeNo((String) body.get("employeeNo"));
+        if (body.containsKey("position")) user.setPosition((String) body.get("position"));
+        if (body.containsKey("role")) user.setRole((String) body.get("role"));
+        if (body.containsKey("phone")) user.setPhone((String) body.get("phone"));
+        if (body.containsKey("enabled")) user.setEnabled(parseBoolean(body.get("enabled"), user.getEnabled()));
+        userRepo.save(user);
+        return toMemberRow(user, buildProgressMap(), buildCertStatusMap());
+    }
+
     private Map<String, Object> toTreeNode(Department dept, Map<String, List<Department>> childrenMap, String keyword) {
         List<Map<String, Object>> children = childrenMap.getOrDefault(dept.getId(), List.of()).stream()
                 .sorted(Comparator.comparing(Department::getSortOrder).thenComparing(Department::getName))
@@ -274,6 +291,9 @@ public class AdminOrganizationService {
         row.put("employeeNo", resolveEmployeeNo(u));
         row.put("position", u.getPosition());
         row.put("role", u.getRole());
+        row.put("phone", u.getPhone());
+        row.put("enabled", u.getEnabled() == null || u.getEnabled());
+        row.put("department", u.getDepartment());
         row.put("avatarUrl", u.getAvatarUrl());
         row.put("trainingCompletionRate", progressByUser.getOrDefault(u.getId(), 0));
         row.put("certStatus", certStatus);

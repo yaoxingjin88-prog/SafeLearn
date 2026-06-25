@@ -32,6 +32,7 @@ public class AdminCourseService {
     private final UserProgressRepository progressRepo;
     private final QuizAttemptRepository quizAttemptRepo;
     private final ObjectMapper objectMapper;
+    private final AdminNotificationService notificationService;
 
     public Map<String, Object> searchCourses(String category, String status, String keyword,
                                               String department, String createdFrom, String createdTo,
@@ -92,6 +93,7 @@ public class AdminCourseService {
             course.setStatus("draft");
         }
         course = courseRepo.save(course);
+        notifyCoursePublishedIfNeeded(null, course);
         return toCourseDetail(course);
     }
 
@@ -99,8 +101,10 @@ public class AdminCourseService {
     public Map<String, Object> updateCourse(String id, Map<String, Object> data) {
         Course course = courseRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("课程不存在"));
+        String previousStatus = course.getStatus();
         applyCourseFields(course, data);
         courseRepo.save(course);
+        notifyCoursePublishedIfNeeded(previousStatus, course);
         return toCourseDetail(course);
     }
 
@@ -220,6 +224,20 @@ public class AdminCourseService {
                 .values().stream()
                 .filter(count -> count >= chapterCount)
                 .count();
+    }
+
+    private void notifyCoursePublishedIfNeeded(String previousStatus, Course course) {
+        if (!"published".equals(course.getStatus())) {
+            return;
+        }
+        if ("published".equals(previousStatus)) {
+            return;
+        }
+        String title = course.getTitle() != null ? course.getTitle() : "未命名课程";
+        String body = "课程《" + title + "》已上线，学员可开始学习。";
+        notificationService.createMessage("course-publish:" + course.getId(), "course",
+                "课程《" + title + "》已上线", body,
+                "/admin/learning/courses/" + course.getId(), false, null);
     }
 
     private void applyCourseFields(Course course, Map<String, Object> data) {

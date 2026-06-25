@@ -63,9 +63,36 @@ public class AdminDashboardService {
         result.put("categoryCompletionByDepartment", buildCategoryCompletionByDepartment(learners, courses, chapterCounts, progress));
         result.put("departmentOverview", buildDepartmentOverview(learners, progress));
         result.put("trainingPlans", buildTrainingPlans(learners.size(), courses, chapterCounts, progress));
-        result.put("alerts", buildAlerts(learners, progress, attempts, records, certificates, now));
-        result.put("announcements", buildAnnouncements(courses, now));
+        result.put("alerts", buildAlerts(learners, progress, attempts, records, certificates, now, 4));
+        result.put("announcements", buildAnnouncements(courses, now).stream().limit(5).toList());
         result.put("calendarEvents", buildCalendarEvents(courses, progress, records, now.toLocalDate()));
+        result.put("generatedAt", now.format(DATE_TIME));
+        return result;
+    }
+
+    /** 预警中心：返回完整预警列表与汇总统计。 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAlertCenter() {
+        LocalDateTime now = LocalDateTime.now();
+        List<User> learners = userRepo.findAll().stream()
+                .filter(user -> !"admin".equalsIgnoreCase(user.getRole()))
+                .toList();
+        List<UserProgress> progress = progressRepo.findAll();
+        List<QuizAttempt> attempts = quizAttemptRepo.findAll();
+        List<TrainingRecord> records = trainingRecordRepo.findAll();
+        List<UserCertificate> certificates = certificateRepo.findAll();
+        List<Map<String, Object>> items = buildAlerts(learners, progress, attempts, records, certificates, now, null);
+
+        long dangerCount = items.stream().filter(i -> "danger".equals(i.get("level"))).count();
+        long warningCount = items.stream().filter(i -> "warning".equals(i.get("level"))).count();
+        long infoCount = items.stream().filter(i -> "info".equals(i.get("level"))).count();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("total", items.size());
+        result.put("dangerCount", dangerCount);
+        result.put("warningCount", warningCount);
+        result.put("infoCount", infoCount);
         result.put("generatedAt", now.format(DATE_TIME));
         return result;
     }
@@ -245,51 +272,81 @@ public class AdminDashboardService {
 
     private List<Map<String, Object>> buildAlerts(List<User> learners, List<UserProgress> progress,
                                                    List<QuizAttempt> attempts, List<TrainingRecord> records,
-                                                   List<UserCertificate> certificates, LocalDateTime now) {
+                                                   List<UserCertificate> certificates, LocalDateTime now,
+                                                   Integer limit) {
         List<Map<String, Object>> alerts = new ArrayList<>();
         attempts.stream()
                 .filter(item -> !Boolean.TRUE.equals(item.getPassed()))
                 .max(Comparator.comparing(item -> Optional.ofNullable(item.getCompletedAt()).orElse(item.getStartedAt())))
-                .ifPresent(item -> alerts.add(alert("考试异常预警", item.getUser().getUsername() + " 最近一次考试未通过",
-                        "danger", Optional.ofNullable(item.getCompletedAt()).orElse(item.getStartedAt()))));
+                .ifPresent(item -> alerts.add(alert("exam", "考试异常预警",
+                        item.getUser().getUsername() + " 最近一次考试未通过",
+                        "danger", Optional.ofNullable(item.getCompletedAt()).orElse(item.getStartedAt()),
+                        "/admin/learning/exams")));
 
         Map<String, Double> averages = averageProgressByUser(progress);
-        long notStarted = learners.stream().filter(user -> averages.getOrDefault(user.getId(), 0.0) < 40).count();
-        if (notStarted > 0) {
-            alerts.add(alert("培训进度预警", notStarted + " 名学员培训进度低于 40%", "warning", now));
+        long lowProgress = learners.stream().filter(user -> averages.getOrDefault(user.getId(), 0.0) < 40).count();
+        if (lowProgress > 0) {
+            alerts.add(alert("progress", "培训进度预警",
+                    lowProgress + " 名学员培训进度低于 40%", "warning", now,
+                    "/admin/learning/monitoring?warningStatus=low_progress"));
         }
 
         records.stream().filter(item -> item.getTotalScore() != null && item.getTotalScore() < 60)
                 .max(Comparator.comparing(TrainingRecord::getStartTime))
-                .ifPresent(item -> alerts.add(alert("低分预警", item.getUser().getUsername() + " 应急训练得分 " + item.getTotalScore(),
-                        "warning", Optional.ofNullable(item.getEndTime()).orElse(item.getStartTime()))));
+                .ifPresent(item -> alerts.add(alert("training", "低分预警",
+                        item.getUser().getUsername() + " 应急训练得分 " + item.getTotalScore(),
+                        "warning", Optional.ofNullable(item.getEndTime()).orElse(item.getStartTime()),
+                        "/admin/learning/monitoring")));
 
         long expiring = certificates.stream().filter(item -> item.getExpiresAt() != null
                         && !item.getExpiresAt().isBefore(now) && item.getExpiresAt().isBefore(now.plusDays(30))).count();
         if (expiring > 0) {
-            alerts.add(alert("证书即将到期", expiring + " 份安全证书将在 30 天内到期", "info", now));
+            alerts.add(alert("certificate", "证书即将到期",
+                    expiring + " 份安全证书将在 30 天内到期", "info", now,
+                    "/admin/org"));
         }
         if (alerts.isEmpty()) {
-            alerts.add(alert("运行状态正常", "当前没有需要立即处理的安全预警", "info", now));
+            alerts.add(alert("normal", "运行状态正常",
+                    "当前没有需要立即处理的安全预警", "info", now, "/dashboard"));
         }
-        return alerts.stream().limit(4).toList();
+        if (limit == null || limit <= 0) {
+            return alerts;
+        }
+        return alerts.stream().limit(limit).toList();
     }
 
     private List<Map<String, Object>> buildAnnouncements(List<Course> courses, LocalDateTime now) {
         List<Map<String, Object>> notices = new ArrayList<>();
         String configured = systemConfig.getString("dashboard.announcement", "");
         if (!configured.isBlank()) {
-            notices.add(notice(configured, now.toLocalDate(), true));
+            notices.add(notice("notice:system", configured, now.toLocalDate(), true, "announcement", "/dashboard"));
         }
-        courses.stream().limit(4).forEach(course -> notices.add(notice(
+        courses.stream().limit(8).forEach(course -> notices.add(notice(
+                "notice:course-" + course.getId(),
                 "课程《" + course.getTitle() + "》已上线",
                 course.getCreatedAt() != null ? course.getCreatedAt().toLocalDate() : now.toLocalDate(),
-                false
+                false,
+                "course",
+                "/admin/learning/courses/" + course.getId()
         )));
         if (notices.isEmpty()) {
-            notices.add(notice("储能安全培训管理平台运行正常", now.toLocalDate(), false));
+            notices.add(notice("notice:default", "储能安全培训管理平台运行正常",
+                    now.toLocalDate(), false, "system", "/dashboard"));
         }
-        return notices.stream().limit(5).toList();
+        return notices;
+    }
+
+    /** 管理端消息汇总：公告与课程上线通知。 */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMessageSummary() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Course> courses = courseRepo.findByStatusOrderByCreatedAtDesc("published");
+        List<Map<String, Object>> items = buildAnnouncements(courses, now);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("total", items.size());
+        result.put("generatedAt", now.format(DATE_TIME));
+        return result;
     }
 
     private List<Map<String, Object>> buildCalendarEvents(List<Course> courses, List<UserProgress> progress,
@@ -321,17 +378,29 @@ public class AdminDashboardService {
         ));
     }
 
-    private Map<String, Object> alert(String title, String description, String level, LocalDateTime time) {
+    private Map<String, Object> alert(String type, String title, String description, String level,
+                                       LocalDateTime time, String actionPath) {
         Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", type + "-" + (time != null ? time.format(DateTimeFormatter.ofPattern("yyyyMMddHHmm")) : "now"));
+        item.put("type", type);
         item.put("title", title);
         item.put("description", description);
         item.put("level", level);
         item.put("time", time != null ? time.format(DATE_TIME) : null);
+        item.put("actionPath", actionPath);
         return item;
     }
 
-    private Map<String, Object> notice(String title, LocalDate date, boolean pinned) {
-        return Map.of("title", title, "date", date.toString(), "pinned", pinned);
+    private Map<String, Object> notice(String id, String title, LocalDate date, boolean pinned,
+                                        String type, String actionPath) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", id);
+        item.put("title", title);
+        item.put("date", date.toString());
+        item.put("pinned", pinned);
+        item.put("type", type);
+        item.put("actionPath", actionPath);
+        return item;
     }
 
     private String readableCategory(String category) {

@@ -32,6 +32,7 @@ public class QuizService {
     private final CourseRepository courseRepo;
     private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
+    private final AdminInboxScheduler inboxScheduler;
 
     /**
      * 获取章节测验（不含正确答案）
@@ -202,6 +203,10 @@ public class QuizService {
         attempt.setMasteryLevel(totalScore);
         attempt.setCompletedAt(LocalDateTime.now());
         attemptRepo.save(attempt);
+
+        if (!passed) {
+            inboxScheduler.notifyQuizFail(attempt, totalScore);
+        }
 
         // 更新用户进度中的掌握度
         updateMasteryLevel(userId, quiz.getChapterId(), totalScore);
@@ -468,6 +473,10 @@ public class QuizService {
         attempt.setPassed(passed);
         attempt.setCompletedAt(LocalDateTime.now());
         comprehensiveAttemptRepo.save(attempt);
+
+        if (!passed) {
+            inboxScheduler.notifyComprehensiveExamFail(attempt.getId(), userId, totalScore);
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("attemptId", attempt.getId());

@@ -247,6 +247,63 @@
         <el-button type="primary" :loading="submitting" @click="submitPosition">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="memberDrawerVisible" :title="`编辑成员 · ${memberForm.username}`" size="420px" destroy-on-close>
+      <div class="member-drawer-body">
+        <div class="member-drawer-header">
+          <el-avatar :size="56" :src="memberForm.avatarUrl || undefined">{{ memberForm.username?.charAt(0) }}</el-avatar>
+          <div>
+            <strong>{{ memberForm.username }}</strong>
+            <p>{{ deptDetail?.name || memberForm.department || '—' }}</p>
+          </div>
+        </div>
+
+        <el-form ref="memberFormRef" :model="memberForm" :rules="memberRules" label-width="88px">
+          <el-form-item label="工号">
+            <el-input v-model="memberForm.employeeNo" placeholder="请输入工号" />
+          </el-form-item>
+          <el-form-item label="岗位" prop="position">
+            <el-select
+              v-model="memberForm.position"
+              filterable
+              allow-create
+              default-first-option
+              placeholder="请选择或输入岗位"
+              style="width: 100%"
+            >
+              <el-option v-for="pos in positions" :key="pos.id" :label="pos.name" :value="pos.name" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="角色" prop="role">
+            <el-select v-model="memberForm.role" placeholder="请选择角色" style="width: 100%">
+              <el-option label="普通学员" value="trainee" />
+              <el-option label="安全管理员" value="admin" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="手机号">
+            <el-input v-model="memberForm.phone" placeholder="请输入手机号" maxlength="20" />
+          </el-form-item>
+          <el-form-item label="账号状态">
+            <el-switch v-model="memberForm.enabled" active-text="正常" inactive-text="停用" />
+          </el-form-item>
+        </el-form>
+
+        <div class="readonly-stats">
+          <div><span>培训完成率</span><strong>{{ memberForm.trainingCompletionRate ?? 0 }}%</strong></div>
+          <div><span>证书状态</span><strong>{{ memberForm.certStatusLabel || '—' }}</strong></div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="member-drawer-footer">
+          <button type="button" class="profile-link" @click="viewMemberProfile">查看完整档案</button>
+          <div class="footer-actions">
+            <el-button @click="memberDrawerVisible = false">取消</el-button>
+            <el-button type="primary" :loading="submitting" @click="submitMember">保存</el-button>
+          </div>
+        </div>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
@@ -255,6 +312,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus, EditPen, FolderOpened, Document } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   adminApi,
   type AdminOrgTreeNode,
@@ -291,6 +349,26 @@ const positionDialogVisible = ref(false)
 const positionDialogMode = ref<'create' | 'edit'>('create')
 const editingPositionId = ref('')
 const positionForm = reactive({ name: '', highRisk: false })
+
+const memberDrawerVisible = ref(false)
+const memberFormRef = ref<FormInstance>()
+const memberForm = reactive({
+  id: '',
+  username: '',
+  employeeNo: '',
+  position: '',
+  role: 'trainee',
+  phone: '',
+  enabled: true,
+  department: '',
+  avatarUrl: '',
+  trainingCompletionRate: 0,
+  certStatusLabel: '',
+})
+
+const memberRules: FormRules = {
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+}
 
 async function loadTree() {
   try {
@@ -418,7 +496,50 @@ function handleBatchAssign() {
 }
 
 function editMember(row: AdminDepartmentMember) {
-  router.push(`/admin/users/${row.id}`)
+  Object.assign(memberForm, {
+    id: row.id,
+    username: row.username,
+    employeeNo: row.employeeNo || '',
+    position: row.position || '',
+    role: row.role || 'trainee',
+    phone: row.phone || '',
+    enabled: row.enabled !== false,
+    department: row.department || deptDetail.value?.name || '',
+    avatarUrl: row.avatarUrl || '',
+    trainingCompletionRate: row.trainingCompletionRate ?? 0,
+    certStatusLabel: row.certStatusLabel || '未持证',
+  })
+  memberDrawerVisible.value = true
+}
+
+function viewMemberProfile() {
+  if (!memberForm.id) return
+  router.push(`/admin/users/${memberForm.id}`)
+}
+
+async function submitMember() {
+  const valid = await memberFormRef.value?.validate().catch(() => false)
+  if (!valid || !selectedDeptId.value || !memberForm.id) return
+
+  submitting.value = true
+  try {
+    await adminApi.updateDepartmentMember(selectedDeptId.value, memberForm.id, {
+      employeeNo: memberForm.employeeNo.trim(),
+      position: memberForm.position.trim(),
+      role: memberForm.role,
+      phone: memberForm.phone.trim(),
+      enabled: memberForm.enabled,
+    })
+    ElMessage.success('成员信息已更新')
+    memberDrawerVisible.value = false
+    await Promise.all([loadTree(), loadDeptDetail(), loadMembers()])
+    if (activeTab.value === 'stats') {
+      statsDetail.value = null
+      await loadStats()
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function removeMember(row: AdminDepartmentMember) {
@@ -765,5 +886,75 @@ onMounted(async () => {
   .info-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+.member-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.member-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f2f3f5;
+}
+
+.member-drawer-header strong {
+  display: block;
+  font-size: 16px;
+  color: #303133;
+}
+
+.member-drawer-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #909399;
+}
+
+.readonly-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.readonly-stats div {
+  font-size: 13px;
+  color: #909399;
+}
+
+.readonly-stats strong {
+  display: block;
+  margin-top: 4px;
+  color: #303133;
+  font-size: 15px;
+}
+
+.member-drawer-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.profile-link {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #409eff;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>

@@ -60,16 +60,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
-import request from '@/api/request'
+import { adminApi, type AdminAnalyticsData } from '@/api/admin'
 
-const { compact = false } = defineProps<{ compact?: boolean }>()
+const props = withDefaults(defineProps<{
+  compact?: boolean
+  department?: string
+  from?: string
+  to?: string
+}>(), {
+  compact: false,
+  department: 'all',
+})
+
+const emit = defineEmits<{
+  loaded: [data: AdminAnalyticsData]
+}>()
 
 interface ChartItem { name: string; value: number; color?: string }
 
 const loading = ref(true)
-const data = ref<any>(null)
+const data = ref<AdminAnalyticsData | null>(null)
 
 const learningRef = ref<HTMLElement>()
 const platformTrendRef = ref<HTMLElement>()
@@ -333,10 +345,35 @@ function renderAll() {
   renderLearning(d)
   renderPlatformTrend(d)
   renderActivity(d)
-  if (!compact) {
+  if (!props.compact) {
     renderSimulation(d)
     renderDepartment(d)
     renderComposition(d)
+  }
+}
+
+function disposeCharts() {
+  charts.forEach(c => c.dispose())
+  charts = []
+}
+
+async function loadData() {
+  disposeCharts()
+  loading.value = true
+  try {
+    const res = await adminApi.getAnalytics({
+      department: props.department === 'all' ? undefined : props.department,
+      from: props.from,
+      to: props.to,
+    })
+    data.value = res.data
+    emit('loaded', res.data)
+    loading.value = false
+    await nextTick()
+    renderAll()
+  } catch (err) {
+    loading.value = false
+    console.warn('加载分析数据失败', err)
   }
 }
 
@@ -344,23 +381,15 @@ function handleResize() {
   charts.forEach(c => c.resize())
 }
 
-onMounted(async () => {
-  try {
-    const res = await request.get('/admin/analytics')
-    data.value = res.data
-    loading.value = false
-    await nextTick()
-    renderAll()
-    window.addEventListener('resize', handleResize)
-  } catch (err) {
-    loading.value = false
-    console.warn('加载分析数据失败', err)
-  }
+watch(() => [props.department, props.from, props.to], loadData)
+
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  charts.forEach(c => c.dispose())
-  charts = []
+  disposeCharts()
   window.removeEventListener('resize', handleResize)
 })
 </script>
