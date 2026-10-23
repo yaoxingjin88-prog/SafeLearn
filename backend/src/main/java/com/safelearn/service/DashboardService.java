@@ -31,8 +31,12 @@ public class DashboardService {
     private final SimulationScoreReportRepository scoreReportRepo;
     private final ScenarioRepository scenarioRepo;
     private final UserRepository userRepo;
+    private final LearnerAssignmentRepository assignmentRepo;
+    private final AdminTrainingAlertRepository trainingAlertRepo;
+    private final UserCaseProgressRepository caseProgressRepo;
     private final ObjectMapper objectMapper;
     private final SystemConfigService systemConfig;
+    private final AssignmentCompletionService assignmentCompletionService;
 
     private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -126,8 +130,9 @@ public class DashboardService {
         return result;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String, Object> getOverview(String userId) {
+        assignmentCompletionService.syncForUser(userId);
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
         List<UserProgress> allProgress = progressRepo.findByUserIdWithDetails(userId);
         List<Course> publishedCourses = courseRepo.findByStatusOrderByCreatedAtDesc("published");
@@ -162,7 +167,12 @@ public class DashboardService {
                 : Math.round(deductionSuccess * 1000.0 / deductionCount) / 10.0);
         overview.put("deductionAvgScore", dedAvg != null ? Math.round(dedAvg * 10) / 10.0 : 0);
         overview.put("continueLearning", buildContinueLearning(userId, allProgress));
-        overview.put("mandatoryTasks", buildMandatoryTasks(userId));
+        List<Map<String, Object>> assignedTasks = buildAssignedTasks(userId);
+        List<Map<String, Object>> suggestedTasks = buildSuggestedTasks(userId);
+        overview.put("assignedTasks", assignedTasks);
+        overview.put("suggestedTasks", suggestedTasks);
+        overview.put("mandatoryTasks", mergeTaskLists(assignedTasks, suggestedTasks));
+        overview.put("learningPath", buildLearningPath(userId));
         boolean showRecommended = systemConfig.getBoolean("dashboard.showRecommendedCourses", true);
         overview.put("recommendedCourses", showRecommended
                 ? buildRecommendedCourses(userId, publishedCourses) : List.of());
@@ -409,7 +419,52 @@ public class DashboardService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTrainingAlertsForUser(String userId) {
+        User user = userRepo.findById(userId).orElse(null);
+        if (user == null) return List.of();
+        String dept = user.getDepartment() != null ? user.getDepartment().trim() : "";
+        String username = user.getUsername();
+
+        return trainingAlertRepo.findAll().stream()
+                .filter(a -> !"resolved".equalsIgnoreCase(a.getStatus()))
+                .filter(a -> matchesAlertAudience(a, dept, username))
+                .sorted(Comparator.comparing(AdminTrainingAlert::getOccurredAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(20)
+                .map(this::toTrainingAlertInfo)
+                .toList();
+    }
+
+    private boolean matchesAlertAudience(AdminTrainingAlert alert, String dept, String username) {
+        String alertDept = alert.getDepartment();
+        if (alertDept != null && !alertDept.isBlank() && !"全员".equals(alertDept.trim())) {
+            if (dept.isBlank() || !alertDept.trim().equals(dept)) return false;
+        }
+        String trainee = alert.getTraineeName();
+        if (trainee != null && !trainee.isBlank()) {
+            return trainee.trim().equalsIgnoreCase(username)
+                    || trainee.trim().equalsIgnoreCase(resolveDisplayName(userRepo.findByUsername(username).orElse(null)));
+        }
+        return true;
+    }
+
+    private Map<String, Object> toTrainingAlertInfo(AdminTrainingAlert alert) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", alert.getId());
+        m.put("alertNo", alert.getAlertNo());
+        m.put("type", alert.getType());
+        m.put("level", alert.getLevel());
+        m.put("title", alert.getTitle());
+        m.put("description", alert.getDescription());
+        m.put("status", alert.getStatus());
+        m.put("actionPath", alert.getActionPath());
+        m.put("occurredAt", alert.getOccurredAt() != null ? alert.getOccurredAt().toString() : null);
+        return m;
+    }
+
     private String resolveDisplayName(User user) {
+        if (user == null) return "";
         return switch (user.getUsername()) {
             case "zhanggong" -> "张工";
             case "lisi" -> "李工";
@@ -548,27 +603,49 @@ public class DashboardService {
         return m;
     }
 
-    private List<Map<String, Object>> buildMandatoryTasks(String userId) {
+    private List<Map<String, Object>> buildAssignedTasks(String userId) {
+        List<Map<String, Object>> tasks = new ArrayList<>();
+        for (LearnerAssignment assignment : assignmentRepo.findByUserIdAndStatusNotOrderByCreatedAtDesc(userId, "completed")) {
+            tasks.add(toTaskMap(assignment));
+            if (tasks.size() >= 5) break;
+        }
+        return tasks;
+    }
+
+    private Map<String, Object> toTaskMap(LearnerAssignment assignment) {
+        Map<String, Object> task = new LinkedHashMap<>();
+        task.put("id", assignment.getId());
+        task.put("title", assignment.getTitle());
+        task.put("type", assignment.getType());
+        task.put("deadline", assignment.getDeadline() != null ? assignment.getDeadline() : "建议尽快完成");
+        task.put("status", mapAssignmentStatus(assignment.getStatus()));
+        task.put("actionText", assignment.getActionText() != null ? assignment.getActionText() : "去完成");
+        task.put("link", assignment.getLink());
+        task.put("assigned", true);
+        return task;
+    }
+
+    private List<Map<String, Object>> buildSuggestedTasks(String userId) {
         List<Map<String, Object>> tasks = new ArrayList<>();
 
         List<Scenario> scenarios = scenarioRepo.findAll();
-        long trainedCount = recordRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .filter(r -> r.getEndTime() != null).count();
-
-        if (trainedCount < scenarios.size()) {
+        if (!scenarios.isEmpty()) {
             Scenario next = scenarios.stream()
                     .filter(s -> recordRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
                             .noneMatch(r -> r.getScenario() != null && s.getId().equals(r.getScenario().getId()) && r.getEndTime() != null))
-                    .findFirst().orElse(scenarios.get(0));
-            Map<String, Object> task = new HashMap<>();
-            task.put("id", next.getId());
-            task.put("title", next.getName());
-            task.put("type", "training");
-            task.put("deadline", "截止：明天 23:59");
-            task.put("status", "待考核");
-            task.put("actionText", "去训练");
-            task.put("link", "/training/" + next.getId());
-            tasks.add(task);
+                    .findFirst().orElse(null);
+            if (next != null) {
+                Map<String, Object> task = new HashMap<>();
+                task.put("id", "suggest-training-" + next.getId());
+                task.put("title", next.getName());
+                task.put("type", "training");
+                task.put("deadline", "建议尽快完成");
+                task.put("status", "待考核");
+                task.put("actionText", "去训练");
+                task.put("link", "/training/" + next.getId());
+                task.put("assigned", false);
+                tasks.add(task);
+            }
         }
 
         courseRepo.findByStatusOrderByCreatedAtDesc("published").stream()
@@ -580,17 +657,74 @@ public class DashboardService {
                             .filter(ch -> progressRepo.existsByUserIdAndChapterIdAndCompletedTrue(userId, ch.getId()))
                             .count();
                     Map<String, Object> task = new HashMap<>();
-                    task.put("id", course.getId());
+                    task.put("id", "suggest-course-" + course.getId());
                     task.put("title", course.getTitle());
                     task.put("type", "course");
                     task.put("deadline", "未开始 (" + done + "/" + chapters.size() + " 课时)");
                     task.put("status", done == 0 ? "未开始" : "进行中");
                     task.put("actionText", "去学习");
                     task.put("link", "/courses/" + course.getId());
+                    task.put("assigned", false);
                     tasks.add(task);
                 });
 
-        return tasks.stream().limit(3).toList();
+        return tasks.stream().limit(4).toList();
+    }
+
+    private List<Map<String, Object>> mergeTaskLists(List<Map<String, Object>> assigned, List<Map<String, Object>> suggested) {
+        List<Map<String, Object>> merged = new ArrayList<>(assigned);
+        for (Map<String, Object> task : suggested) {
+            if (merged.size() >= 5) break;
+            merged.add(task);
+        }
+        return merged;
+    }
+
+    private List<Map<String, Object>> buildLearningPath(String userId) {
+        long completedChapters = progressRepo.countByUserIdAndCompletedTrue(userId);
+        boolean theoryStarted = completedChapters > 0;
+        boolean theoryDone = completedChapters >= 5;
+        boolean caseDone = caseProgressRepo.findByUserId(userId).stream()
+                .anyMatch(p -> Boolean.TRUE.equals(p.getCompleted()));
+        long simCount = simulationSessionRepo.countByUserIdAndStatus(userId, "completed");
+        boolean simDone = simCount > 0;
+        boolean trainDone = recordRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .anyMatch(r -> r.getEndTime() != null);
+
+        List<Map<String, Object>> path = new ArrayList<>();
+        path.add(learningPathStep("theory", "1. 安全理论", "学习储能基础知识与运维规范", "/courses/list",
+                theoryDone ? "done" : (theoryStarted ? "current" : "current")));
+        path.add(learningPathStep("case", "2. 案例复盘", "研读典型事故案例与教训", "/cases/list",
+                caseDone ? "done" : (theoryStarted ? "current" : "locked")));
+        path.add(learningPathStep("simulation", "3. 事故推演", "三维场景观察热失控演化", "/simulation/scenarios",
+                simDone ? "done" : (caseDone || theoryDone ? "current" : "locked")));
+        path.add(learningPathStep("training", "4. 应急训练", "分支决策练习处置流程", "/training/scenarios",
+                trainDone ? "done" : (simDone ? "current" : "locked")));
+        return path;
+    }
+
+    private Map<String, Object> learningPathStep(String key, String title, String description, String link, String status) {
+        Map<String, Object> step = new LinkedHashMap<>();
+        step.put("key", key);
+        step.put("title", title);
+        step.put("description", description);
+        step.put("link", link);
+        step.put("status", status);
+        return step;
+    }
+
+    /** @deprecated 兼容旧调用，请使用 buildAssignedTasks + buildSuggestedTasks */
+    private List<Map<String, Object>> buildMandatoryTasks(String userId) {
+        return mergeTaskLists(buildAssignedTasks(userId), buildSuggestedTasks(userId));
+    }
+
+    private String mapAssignmentStatus(String status) {
+        if (status == null) return "待完成";
+        return switch (status) {
+            case "in_progress" -> "进行中";
+            case "completed" -> "已完成";
+            default -> "待完成";
+        };
     }
 
     private List<Map<String, Object>> buildRecommendedCourses(String userId, List<Course> courses) {

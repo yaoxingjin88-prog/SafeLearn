@@ -76,6 +76,33 @@ public class QuizController {
         return ApiResponse.success(quizService.getWrongQuestions(userId));
     }
 
+    @GetMapping("/wrong-questions/mastered")
+    public ApiResponse<Map<String, Object>> getWrongQuestionMastered(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.getWrongQuestionMastered(userId));
+    }
+
+    @PostMapping("/wrong-questions/mastered")
+    public ApiResponse<Map<String, Object>> markWrongQuestionMastered(
+            Authentication auth,
+            @RequestBody Map<String, Object> body) {
+        String userId = auth.getPrincipal().toString();
+        String chapterId = String.valueOf(body.get("chapterId"));
+        Object questionIdsObj = body.get("questionIds");
+        if (questionIdsObj instanceof List<?> list) {
+            List<String> questionIds = list.stream().map(String::valueOf).toList();
+            return ApiResponse.success(quizService.markWrongQuestionsMasteredBatch(userId, chapterId, questionIds));
+        }
+        String questionId = String.valueOf(body.get("questionId"));
+        return ApiResponse.success(quizService.markWrongQuestionMastered(userId, chapterId, questionId));
+    }
+
+    @DeleteMapping("/wrong-questions/mastered")
+    public ApiResponse<Map<String, Object>> resetWrongQuestionMastered(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(quizService.resetWrongQuestionMastered(userId));
+    }
+
     /**
      * 获取测验详情（含答案，用于结果展示）
      */

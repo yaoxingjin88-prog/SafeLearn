@@ -1,5 +1,10 @@
 import { ref, watch } from 'vue'
 import { useUserStore } from '@/stores'
+import {
+  getWrongQuestionMastered,
+  markWrongQuestionMastered,
+  resetWrongQuestionMastered,
+} from '@/api/quiz'
 
 const HIDE_MASTERED_KEY = 'wrongQuestions_hideMastered'
 
@@ -7,29 +12,47 @@ type MasteredMap = Record<string, string[]>
 
 const masteredMap = ref<MasteredMap>({})
 const hideMastered = ref(localStorage.getItem(HIDE_MASTERED_KEY) === '1')
+const synced = ref(false)
 let currentUserId = ''
+let syncPromise: Promise<void> | null = null
 
-function storageKey(userId: string) {
-  return `wrongQuestions_mastered_${userId}`
-}
-
-function readMastered(userId: string): MasteredMap {
+function readLocalMastered(userId: string): MasteredMap {
   try {
-    const raw = localStorage.getItem(storageKey(userId))
+    const raw = localStorage.getItem(`wrongQuestions_mastered_${userId}`)
     return raw ? JSON.parse(raw) : {}
   } catch {
     return {}
   }
 }
 
-function writeMastered(userId: string, data: MasteredMap) {
-  localStorage.setItem(storageKey(userId), JSON.stringify(data))
+function writeLocalMastered(userId: string, data: MasteredMap) {
+  localStorage.setItem(`wrongQuestions_mastered_${userId}`, JSON.stringify(data))
+}
+
+async function syncFromServer(userId: string) {
+  if (!userId || userId === 'guest') {
+    masteredMap.value = readLocalMastered(userId)
+    synced.value = true
+    return
+  }
+  try {
+    const res = await getWrongQuestionMastered()
+    masteredMap.value = res.data?.chapters || {}
+    writeLocalMastered(userId, masteredMap.value)
+  } catch {
+    masteredMap.value = readLocalMastered(userId)
+  } finally {
+    synced.value = true
+  }
 }
 
 function ensureLoaded(userId: string) {
   if (userId !== currentUserId) {
     currentUserId = userId
-    masteredMap.value = readMastered(userId)
+    synced.value = false
+    syncPromise = syncFromServer(userId)
+  } else if (!synced.value && !syncPromise) {
+    syncPromise = syncFromServer(userId)
   }
 }
 
@@ -54,22 +77,32 @@ export function useWrongQuestionMastered() {
     return masteredMap.value[chapterId]?.includes(questionId) ?? false
   }
 
-  function markMastered(chapterId: string, questionId: string) {
+  async function markMastered(chapterId: string, questionId: string) {
     const uid = userId()
     const next = { ...masteredMap.value }
     const list = new Set(next[chapterId] || [])
     list.add(questionId)
     next[chapterId] = [...list]
     masteredMap.value = next
-    writeMastered(uid, next)
+    writeLocalMastered(uid, next)
+    try {
+      await markWrongQuestionMastered({ chapterId, questionId })
+    } catch {
+      /* 本地已更新，服务端失败时下次同步可重试 */
+    }
   }
 
-  function clearChapter(chapterId: string, questionIds: string[]) {
+  async function clearChapter(chapterId: string, questionIds: string[]) {
     const uid = userId()
     const next = { ...masteredMap.value }
     next[chapterId] = [...new Set([...(next[chapterId] || []), ...questionIds])]
     masteredMap.value = next
-    writeMastered(uid, next)
+    writeLocalMastered(uid, next)
+    try {
+      await markWrongQuestionMastered({ chapterId, questionIds })
+    } catch {
+      /* ignore */
+    }
   }
 
   function activeCount(chapterId: string, total: number) {
@@ -85,15 +118,25 @@ export function useWrongQuestionMastered() {
     return totalMasteredCount() > 0
   }
 
-  function resetAllMastered() {
+  async function resetAllMastered() {
     const uid = userId()
     masteredMap.value = {}
-    writeMastered(uid, {})
+    writeLocalMastered(uid, {})
+    try {
+      await resetWrongQuestionMastered()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function refreshMastered() {
+    await syncFromServer(userId())
   }
 
   return {
     masteredMap,
     hideMastered,
+    synced,
     isMastered,
     markMastered,
     clearChapter,
@@ -101,6 +144,7 @@ export function useWrongQuestionMastered() {
     totalMasteredCount,
     hasMasteredRecords,
     resetAllMastered,
+    refreshMastered,
   }
 }
 

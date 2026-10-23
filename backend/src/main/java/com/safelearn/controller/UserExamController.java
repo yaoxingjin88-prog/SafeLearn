@@ -21,9 +21,10 @@ public class UserExamController {
     public ApiResponse<Map<String, Object>> listExams(
             Authentication auth,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize) {
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String tab) {
         String userId = auth.getPrincipal().toString();
-        return ApiResponse.success(userExamService.listAvailableExams(userId, page, pageSize));
+        return ApiResponse.success(userExamService.listAvailableExams(userId, page, pageSize, tab));
     }
 
     @GetMapping("/papers/{id}/status")

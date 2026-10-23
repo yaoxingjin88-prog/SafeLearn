@@ -4,9 +4,15 @@ import type { AccidentCase, ApiResponse, PaginatedData } from "@/types";
 export const caseApi = {
   getList(params?: {
     type?: string;
+    keyword?: string;
     page?: number;
     pageSize?: number;
   }): Promise<ApiResponse<PaginatedData<AccidentCase>>> {
+    return request.get("/cases", { params });
+  },
+
+  /** 案例列表（后端返回数组） */
+  search(params?: { keyword?: string; type?: string }): Promise<ApiResponse<AccidentCase[]>> {
     return request.get("/cases", { params });
   },
 

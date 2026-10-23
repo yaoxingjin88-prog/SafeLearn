@@ -282,6 +282,7 @@ public class AdminCourseService {
         if (data.containsKey("order")) chapter.setOrderNum(toInteger(data.get("order")));
         if (data.containsKey("difficultyLevel")) chapter.setDifficultyLevel(toInteger(data.get("difficultyLevel")));
         if (data.containsKey("scenarioId")) chapter.setScenarioId((String) data.get("scenarioId"));
+        if (data.containsKey("caseId")) chapter.setCaseId((String) data.get("caseId"));
         if (data.containsKey("prerequisiteIds")) {
             chapter.setPrerequisiteIds(serializePrerequisiteIds(data.get("prerequisiteIds")));
         }
@@ -344,6 +345,7 @@ public class AdminCourseService {
         m.put("difficultyLevel", chapter.getDifficultyLevel());
         m.put("prerequisiteIds", parsePrerequisiteIds(chapter.getPrerequisiteIds()));
         m.put("scenarioId", chapter.getScenarioId());
+        m.put("caseId", chapter.getCaseId());
         return m;
     }
 

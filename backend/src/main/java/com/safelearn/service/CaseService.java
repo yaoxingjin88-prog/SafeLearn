@@ -15,8 +15,23 @@ public class CaseService {
     private final AccidentCaseRepository caseRepo;
     private final ObjectMapper objectMapper;
 
-    public List<Map<String, Object>> getCases() {
-        return caseRepo.findAll().stream().map(this::toCaseInfo).toList();
+    public List<Map<String, Object>> getCases(String keyword) {
+        String q = keyword != null ? keyword.trim().toLowerCase() : "";
+        return caseRepo.findAll().stream()
+                .filter(c -> q.isEmpty() || matchesKeyword(c, q))
+                .map(this::toCaseInfo)
+                .toList();
+    }
+
+    private boolean matchesKeyword(AccidentCase c, String q) {
+        return contains(c.getTitle(), q)
+                || contains(c.getLocation(), q)
+                || contains(c.getDescription(), q)
+                || contains(c.getType(), q);
+    }
+
+    private boolean contains(String value, String q) {
+        return value != null && value.toLowerCase().contains(q);
     }
 
     public Map<String, Object> getCaseById(String id) {

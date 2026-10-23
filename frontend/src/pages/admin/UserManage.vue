@@ -74,7 +74,9 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="enable">批量启用</el-dropdown-item>
+              <el-dropdown-item command="assign">批量指派任务</el-dropdown-item>
+              <el-dropdown-item command="remind">批量学习提醒</el-dropdown-item>
+              <el-dropdown-item command="enable" divided>批量启用</el-dropdown-item>
               <el-dropdown-item command="disable">批量停用</el-dropdown-item>
               <el-dropdown-item command="delete" divided>批量删除</el-dropdown-item>
             </el-dropdown-menu>
@@ -205,7 +207,7 @@
             <el-option
               v-for="role in permissionRoleOptions"
               :key="role.id"
-              :label="`${role.name} (${role.code})`"
+              :label="role.name"
               :value="role.id"
             />
           </el-select>
@@ -228,6 +230,59 @@
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchAssignVisible" title="批量指派学习任务" width="520px" destroy-on-close>
+      <p class="dialog-hint">将为选中的 {{ selectedIds.length }} 名学员创建相同的学习任务，并发送通知。</p>
+      <el-form label-width="88px">
+        <el-form-item label="任务标题" required>
+          <el-input v-model="batchAssignForm.title" placeholder="例如：完成锂电池安全课程" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="batchAssignForm.type" style="width: 100%">
+            <el-option label="课程" value="course" />
+            <el-option label="案例" value="case" />
+            <el-option label="推演" value="simulation" />
+            <el-option label="训练" value="training" />
+            <el-option label="考试" value="exam" />
+            <el-option label="自定义" value="custom" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="跳转链接">
+          <el-input v-model="batchAssignForm.link" placeholder="/courses/{id}" />
+        </el-form-item>
+        <el-form-item label="截止时间">
+          <el-input v-model="batchAssignForm.deadline" placeholder="2026-07-01 或 建议尽快完成" />
+        </el-form-item>
+        <el-form-item label="按钮文案">
+          <el-input v-model="batchAssignForm.actionText" placeholder="去完成" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchAssignVisible = false">取消</el-button>
+        <el-button type="primary" :loading="batchAssignSaving" @click="submitBatchAssign">确认指派</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchRemindVisible" title="批量学习提醒" width="520px" destroy-on-close>
+      <p class="dialog-hint">将向选中的 {{ selectedIds.length }} 名学员发送学习提醒（今日每人仅发送一次）。</p>
+      <el-form label-width="88px">
+        <el-form-item label="提醒内容">
+          <el-input
+            v-model="batchRemindForm.message"
+            type="textarea"
+            :rows="3"
+            placeholder="管理员提醒您尽快登录平台完成学习任务。"
+          />
+        </el-form-item>
+        <el-form-item label="跳转页面">
+          <el-input v-model="batchRemindForm.actionPath" placeholder="/dashboard" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchRemindVisible = false">取消</el-button>
+        <el-button type="primary" :loading="batchRemindSaving" @click="submitBatchRemind">发送提醒</el-button>
       </template>
     </el-dialog>
   </div>
@@ -262,6 +317,21 @@ const total = ref(0)
 const selectedIds = ref<string[]>([])
 const departmentOptions = ref<string[]>([...DEFAULT_DEPARTMENTS])
 const permissionRoleOptions = ref<AdminRoleSummary[]>([])
+const batchAssignVisible = ref(false)
+const batchAssignSaving = ref(false)
+const batchRemindVisible = ref(false)
+const batchRemindSaving = ref(false)
+const batchAssignForm = reactive({
+  title: '',
+  type: 'course',
+  link: '',
+  deadline: '',
+  actionText: '去完成',
+})
+const batchRemindForm = reactive({
+  message: '',
+  actionPath: '/dashboard',
+})
 
 const filters = reactive({
   keyword: '',
@@ -423,13 +493,68 @@ function goDetail(user: AdminUserListItem) {
   router.push(`/admin/users/${user.id}`)
 }
 
-async function handleBatch(action: 'enable' | 'disable' | 'delete') {
+async function handleBatch(action: 'enable' | 'disable' | 'delete' | 'assign' | 'remind') {
+  if (action === 'assign') {
+    Object.assign(batchAssignForm, {
+      title: '', type: 'course', link: '', deadline: '', actionText: '去完成',
+    })
+    batchAssignVisible.value = true
+    return
+  }
+  if (action === 'remind') {
+    Object.assign(batchRemindForm, { message: '', actionPath: '/dashboard' })
+    batchRemindVisible.value = true
+    return
+  }
   const labels = { enable: '启用', disable: '停用', delete: '删除' }
   await ElMessageBox.confirm(`确定要批量${labels[action]}选中的 ${selectedIds.value.length} 个用户吗？`, '批量操作', { type: 'warning' })
   const res = await adminApi.batchOperateUsers({ ids: selectedIds.value, action })
   ElMessage.success(`已${labels[action]} ${res.data?.affected ?? 0} 个用户`)
   selectedIds.value = []
   await loadUsers()
+}
+
+async function submitBatchAssign() {
+  if (!batchAssignForm.title.trim()) {
+    ElMessage.warning('请输入任务标题')
+    return
+  }
+  batchAssignSaving.value = true
+  try {
+    const res = await adminApi.batchCreateLearnerAssignments({
+      userIds: selectedIds.value,
+      title: batchAssignForm.title.trim(),
+      type: batchAssignForm.type,
+      link: batchAssignForm.link.trim() || undefined,
+      deadline: batchAssignForm.deadline.trim() || undefined,
+      actionText: batchAssignForm.actionText.trim() || '去完成',
+    })
+    batchAssignVisible.value = false
+    ElMessage.success(`已成功指派 ${res.data?.created ?? 0} 名学员`)
+    selectedIds.value = []
+  } catch {
+    ElMessage.error('批量指派失败')
+  } finally {
+    batchAssignSaving.value = false
+  }
+}
+
+async function submitBatchRemind() {
+  batchRemindSaving.value = true
+  try {
+    const res = await adminApi.batchRemindUsers({
+      userIds: selectedIds.value,
+      message: batchRemindForm.message.trim() || undefined,
+      actionPath: batchRemindForm.actionPath.trim() || '/dashboard',
+    })
+    batchRemindVisible.value = false
+    ElMessage.success(res.data?.message || `已发送 ${res.data?.sent ?? 0} 条提醒`)
+    selectedIds.value = []
+  } catch {
+    ElMessage.error('发送提醒失败')
+  } finally {
+    batchRemindSaving.value = false
+  }
 }
 
 function handleImport() {
@@ -688,5 +813,12 @@ async function handleSubmit() {
   padding: 8px 4px;
   color: #606266;
   font-size: 14px;
+}
+
+.dialog-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
 }
 </style>

@@ -29,6 +29,7 @@ public class AdminPaperAssemblyService {
     private final QuestionCategoryRepository categoryRepo;
     private final ObjectMapper objectMapper;
     private final AdminNotificationService notificationService;
+    private final UserNotificationService userNotificationService;
 
     public List<Map<String, Object>> getCategoryOptions() {
         return categoryRepo.findByParentIdIsNullOrderBySortOrderAscNameAsc().stream()
@@ -139,6 +140,8 @@ public class AdminPaperAssemblyService {
                     "考试《" + title + "》已发布", body, "/admin/learning/exams", false, null);
             notificationService.createNotification("paper-publish-notice:" + saved.getId(), "exam", "info",
                     "考试发布提醒", body, "/admin/learning/exams", null);
+            userNotificationService.notifyExamPublished(
+                    saved.getId(), title, saved.getDepartment(), null);
         }
         return toDetail(saved);
     }

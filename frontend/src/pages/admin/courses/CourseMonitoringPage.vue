@@ -86,6 +86,8 @@
               <th>学习进度</th>
               <th>学习时长</th>
               <th>考试得分</th>
+              <th>推演次数</th>
+              <th>训练次数</th>
               <th>证书状态</th>
               <th>预警状态</th>
               <th>操作</th>
@@ -109,6 +111,8 @@
               </td>
               <td>{{ row.studyDuration || '00:00:00' }}</td>
               <td>{{ row.examScore || (row.learningStatus === 'not_started' ? '-' : 0) }}</td>
+              <td>{{ row.simulationCount ?? 0 }}</td>
+              <td>{{ row.trainingCount ?? 0 }}</td>
               <td><span class="status-pill" :class="certClass(row.certificateStatus)">{{ certLabel(row.certificateStatus) }}</span></td>
               <td>
                 <span v-if="row.warningStatus === 'none'" class="muted">-</span>
@@ -230,6 +234,8 @@ const summaryStatItems = computed(() => {
     { label: '已完成', value: stats.completedCount },
     { label: '完成率', value: `${stats.completionRate}%` },
     { label: '平均得分', value: stats.avgScore },
+    { label: '推演总次数', value: stats.simulationTotal ?? 0 },
+    { label: '训练总次数', value: stats.trainingTotal ?? 0 },
     { label: '未完成人数', value: stats.incompleteCount, warning: stats.incompleteCount > 0 },
   ]
 })

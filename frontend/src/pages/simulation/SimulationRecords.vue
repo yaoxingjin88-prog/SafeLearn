@@ -88,33 +88,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Loading } from '@element-plus/icons-vue'
-import request from '@/api/request'
+import { simulationApi, type SimulationRecordItem } from '@/api/simulation'
 import * as timelineApi from '@/api/timelineDeduction'
 import * as testApi from '@/api/testSimulation'
 import { deductionApi } from '@/api/deduction'
 import { useAppBase } from '@/composables/useAppBase'
 import SimulationDebriefPanel, { type SessionDebrief } from '@/components/simulation/SimulationDebriefPanel.vue'
 
-interface SimulationRecord {
-  sessionId: string
-  type: 'classic' | 'timeline' | 'test'
-  scenarioName: string
-  scenarioId?: string
-  scenarioCode?: string
-  outcome?: string
-  branch?: string
-  totalScore?: number
-  rating?: string
-  instructorComment?: string
-  dimensions?: SessionDebrief['dimensions']
-  strengths?: string[]
-  weaknesses?: string[]
-  fiveWhy?: string[]
-  recommendations?: SessionDebrief['recommendations']
-  status?: string
-  startedAt?: string
-  finishedAt?: string
-}
+interface SimulationRecord extends SimulationRecordItem {}
 
 const router = useRouter()
 const { p } = useAppBase()
@@ -173,11 +154,6 @@ function formatTime(t?: string) {
   return t.replace('T', ' ').slice(0, 19)
 }
 
-function recordTime(r: SimulationRecord) {
-  const t = r.finishedAt || r.startedAt
-  return t ? new Date(t).getTime() : 0
-}
-
 function rowToDebrief(row: SimulationRecord): SessionDebrief {
   return {
     totalScore: row.totalScore,
@@ -185,11 +161,11 @@ function rowToDebrief(row: SimulationRecord): SessionDebrief {
     instructorComment: row.instructorComment,
     branch: row.branch,
     outcome: row.outcome,
-    dimensions: row.dimensions,
+    dimensions: normalizeDimensions(row.dimensions),
     strengths: row.strengths,
     weaknesses: row.weaknesses,
     fiveWhy: row.fiveWhy,
-    recommendations: row.recommendations,
+    recommendations: row.recommendations as SessionDebrief['recommendations'],
   }
 }
 
@@ -236,7 +212,8 @@ function mapApiDebrief(data: Record<string, unknown>): SessionDebrief {
 }
 
 async function fetchFullDebrief(row: SimulationRecord): Promise<SessionDebrief> {
-  if (row.instructorComment && row.dimensions?.length && row.fiveWhy?.length) {
+  const dims = normalizeDimensions(row.dimensions)
+  if (row.instructorComment && dims?.length && row.fiveWhy?.length) {
     return rowToDebrief(row)
   }
   try {
@@ -274,39 +251,11 @@ function retry(row: SimulationRecord) {
 
 onMounted(async () => {
   try {
-    const [classicRes, timelineRes, testRes] = await Promise.all([
-      request.get('/deduction/sessions'),
-      timelineApi.listSessions().catch(() => ({ data: [] as SimulationRecord[] })),
-      testApi.listSessions().catch(() => ({ data: [] as SimulationRecord[] })),
-    ])
-
-    const classic: SimulationRecord[] = (classicRes.data || [])
-      .filter((r: SimulationRecord) => r.status === 'completed' && r.totalScore != null)
-      .map((r: SimulationRecord) => ({
-        ...r,
-        type: 'classic' as const,
-        dimensions: normalizeDimensions(r.dimensions),
-      }))
-
-    const timeline: SimulationRecord[] = ((timelineRes.data || []) as SimulationRecord[])
-      .filter(r => r.totalScore != null)
-      .map(r => ({
-        ...r,
-        type: 'timeline' as const,
-        scenarioName: r.scenarioName || '北京丰台 4·16 储能电站事故推演',
-        dimensions: normalizeDimensions(r.dimensions),
-      }))
-
-    const test: SimulationRecord[] = ((testRes.data || []) as SimulationRecord[])
-      .filter(r => r.totalScore != null)
-      .map(r => ({
-        ...r,
-        type: 'test' as const,
-        scenarioName: r.scenarioName || '广州智光储能科技「6·14」锂电池包闪爆事故推演',
-        dimensions: normalizeDimensions(r.dimensions),
-      }))
-
-    records.value = [...classic, ...timeline, ...test].sort((a, b) => recordTime(b) - recordTime(a))
+    const res = await simulationApi.getRecords()
+    records.value = (res.data || []).map((r: SimulationRecord) => ({
+      ...r,
+      dimensions: normalizeDimensions(r.dimensions),
+    }))
   } finally {
     loading.value = false
   }

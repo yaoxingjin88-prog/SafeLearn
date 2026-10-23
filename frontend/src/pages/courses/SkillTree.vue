@@ -61,7 +61,7 @@
 
     <!-- 技能树 -->
     <el-card v-loading="loading" class="skill-tree-card">
-      <div class="skill-tree-container">
+      <div class="skill-tree-container" ref="treeContainer">
         <!-- 初级层级 -->
         <div class="level-section">
           <div class="level-header">
@@ -73,6 +73,7 @@
               v-for="node in skillTreeData.levels.BASIC"
               :key="node.id"
               class="skill-node"
+              :data-node-id="node.id"
               :class="{
                 'unlocked': node.unlocked,
                 'locked': !node.unlocked,
@@ -154,6 +155,7 @@
               :y2="conn.y2"
               :stroke="conn.active ? '#67C23A' : '#dcdfe6'"
               :stroke-width="conn.active ? 3 : 2"
+              :stroke-dasharray="conn.active ? '8 6' : '0'"
               :marker-end="conn.active ? 'url(#arrowhead-active)' : 'url(#arrowhead)'"
               :class="{ 'active-line': conn.active }"
             />
@@ -171,6 +173,7 @@
               v-for="node in skillTreeData.levels.INTERMEDIATE"
               :key="node.id"
               class="skill-node"
+              :data-node-id="node.id"
               :class="{
                 'unlocked': node.unlocked,
                 'locked': !node.unlocked,
@@ -229,6 +232,7 @@
               v-for="node in skillTreeData.levels.ADVANCED"
               :key="node.id"
               class="skill-node"
+              :data-node-id="node.id"
               :class="{
                 'unlocked': node.unlocked,
                 'locked': !node.unlocked,
@@ -314,7 +318,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft,
@@ -327,7 +331,7 @@ import {
   CircleClose
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/api/request'
+import { skillTreeApi } from '@/api/skillTree'
 import { useAppBase } from '@/composables/useAppBase'
 import type { SkillTreeData, SkillTreeNode } from '@/types'
 import { DifficultyLevel } from '@/types'
@@ -341,6 +345,8 @@ const skillTreeData = ref<SkillTreeData>({
 })
 const unlockDialogVisible = ref(false)
 const selectedNode = ref<SkillTreeNode | null>(null)
+const treeContainer = ref<HTMLElement | null>(null)
+const connectionPositions = ref<Array<{ from: string; to: string; x1: number; y1: number; x2: number; y2: number; active: boolean }>>([])
 
 // 所有节点的映射
 const allNodes = computed(() => {
@@ -352,27 +358,26 @@ const allNodes = computed(() => {
 })
 
 // 可见的连接线
-const visibleConnections = computed(() => {
-  return skillTreeData.value.connections.map(conn => {
-    const fromNode = allNodes.value.find(n => n.id === conn.from)
-    const toNode = allNodes.value.find(n => n.id === conn.to)
-    const active = fromNode?.completed && toNode?.unlocked
-    return { ...conn, active, x1: 0, y1: 0, x2: 0, y2: 0 }
-  })
-})
+const visibleConnections = computed(() => connectionPositions.value)
 
 onMounted(async () => {
   await loadSkillTree()
-  nextTick(() => {
-    calculateConnections()
-  })
+  await nextTick()
+  calculateConnections()
+  window.addEventListener('resize', calculateConnections)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateConnections)
 })
 
 async function loadSkillTree() {
   loading.value = true
   try {
-    const res = await request.get('/skill-tree')
+    const res = await skillTreeApi.getTree()
     skillTreeData.value = res.data
+    await nextTick()
+    calculateConnections()
   } catch (error) {
     console.error('加载技能树失败', error)
     ElMessage.error('加载技能树失败')
@@ -382,8 +387,30 @@ async function loadSkillTree() {
 }
 
 function calculateConnections() {
-  // 简化版：实际项目中需要根据DOM位置计算连线
-  // 这里仅作示意
+  const container = treeContainer.value
+  if (!container) return
+  const containerRect = container.getBoundingClientRect()
+  connectionPositions.value = skillTreeData.value.connections.map(conn => {
+    const fromEl = container.querySelector(`[data-node-id="${conn.from}"]`) as HTMLElement | null
+    const toEl = container.querySelector(`[data-node-id="${conn.to}"]`) as HTMLElement | null
+    const fromNode = allNodes.value.find(n => n.id === conn.from)
+    const toNode = allNodes.value.find(n => n.id === conn.to)
+    const active = !!(fromNode?.completed && toNode?.unlocked)
+    if (!fromEl || !toEl) {
+      return { from: conn.from, to: conn.to, x1: 0, y1: 0, x2: 0, y2: 0, active }
+    }
+    const fromRect = fromEl.getBoundingClientRect()
+    const toRect = toEl.getBoundingClientRect()
+    return {
+      from: conn.from,
+      to: conn.to,
+      x1: fromRect.left + fromRect.width / 2 - containerRect.left,
+      y1: fromRect.bottom - containerRect.top,
+      x2: toRect.left + toRect.width / 2 - containerRect.left,
+      y2: toRect.top - containerRect.top,
+      active,
+    }
+  })
 }
 
 function handleNodeClick(node: SkillTreeNode) {
@@ -536,11 +563,13 @@ function getProgressPercentage(level: DifficultyLevel): number {
 .skill-node.unlocked {
   border-color: #409eff;
   background: #f5f7fa;
+  animation: nodePulse 2.4s ease-in-out infinite;
 }
 
 .skill-node.completed {
   border-color: #67c23a;
   background: #f0f9eb;
+  animation: none;
 }
 
 .skill-node.locked {
@@ -616,13 +645,18 @@ function getProgressPercentage(level: DifficultyLevel): number {
 }
 
 .active-line {
-  animation: dash 1s linear infinite;
+  animation: dash 1.2s linear infinite;
 }
 
 @keyframes dash {
   to {
-    stroke-dashoffset: -20;
+    stroke-dashoffset: -28;
   }
+}
+
+@keyframes nodePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(64, 158, 255, 0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(64, 158, 255, 0.08); }
 }
 
 .requirement-item {

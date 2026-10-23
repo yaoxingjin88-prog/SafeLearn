@@ -2,6 +2,8 @@ package com.safelearn.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safelearn.deduction.entity.SimulationSession;
+import com.safelearn.deduction.repository.SimulationSessionRepository;
 import com.safelearn.entity.*;
 import com.safelearn.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,8 @@ public class AdminCourseMonitoringService {
     private final CourseCategoryRepository categoryRepo;
     private final ObjectMapper objectMapper;
     private final AdminInboxScheduler inboxScheduler;
+    private final SimulationSessionRepository simulationSessionRepo;
+    private final TrainingRecordRepository trainingRecordRepo;
 
     public Map<String, Object> getMonitoringSummary(String courseId) {
         Course course = courseRepo.findById(courseId)
@@ -37,6 +41,8 @@ public class AdminCourseMonitoringService {
 
         List<User> targetUsers = resolveTargetUsers(course);
         Map<String, List<UserProgress>> progressByUser = groupProgressByUser(courseId);
+        Map<String, Long> simulationCountByUser = countCompletedSimulationsByUser();
+        Map<String, Long> trainingCountByUser = countCompletedTrainingsByUser();
 
         long completedCount = targetUsers.stream()
                 .filter(u -> isFullyCompleted(u.getId(), chapterCount, progressByUser))
@@ -46,7 +52,8 @@ public class AdminCourseMonitoringService {
         long incompleteCount = Math.max(0, expectedCount - completedCount);
 
         long warningCount = targetUsers.stream()
-                .map(u -> buildLearnerRow(u, courseId, chapterCount, chapterIds, progressByUser))
+                .map(u -> buildLearnerRow(u, courseId, chapterCount, chapterIds, progressByUser,
+                        simulationCountByUser, trainingCountByUser))
                 .filter(row -> !"none".equals(row.get("warningStatus")))
                 .count();
 
@@ -59,6 +66,10 @@ public class AdminCourseMonitoringService {
         stats.put("incompleteCount", incompleteCount);
         stats.put("warningCount", warningCount);
         stats.put("chapterCount", chapterCount);
+        stats.put("simulationTotal", targetUsers.stream()
+                .mapToLong(u -> simulationCountByUser.getOrDefault(u.getId(), 0L)).sum());
+        stats.put("trainingTotal", targetUsers.stream()
+                .mapToLong(u -> trainingCountByUser.getOrDefault(u.getId(), 0L)).sum());
 
         inboxScheduler.notifyCourseLowProgress(course, warningCount);
 
@@ -80,9 +91,12 @@ public class AdminCourseMonitoringService {
 
         List<User> targetUsers = resolveTargetUsers(course);
         Map<String, List<UserProgress>> progressByUser = groupProgressByUser(courseId);
+        Map<String, Long> simulationCountByUser = countCompletedSimulationsByUser();
+        Map<String, Long> trainingCountByUser = countCompletedTrainingsByUser();
 
         List<Map<String, Object>> allRows = targetUsers.stream()
-                .map(u -> buildLearnerRow(u, courseId, chapterCount, chapterIds, progressByUser))
+                .map(u -> buildLearnerRow(u, courseId, chapterCount, chapterIds, progressByUser,
+                        simulationCountByUser, trainingCountByUser))
                 .filter(row -> matchKeyword(row, keyword))
                 .filter(row -> matchDepartment(row, department))
                 .filter(row -> matchLearningStatus(row, learningStatus))
@@ -156,7 +170,9 @@ public class AdminCourseMonitoringService {
 
     private Map<String, Object> buildLearnerRow(User user, String courseId, int chapterCount,
                                                  Set<String> chapterIds,
-                                                 Map<String, List<UserProgress>> progressByUser) {
+                                                 Map<String, List<UserProgress>> progressByUser,
+                                                 Map<String, Long> simulationCountByUser,
+                                                 Map<String, Long> trainingCountByUser) {
         List<UserProgress> rows = progressByUser.getOrDefault(user.getId(), List.of());
         long completedChapters = rows.stream().filter(p -> Boolean.TRUE.equals(p.getCompleted())).count();
         boolean hasStarted = rows.stream().anyMatch(p ->
@@ -209,7 +225,21 @@ public class AdminCourseMonitoringService {
         row.put("certificateStatus", certificateStatus);
         row.put("warningStatus", warningStatus);
         row.put("lastAccessAt", lastAccess != null ? lastAccess.format(DT) : null);
+        row.put("simulationCount", simulationCountByUser.getOrDefault(user.getId(), 0L));
+        row.put("trainingCount", trainingCountByUser.getOrDefault(user.getId(), 0L));
         return row;
+    }
+
+    private Map<String, Long> countCompletedSimulationsByUser() {
+        return simulationSessionRepo.findAll().stream()
+                .filter(s -> "completed".equals(s.getStatus()))
+                .collect(Collectors.groupingBy(SimulationSession::getUserId, Collectors.counting()));
+    }
+
+    private Map<String, Long> countCompletedTrainingsByUser() {
+        return trainingRecordRepo.findAll().stream()
+                .filter(r -> r.getEndTime() != null && r.getUser() != null)
+                .collect(Collectors.groupingBy(r -> r.getUser().getId(), Collectors.counting()));
     }
 
     private Map<String, Object> buildCourseInfo(Course course) {

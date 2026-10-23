@@ -1,13 +1,5 @@
 <template>
   <div class="alert-center-page" v-loading="loading">
-    <nav class="page-breadcrumb" aria-label="面包屑">
-      <button type="button" @click="router.push('/dashboard')">首页</button>
-      <span>/</span>
-      <button type="button" @click="router.push('/admin/learning/courses')">培训课程</button>
-      <span>/</span>
-      <strong>预警管理</strong>
-    </nav>
-
     <header class="page-header">
       <div>
         <h1>预警管理</h1>
@@ -497,32 +489,10 @@ onMounted(loadData)
 <style scoped>
 .alert-center-page {
   min-height: 100%;
-  padding: 16px 24px 24px;
+  padding: 20px 24px 24px;
   background: #f5f7fc;
   color: #243044;
   box-sizing: border-box;
-}
-
-.page-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: #8b95a4;
-}
-
-.page-breadcrumb button {
-  border: none;
-  background: none;
-  color: #8b95a4;
-  cursor: pointer;
-  padding: 0;
-}
-
-.page-breadcrumb button:hover,
-.page-breadcrumb strong {
-  color: #364153;
 }
 
 .page-header h1 {

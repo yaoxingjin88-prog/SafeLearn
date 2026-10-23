@@ -1,13 +1,5 @@
 <template>
   <div class="learning-report-page" v-loading="loading">
-    <nav class="page-breadcrumb" aria-label="面包屑">
-      <button type="button" @click="router.push('/dashboard')">首页</button>
-      <span>/</span>
-      <button type="button" @click="router.push('/admin/learning/courses')">培训课程</button>
-      <span>/</span>
-      <strong>学习报表</strong>
-    </nav>
-
     <header class="page-header">
       <div>
         <h1>学习报表</h1>
@@ -233,6 +225,8 @@ import {
   CircleCheckFilled,
   Clock,
   Download,
+  Monitor,
+  Operation,
   Reading,
   UserFilled,
 } from '@element-plus/icons-vue'
@@ -333,6 +327,26 @@ const summaryCards = computed(() => {
       subTone: 'muted',
       tone: 'purple',
       icon: CircleCheckFilled,
+    },
+    {
+      key: 'simulation',
+      label: '推演完成次数',
+      value: summary.simulationCount ?? 0,
+      unit: '次',
+      subText: `${summary.simulationParticipants ?? 0} 人参与 · 均分 ${summary.avgSimulationScore ?? 0}`,
+      subTone: 'muted',
+      tone: 'blue',
+      icon: Monitor,
+    },
+    {
+      key: 'training',
+      label: '训练完成次数',
+      value: summary.trainingCount ?? 0,
+      unit: '次',
+      subText: `${summary.trainingParticipants ?? 0} 人参与 · 均分 ${summary.avgTrainingScore ?? 0}`,
+      subTone: 'muted',
+      tone: 'green',
+      icon: Operation,
     },
   ]
 })
@@ -641,27 +655,6 @@ onMounted(loadData)
   background: #f5f7fc;
 }
 
-.page-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  color: #8b95a4;
-  font-size: 13px;
-}
-
-.page-breadcrumb button {
-  border: none;
-  background: none;
-  color: #8b95a4;
-  cursor: pointer;
-  padding: 0;
-}
-
-.page-breadcrumb strong {
-  color: #243044;
-}
-
 .page-header {
   margin-bottom: 14px;
 }
@@ -679,7 +672,7 @@ onMounted(loadData)
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }

@@ -175,32 +175,45 @@
             <el-empty v-else description="暂无章节" />
           </el-card>
 
-          <!-- 课程评价 -->
+          <!-- 学员评价 -->
           <el-card class="reviews-card">
             <template #header>
               <div class="card-header">
-                <span class="card-title">课程评价</span>
-                <el-button link type="primary" @click="showReviewDialog = true">
-                  写评价
-                </el-button>
+                <span class="card-title">学员评价</span>
+                <span v-if="reviewSummary.total" class="review-avg">
+                  {{ reviewSummary.averageRating.toFixed(1) }} 分 · {{ reviewSummary.total }} 条
+                </span>
               </div>
             </template>
-            <div v-if="reviews.length" class="reviews-list">
-              <div v-for="review in reviews" :key="review.id" class="review-item">
+            <div class="review-form">
+              <el-rate v-model="reviewForm.rating" />
+              <el-input
+                v-model="reviewForm.content"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                placeholder="分享你的学习体验..."
+              />
+              <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">
+                提交评价
+              </el-button>
+            </div>
+            <div v-if="reviewSummary.items.length" class="reviews-list mt-4">
+              <div v-for="review in reviewSummary.items" :key="review.id" class="review-item">
                 <div class="review-header">
                   <div class="reviewer-info">
-                    <el-avatar :size="32" :src="review.avatar">{{ review.name?.charAt(0) }}</el-avatar>
                     <div class="reviewer-details">
-                      <span class="reviewer-name">{{ review.name }}</span>
-                      <span class="review-date">{{ review.date }}</span>
+                      <span class="reviewer-name">{{ review.displayName || review.username || '学员' }}</span>
+                      <span class="review-date">{{ formatReviewDate(review.createdAt) }}</span>
                     </div>
                   </div>
-                  <el-rate v-model="review.rating" disabled show-score />
+                  <el-rate :model-value="review.rating" disabled />
                 </div>
                 <p class="review-content">{{ review.content }}</p>
               </div>
             </div>
-            <el-empty v-else description="暂无评价" :image-size="80" />
+            <el-empty v-else description="暂无评价，来做第一个评价的人吧" :image-size="60" />
           </el-card>
         </main>
 
@@ -341,12 +354,13 @@
     </template>
 
     <!-- 分享对话框 -->
-    <el-dialog v-model="showShareDialog" title="分享课程" width="400px">
+    <el-dialog v-model="showShareDialog" title="分享课程" width="400px" @opened="renderShareQr">
       <div class="share-content">
-        <p>扫描二维码分享课程：</p>
-        <div class="qrcode-placeholder">
-          <el-icon :size="120"><Link /></el-icon>
+        <div class="share-qr-wrap">
+          <canvas ref="shareQrCanvas" class="share-qr" />
+          <p class="share-qr-tip">扫码打开课程</p>
         </div>
+        <p>或复制链接分享给同事：</p>
         <div class="share-link">
           <el-input v-model="shareLink" readonly>
             <template #append>
@@ -356,44 +370,24 @@
         </div>
       </div>
     </el-dialog>
-
-    <!-- 评价对话框 -->
-    <el-dialog v-model="showReviewDialog" title="写评价" width="500px">
-      <el-form :model="reviewForm" label-position="top">
-        <el-form-item label="评分">
-          <el-rate v-model="reviewForm.rating" show-text />
-        </el-form-item>
-        <el-form-item label="评价内容">
-          <el-input
-            v-model="reviewForm.content"
-            type="textarea"
-            :rows="4"
-            placeholder="分享您的学习体验..."
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showReviewDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitReview">提交评价</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import QRCode from 'qrcode'
 import {
-  Clock, Document, User, Check, Lock, VideoPlay, Share, Printer, ArrowLeft, Link
+  Clock, Document, User, Check, Lock, VideoPlay, Share, Printer, ArrowLeft
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/api/request'
 import { courseApi } from '@/api/course'
+import { dashboardApi } from '@/api/dashboard'
 import { getComprehensiveExamStatus, type ComprehensiveExamStatus } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
-import type { Course, Chapter } from '@/types'
+import type { Course, Chapter, CourseReviewSummary } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -417,13 +411,15 @@ const progressMap = ref<Record<string, boolean>>({})
 const loading = ref(true)
 const chapterFilter = ref('all')
 const showShareDialog = ref(false)
-const showReviewDialog = ref(false)
 const shareLink = ref('')
+const shareQrCanvas = ref<HTMLCanvasElement>()
 const studyHours = ref(0)
 const masteryLevel = ref(0)
-const reviews = ref<any[]>([])
 const relatedCourses = ref<any[]>([])
 const courseTags = ref<string[]>([])
+const reviewSummary = ref<CourseReviewSummary>({ items: [], total: 0, averageRating: 0 })
+const reviewForm = ref({ rating: 5, content: '' })
+const reviewSubmitting = ref(false)
 const examStatus = ref<ComprehensiveExamStatus>({
   available: false,
   eligible: false,
@@ -434,11 +430,6 @@ const examStatus = ref<ComprehensiveExamStatus>({
   completedChapterCount: 0,
   totalChapterCount: 0,
   requiredCompletionRatio: 0.6,
-})
-
-const reviewForm = ref({
-  rating: 5,
-  content: ''
 })
 
 const overallProgress = computed(() => {
@@ -545,7 +536,17 @@ function startChapter(chapter: Chapter) {
 
 function shareCourse() {
   showShareDialog.value = true
-  shareLink.value = `${window.location.origin}/courses/${course.value.id}`
+  shareLink.value = `${window.location.origin}/user/courses/${course.value.id}`
+}
+
+async function renderShareQr() {
+  await nextTick()
+  if (!shareQrCanvas.value || !shareLink.value) return
+  try {
+    await QRCode.toCanvas(shareQrCanvas.value, shareLink.value, { width: 180, margin: 1 })
+  } catch {
+    // 二维码生成失败时不阻断分享
+  }
 }
 
 function copyShareLink() {
@@ -553,12 +554,40 @@ function copyShareLink() {
   ElMessage.success('链接已复制')
 }
 
+function formatReviewDate(value?: string) {
+  if (!value) return ''
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+async function submitReview() {
+  if (!course.value.id) return
+  if (!reviewForm.value.content.trim()) {
+    ElMessage.warning('请填写评价内容')
+    return
+  }
+  reviewSubmitting.value = true
+  try {
+    await courseApi.submitReview(course.value.id, {
+      rating: reviewForm.value.rating,
+      content: reviewForm.value.content.trim(),
+    })
+    ElMessage.success('评价已提交')
+    reviewForm.value.content = ''
+    const res = await courseApi.getReviews(course.value.id)
+    reviewSummary.value = res.data
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '提交失败')
+  } finally {
+    reviewSubmitting.value = false
+  }
+}
+
 function printCourse() {
   window.print()
 }
 
 function viewProgressDetail() {
-  ElMessage.info('查看进度详情功能开发中')
+  router.push(p('/courses/my-learning'))
 }
 
 function goToComprehensiveExam() {
@@ -566,72 +595,41 @@ function goToComprehensiveExam() {
   router.push(p(`/courses/${course.value.id}/comprehensive-exam`))
 }
 
-function submitReview() {
-  // 提交评价
-  ElMessage.success('评价提交成功')
-  showReviewDialog.value = false
-}
-
 onMounted(async () => {
   const id = route.params.id as string
   loading.value = true
   try {
-    const [detailRes, progressRes, examRes] = await Promise.all([
-      request.get(`/courses/${id}`),
+    const [detailRes, progressRes, examRes, relatedRes, overviewRes, reviewsRes] = await Promise.all([
+      courseApi.getById(id),
       courseApi.getProgress(id).catch(() => ({ data: [] } as any)),
       getComprehensiveExamStatus(id).catch(() => ({ data: null } as any)),
+      courseApi.getRelated(id).catch(() => ({ data: [] } as any)),
+      dashboardApi.getOverview().catch(() => ({ data: {} } as any)),
+      courseApi.getReviews(id).catch(() => ({ data: { items: [], total: 0, averageRating: 0 } } as any)),
     ])
     course.value = detailRes.data
+    reviewSummary.value = reviewsRes.data
     if (examRes.data) {
       examStatus.value = examRes.data
     }
     progressMap.value = {}
     completedChapters.value = 0
+    let totalMastery = 0
+    let masteryCount = 0
     ;(progressRes.data || []).forEach((p: any) => {
       if (p.chapterId && p.completed) {
         progressMap.value[p.chapterId] = true
       }
+      if (p.masteryLevel) {
+        totalMastery += p.masteryLevel
+        masteryCount += 1
+      }
     })
     completedChapters.value = Object.keys(progressMap.value).length
-
-    // 模拟数据
-    studyHours.value = Math.round(completedChapters.value * 1.5)
-    masteryLevel.value = overallProgress.value > 0 ? Math.min(100, overallProgress.value + 10) : 0
-    courseTags.value = ['储能安全', '锂电池', '热失控', 'BMS']
-    reviews.value = [
-      {
-        id: 1,
-        name: '张工',
-        avatar: '',
-        rating: 5,
-        date: '2026-06-01',
-        content: '课程内容非常实用，对实际工作帮助很大。'
-      },
-      {
-        id: 2,
-        name: '李工',
-        avatar: '',
-        rating: 4,
-        date: '2026-05-28',
-        content: '讲解清晰，案例分析深入浅出。'
-      }
-    ]
-    relatedCourses.value = [
-      {
-        id: '2',
-        title: '锂电池热失控机理',
-        coverImage: '',
-        chapters: [{}, {}, {}],
-        learnerCount: 128
-      },
-      {
-        id: '3',
-        title: '储能消防系统',
-        coverImage: '',
-        chapters: [{}, {}],
-        learnerCount: 95
-      }
-    ]
+    studyHours.value = overviewRes.data?.studyHours || Math.round(completedChapters.value * 0.5 * 10) / 10
+    masteryLevel.value = masteryCount > 0 ? Math.round(totalMastery / masteryCount) : overallProgress.value
+    courseTags.value = course.value.category ? [getCategoryName(course.value.category)] : []
+    relatedCourses.value = relatedRes.data || []
   } catch (error) {
     console.error('加载课程失败', error)
   } finally {
@@ -1185,16 +1183,45 @@ onMounted(async () => {
 
 /* 分享对话框优化 */
 .share-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   text-align: center;
 }
 
-.qrcode-placeholder {
-  margin: 20px 0;
-  color: #9ca3af;
+.share-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-qr {
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.share-qr-tip {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-avg {
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .share-link {
-  margin-top: 16px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 /* 响应式优化 */

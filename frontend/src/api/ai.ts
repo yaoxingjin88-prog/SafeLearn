@@ -10,6 +10,14 @@ export const aiApi = {
     return request.get('/ai/history', { params })
   },
 
+  getDraft(): Promise<ApiResponse<{ messages: string; updatedAt?: string }>> {
+    return request.get('/ai/draft')
+  },
+
+  saveDraft(messages: string): Promise<ApiResponse<{ success: boolean; updatedAt?: string }>> {
+    return request.put('/ai/draft', { messages })
+  },
+
   submitFeedback(recordId: string, rating: number): Promise<ApiResponse<void>> {
     return request.post('/ai/feedback', { recordId, rating })
   },

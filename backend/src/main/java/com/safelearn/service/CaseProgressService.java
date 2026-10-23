@@ -17,6 +17,7 @@ public class CaseProgressService {
 
     private final UserCaseProgressRepository progressRepo;
     private final ObjectMapper objectMapper;
+    private final AssignmentCompletionService assignmentCompletionService;
 
     public List<Map<String, Object>> getSummary(String userId) {
         return progressRepo.findByUserId(userId).stream().map(this::toSummary).toList();
@@ -87,6 +88,7 @@ public class CaseProgressService {
         progress.setCompletedAt(LocalDateTime.now());
         progress.setLastAccessAt(LocalDateTime.now());
         progressRepo.save(progress);
+        assignmentCompletionService.syncForUser(userId);
         return toDetail(progress);
     }
 

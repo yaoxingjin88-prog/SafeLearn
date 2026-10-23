@@ -3,9 +3,11 @@ package com.safelearn.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safelearn.dto.AiAskRequest;
 import com.safelearn.dto.FeedbackRequest;
+import com.safelearn.entity.AiChatDraft;
 import com.safelearn.entity.KnowledgeBase;
 import com.safelearn.entity.QaRecord;
 import com.safelearn.entity.User;
+import com.safelearn.repository.AiChatDraftRepository;
 import com.safelearn.repository.KnowledgeBaseRepository;
 import com.safelearn.repository.QaRecordRepository;
 import com.safelearn.repository.UserRepository;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -35,6 +38,7 @@ import java.util.stream.Collectors;
 public class AiService {
 
     private final QaRecordRepository qaRepo;
+    private final AiChatDraftRepository draftRepo;
     private final UserRepository userRepo;
     private final KnowledgeBaseRepository knowledgeRepo;
     private final ObjectMapper objectMapper;
@@ -262,6 +266,24 @@ public class AiService {
         }).toList());
         result.put("total", records.getTotalElements());
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getChatDraft(String userId) {
+        return draftRepo.findByUserId(userId)
+                .map(d -> Map.<String, Object>of(
+                        "messages", d.getMessages(),
+                        "updatedAt", d.getUpdatedAt() != null ? d.getUpdatedAt().toString() : null))
+                .orElse(Map.of("messages", "[]"));
+    }
+
+    @Transactional
+    public Map<String, Object> saveChatDraft(String userId, String messagesJson) {
+        AiChatDraft draft = draftRepo.findByUserId(userId).orElseGet(AiChatDraft::new);
+        draft.setUserId(userId);
+        draft.setMessages(messagesJson != null ? messagesJson : "[]");
+        draftRepo.save(draft);
+        return Map.of("success", true, "updatedAt", draft.getUpdatedAt() != null ? draft.getUpdatedAt().toString() : null);
     }
 
     public Map<String, Object> feedback(FeedbackRequest req) {

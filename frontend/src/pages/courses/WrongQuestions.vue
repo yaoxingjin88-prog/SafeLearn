@@ -62,7 +62,7 @@ import { useAppBase } from '@/composables/useAppBase'
 const route = useRoute()
 const router = useRouter()
 const { p } = useAppBase()
-const { activeCount, masteredMap } = useWrongQuestionMastered()
+const { activeCount, masteredMap, refreshMastered } = useWrongQuestionMastered()
 
 const loading = ref(true)
 const data = ref<WrongQuestionsData | null>(null)
@@ -100,6 +100,7 @@ const activeTotal = computed(() => {
 
 onMounted(async () => {
   try {
+    await refreshMastered()
     const res = await getWrongQuestions()
     if (res.code === 200 && res.data) {
       data.value = res.data as WrongQuestionsData

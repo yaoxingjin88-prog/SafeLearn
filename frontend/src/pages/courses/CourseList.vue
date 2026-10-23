@@ -65,17 +65,28 @@
           </el-card>
         </el-col>
       </el-row>
+      <div v-if="total > pageSize" class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[12, 24, 48]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadCourses"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Clock, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import request from '@/api/request'
 import { categoryApi } from '@/api/category'
+import { courseApi } from '@/api/course'
 import { useAppBase } from '@/composables/useAppBase'
 import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import type { Course, CourseCategory } from '@/types'
@@ -97,25 +108,38 @@ const categories = computed(() => [
 
 const courses = ref<Course[]>([])
 const loading = ref(true)
+const page = ref(1)
+const pageSize = ref(12)
+const total = ref(0)
 
 async function loadCourses() {
   loading.value = true
   try {
-    const params: Record<string, string> = {}
+    const params: Record<string, string | number> = {
+      page: page.value,
+      pageSize: pageSize.value,
+    }
     if (activeCategory.value !== 'all') {
       params.category = activeCategory.value
     }
     if (searchText.value) {
       params.keyword = searchText.value
     }
-    const res = await request.get('/courses', { params })
+    const res = await courseApi.getList(params)
     courses.value = res.data.items
+    total.value = res.data.total || 0
   } catch (error) {
     console.error('加载课程列表失败', error)
     ElMessage.error('加载课程列表失败，请稍后重试')
   } finally {
     loading.value = false
   }
+}
+
+function handleSizeChange(size: number) {
+  pageSize.value = size
+  page.value = 1
+  loadCourses()
 }
 
 onMounted(async () => {
@@ -131,18 +155,17 @@ onMounted(async () => {
   await loadCourses()
 })
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch([searchText, activeCategory], () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    loadCourses()
+  }, 300)
+})
+
 const filteredCourses = computed(() => {
-  let result = [...courses.value]
-  if (activeCategory.value !== 'all') {
-    result = result.filter(c => c.category === activeCategory.value)
-  }
-  if (searchText.value) {
-    const search = searchText.value.toLowerCase()
-    result = result.filter(c =>
-      c.title.toLowerCase().includes(search) ||
-      c.description.toLowerCase().includes(search)
-    )
-  }
+  const result = [...courses.value]
   if (sortBy.value === 'popular') {
     result.sort((a, b) => (b.learnerCount || 0) - (a.learnerCount || 0))
   } else {
@@ -162,6 +185,11 @@ function getCategoryName(category: string) {
 </script>
 
 <style scoped>
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
 .header-actions {
   display: flex;
   align-items: center;

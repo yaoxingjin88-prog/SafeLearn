@@ -17,6 +17,9 @@ import com.safelearn.service.AdminDashboardService;
 import com.safelearn.service.AdminAnalyticsService;
 import com.safelearn.service.CourseCategoryService;
 import com.safelearn.service.DashboardService;
+import com.safelearn.service.LearnerAssignmentService;
+import com.safelearn.service.UserNotificationService;
+import com.safelearn.service.AdminPracticalService;
 import com.safelearn.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -48,6 +51,9 @@ public class AdminController {
     private final AdminDashboardService adminDashboardService;
     private final CourseCategoryService courseCategoryService;
     private final DashboardService dashboardService;
+    private final LearnerAssignmentService learnerAssignmentService;
+    private final UserNotificationService userNotificationService;
+    private final AdminPracticalService adminPracticalService;
     private final SystemConfigService systemConfigService;
 
     @GetMapping("/users")
@@ -333,6 +339,20 @@ public class AdminController {
             return null;
         }
         return String.valueOf(auth.getPrincipal());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> parseIdList(Object raw) {
+        if (raw == null) return List.of();
+        if (raw instanceof List<?> list) {
+            return list.stream()
+                    .map(String::valueOf)
+                    .map(String::trim)
+                    .filter(id -> !id.isBlank())
+                    .distinct()
+                    .toList();
+        }
+        return List.of();
     }
 
     @GetMapping("/charts")
@@ -679,5 +699,115 @@ public class AdminController {
             @PathVariable String id,
             @RequestBody Map<String, Object> body) {
         return ApiResponse.success(systemConfigService.update(id, body));
+    }
+
+    /** 学员学习任务指派 */
+    @GetMapping("/practical/cases")
+    public ApiResponse<Map<String, Object>> searchPracticalCases(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String severity,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(adminPracticalService.searchCases(keyword, type, severity, page, pageSize));
+    }
+
+    @GetMapping("/practical/cases/{id}")
+    public ApiResponse<Map<String, Object>> getPracticalCase(@PathVariable String id) {
+        return ApiResponse.success(adminPracticalService.getCaseById(id));
+    }
+
+    @PostMapping("/practical/cases")
+    public ApiResponse<Map<String, Object>> createPracticalCase(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPracticalService.createCase(body));
+    }
+
+    @PutMapping("/practical/cases/{id}")
+    public ApiResponse<Map<String, Object>> updatePracticalCase(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPracticalService.updateCase(id, body));
+    }
+
+    @DeleteMapping("/practical/cases/{id}")
+    public ApiResponse<Map<String, Object>> deletePracticalCase(@PathVariable String id) {
+        adminPracticalService.deleteCase(id);
+        return ApiResponse.success(Map.of("success", true));
+    }
+
+    @GetMapping("/practical/scenarios")
+    public ApiResponse<Map<String, Object>> searchPracticalScenarios(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String kind,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(adminPracticalService.searchScenarios(keyword, kind, page, pageSize));
+    }
+
+    @GetMapping("/practical/scenarios/{id}")
+    public ApiResponse<Map<String, Object>> getPracticalScenario(@PathVariable String id) {
+        return ApiResponse.success(adminPracticalService.getScenarioById(id));
+    }
+
+    @PostMapping("/practical/scenarios")
+    public ApiResponse<Map<String, Object>> createPracticalScenario(@RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPracticalService.createScenario(body));
+    }
+
+    @PutMapping("/practical/scenarios/{id}")
+    public ApiResponse<Map<String, Object>> updatePracticalScenario(
+            @PathVariable String id, @RequestBody Map<String, Object> body) {
+        return ApiResponse.success(adminPracticalService.updateScenario(id, body));
+    }
+
+    @DeleteMapping("/practical/scenarios/{id}")
+    public ApiResponse<Map<String, Object>> deletePracticalScenario(@PathVariable String id) {
+        adminPracticalService.deleteScenario(id);
+        return ApiResponse.success(Map.of("success", true));
+    }
+
+    @GetMapping("/learner-assignments")
+    public ApiResponse<List<Map<String, Object>>> listLearnerAssignments(
+            @RequestParam String userId) {
+        return ApiResponse.success(learnerAssignmentService.listByUser(userId));
+    }
+
+    @PostMapping("/learner-assignments")
+    public ApiResponse<Map<String, Object>> createLearnerAssignment(
+            @RequestBody Map<String, Object> body) {
+        String adminId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return ApiResponse.success(learnerAssignmentService.create(adminId, body));
+    }
+
+    @PostMapping("/learner-assignments/batch")
+    public ApiResponse<Map<String, Object>> batchCreateLearnerAssignments(
+            @RequestBody Map<String, Object> body) {
+        String adminId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return ApiResponse.success(learnerAssignmentService.batchCreate(adminId, body));
+    }
+
+    @PostMapping("/users/batch-remind")
+    public ApiResponse<Map<String, Object>> batchRemindUsers(@RequestBody Map<String, Object> body) {
+        List<String> userIds = parseIdList(body.get("userIds"));
+        if (userIds.isEmpty()) {
+            throw new RuntimeException("请至少选择一名学员");
+        }
+        String message = body.get("message") != null ? String.valueOf(body.get("message")) : null;
+        String actionPath = body.get("actionPath") != null ? String.valueOf(body.get("actionPath")) : null;
+        return ApiResponse.success(userNotificationService.sendBatchReminder(
+                userIds, currentUserId(), message, actionPath));
+    }
+
+    @PutMapping("/learner-assignments/{id}/status")
+    public ApiResponse<Map<String, Object>> updateLearnerAssignmentStatus(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        String status = String.valueOf(body.get("status"));
+        return ApiResponse.success(learnerAssignmentService.updateStatus(id, status));
+    }
+
+    @DeleteMapping("/learner-assignments/{id}")
+    public ApiResponse<Map<String, Object>> deleteLearnerAssignment(@PathVariable String id) {
+        learnerAssignmentService.delete(id);
+        return ApiResponse.success(Map.of("success", true));
     }
 }

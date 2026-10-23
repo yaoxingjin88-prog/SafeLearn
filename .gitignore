@@ -19,9 +19,25 @@ backend/target/
 .vscode/*
 !.vscode/extensions.json
 .idea
+.cursor/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local misc / contest assets (keep out of repo)
+wechat-article-writer/
+docs/__pycache__/
+docs/dev-log-screenshots/
+docs/gen_dev_log_placeholders.py
+docs/md_to_docx.py
+docs/safelearn-cmit-video-cover*.jpg
+docs/*.docx
+image.png
+首页ui.html

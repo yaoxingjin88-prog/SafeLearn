@@ -202,29 +202,47 @@ export interface DecisionPoint {
 
 export interface DecisionOption {
   id: string
-  consequence?: string;
   text: string;
   score: number;
-  consequence: string;
+  consequence?: string;
   nextDecisionPointId?: string;
   isCorrect: boolean;
 }
 
 export interface TrainingRecord {
   id: string;
-  userId: string;
+  userId?: string;
   scenarioId: string;
+  scenarioName?: string;
   startTime: string;
-  endTime: string;
-  decisions: {
+  endTime?: string;
+  completedAt?: string;
+  decisions?: {
     decisionPointId: string;
     selectedOptionId: string;
     responseTime: number;
     score: number;
   }[];
   totalScore: number;
-  rating: "excellent" | "good" | "average" | "poor";
-  feedback: string;
+  rating?: "excellent" | "good" | "average" | "poor" | string;
+  feedback?: string;
+}
+
+export interface CourseReview {
+  id: string;
+  courseId: string;
+  userId: string;
+  username?: string;
+  displayName?: string;
+  rating: number;
+  content: string;
+  createdAt?: string;
+}
+
+export interface CourseReviewSummary {
+  items: CourseReview[];
+  total: number;
+  averageRating: number;
 }
 
 // 案例相关

@@ -37,47 +37,17 @@ const { p } = useAppBase()
 const loading = ref(true)
 const records = ref<any[]>([])
 
-function resolveChapterTitle(
-  chapterId: string,
-  chapterTitle: string | undefined,
-  chapterMap: Map<string, string>,
-) {
-  return chapterTitle || chapterMap.get(chapterId) || '未知章节'
-}
-
 async function load() {
   loading.value = true
   try {
-    const coursesRes = await courseApi.getList()
-    const courses = coursesRes.data.items || coursesRes.data
-    const all: any[] = []
-    for (const course of courses) {
-      const [progressRes, detailRes] = await Promise.all([
-        courseApi.getProgress(course.id),
-        courseApi.getById(course.id),
-      ])
-      const chapterMap = new Map(
-        (detailRes.data.chapters || []).map(ch => [ch.id, ch.title]),
-      )
-      for (const p of progressRes.data || []) {
-        all.push({
-          courseId: course.id,
-          courseTitle: course.title,
-          chapterId: p.chapterId,
-          chapterTitle: resolveChapterTitle(p.chapterId, p.chapterTitle, chapterMap),
-          progress: p.progress,
-          completed: p.completed,
-          masteryLevel: p.masteryLevel,
-        })
-      }
-    }
-    records.value = all
+    const res = await courseApi.getMyLearning()
+    records.value = res.data || []
   } finally {
     loading.value = false
   }
 }
 
-function goChapter(row: any) {
+function goChapter(row: { courseId: string; chapterId: string }) {
   router.push(p(`/courses/${row.courseId}/chapters/${row.chapterId}`))
 }
 

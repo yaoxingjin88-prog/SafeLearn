@@ -15,7 +15,7 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'dashboard/alerts',
     name: 'AlertCenter',
     component: () => import('@/pages/dashboard/AlertCenterPage.vue'),
-    meta: { title: '预警管理', hideLayoutBreadcrumb: true },
+    meta: { title: '预警管理' },
   },
   {
     path: 'dashboard/notifications',
@@ -33,7 +33,7 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'dashboard/reports',
     name: 'LearningReports',
     component: () => import('@/pages/dashboard/LearningReportPage.vue'),
-    meta: { title: '学习报表', hideLayoutBreadcrumb: true },
+    meta: { title: '学习报表' },
   },
   // 旧版业务路径重定向至学员端
   { path: 'courses/:pathMatch(.*)*', redirect: to => `/user/courses/${to.params.pathMatch}` },
@@ -133,6 +133,16 @@ const adminChildren: RouteRecordRaw[] = [
       { path: 'account', name: 'AdminAccount', component: () => import('@/pages/auth/AccountSettingsPage.vue'), meta: { title: '账号设置' } },
       { path: 'courses', redirect: '/admin/learning/courses' },
       { path: 'data', redirect: '/dashboard' },
+    ],
+  },
+  {
+    path: 'admin/practical',
+    name: 'AdminPractical',
+    redirect: '/admin/practical/cases',
+    meta: { title: '实训内容', roles: ['admin'] },
+    children: [
+      { path: 'cases', name: 'AdminPracticalCases', component: () => import('@/pages/admin/practical/CaseManagePage.vue'), meta: { title: '案例管理' } },
+      { path: 'scenarios', name: 'AdminPracticalScenarios', component: () => import('@/pages/admin/practical/ScenarioManagePage.vue'), meta: { title: '场景管理' } },
     ],
   },
 ]

@@ -318,6 +318,79 @@ export const adminApi = {
     return request.put(`/admin/users/${id}/tags`, { tags })
   },
 
+  listLearnerAssignments(userId: string): Promise<ApiResponse<LearnerAssignmentItem[]>> {
+    return request.get('/admin/learner-assignments', { params: { userId } })
+  },
+
+  createLearnerAssignment(data: LearnerAssignmentPayload): Promise<ApiResponse<LearnerAssignmentItem>> {
+    return request.post('/admin/learner-assignments', data)
+  },
+
+  batchCreateLearnerAssignments(data: BatchLearnerAssignmentPayload): Promise<ApiResponse<{
+    success: boolean
+    created: number
+    skipped: number
+    total: number
+  }>> {
+    return request.post('/admin/learner-assignments/batch', data)
+  },
+
+  batchRemindUsers(data: {
+    userIds: string[]
+    message?: string
+    actionPath?: string
+  }): Promise<ApiResponse<{ sent: number; skipped: number; message: string }>> {
+    return request.post('/admin/users/batch-remind', data)
+  },
+
+  updateLearnerAssignmentStatus(id: string, status: string): Promise<ApiResponse<LearnerAssignmentItem>> {
+    return request.put(`/admin/learner-assignments/${encodeURIComponent(id)}/status`, { status })
+  },
+
+  deleteLearnerAssignment(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/learner-assignments/${encodeURIComponent(id)}`)
+  },
+
+  getPracticalCases(params?: AdminPracticalCaseQuery): Promise<ApiResponse<AdminPracticalCasePage>> {
+    return request.get('/admin/practical/cases', { params })
+  },
+
+  getPracticalCase(id: string): Promise<ApiResponse<AdminPracticalCaseDetail>> {
+    return request.get(`/admin/practical/cases/${encodeURIComponent(id)}`)
+  },
+
+  createPracticalCase(data: Partial<AdminPracticalCaseDetail>): Promise<ApiResponse<AdminPracticalCaseDetail>> {
+    return request.post('/admin/practical/cases', data)
+  },
+
+  updatePracticalCase(id: string, data: Partial<AdminPracticalCaseDetail>): Promise<ApiResponse<AdminPracticalCaseDetail>> {
+    return request.put(`/admin/practical/cases/${encodeURIComponent(id)}`, data)
+  },
+
+  deletePracticalCase(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/practical/cases/${encodeURIComponent(id)}`)
+  },
+
+  getPracticalScenarios(params?: AdminPracticalScenarioQuery): Promise<ApiResponse<AdminPracticalScenarioPage>> {
+    return request.get('/admin/practical/scenarios', { params })
+  },
+
+  getPracticalScenario(id: string): Promise<ApiResponse<AdminPracticalScenarioDetail>> {
+    return request.get(`/admin/practical/scenarios/${encodeURIComponent(id)}`)
+  },
+
+  createPracticalScenario(data: Partial<AdminPracticalScenarioDetail>): Promise<ApiResponse<AdminPracticalScenarioDetail>> {
+    return request.post('/admin/practical/scenarios', data)
+  },
+
+  updatePracticalScenario(id: string, data: Partial<AdminPracticalScenarioDetail>): Promise<ApiResponse<AdminPracticalScenarioDetail>> {
+    return request.put(`/admin/practical/scenarios/${encodeURIComponent(id)}`, data)
+  },
+
+  deletePracticalScenario(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return request.delete(`/admin/practical/scenarios/${encodeURIComponent(id)}`)
+  },
+
   getOrgTree(keyword?: string): Promise<ApiResponse<AdminOrgTreeNode[]>> {
     return request.get('/admin/org/tree', { params: keyword ? { keyword } : undefined })
   },
@@ -529,6 +602,12 @@ export interface AdminLearningReportData {
     avgStudyHours: number
     examPassRate: number
     passedCount: number
+    simulationCount: number
+    simulationParticipants: number
+    avgSimulationScore: number
+    trainingCount: number
+    trainingParticipants: number
+    avgTrainingScore: number
   }
   charts: {
     learningTrend: { labels: string[]; learners: number[]; completedCourses: number[] }
@@ -856,6 +935,8 @@ export interface AdminCourseMonitoringStats {
   incompleteCount: number
   warningCount: number
   chapterCount: number
+  simulationTotal?: number
+  trainingTotal?: number
 }
 
 export interface AdminCourseMonitoringSummary {
@@ -890,6 +971,8 @@ export interface AdminCourseLearnerItem {
   certificateStatus: 'not_started' | 'not_obtained' | 'obtained'
   warningStatus: 'none' | 'not_started' | 'low_progress'
   lastAccessAt?: string
+  simulationCount?: number
+  trainingCount?: number
 }
 
 export interface AdminCourseLearnerPage {
@@ -1351,4 +1434,102 @@ export interface AdminDepartmentStatsDetail extends AdminDepartmentStatsSummary 
   }
   roleDistribution: Record<string, number>
   certStatusDistribution: Record<string, number>
+}
+
+export interface AdminPracticalCaseQuery {
+  keyword?: string
+  type?: string
+  severity?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface AdminPracticalCaseItem {
+  id: string
+  title: string
+  location?: string
+  date?: string
+  type: string
+  severity: string
+  difficulty?: string
+  studyMinutes?: number
+}
+
+export interface AdminPracticalCaseDetail extends AdminPracticalCaseItem {
+  description?: string
+  causeAnalysis?: string
+  lessonsLearned?: string
+  timeline?: unknown
+}
+
+export interface AdminPracticalCasePage {
+  items: AdminPracticalCaseItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface AdminPracticalScenarioQuery {
+  keyword?: string
+  kind?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface AdminPracticalScenarioItem {
+  id: string
+  name: string
+  description?: string
+  duration?: number
+  difficulty?: number
+  kind?: string
+  caseId?: string
+}
+
+export interface AdminPracticalScenarioDetail extends AdminPracticalScenarioItem {
+  initialConditions?: unknown
+  decisionPoints?: unknown
+  events?: unknown
+}
+
+export interface AdminPracticalScenarioPage {
+  items: AdminPracticalScenarioItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface LearnerAssignmentItem {
+  id: string
+  userId: string
+  title: string
+  type: string
+  link?: string
+  deadline?: string
+  status: string
+  actionText?: string
+  createdAt?: string
+  username?: string
+  department?: string
+}
+
+export interface LearnerAssignmentPayload {
+  userId: string
+  title: string
+  type?: string
+  link?: string
+  deadline?: string
+  status?: string
+  actionText?: string
+}
+
+export interface BatchLearnerAssignmentPayload {
+  userIds: string[]
+  title: string
+  type?: string
+  link?: string
+  deadline?: string
+  actionText?: string
 }

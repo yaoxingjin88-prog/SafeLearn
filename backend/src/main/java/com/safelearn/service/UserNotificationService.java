@@ -75,6 +75,111 @@ public class UserNotificationService {
         return result;
     }
 
+    @Transactional
+    public void sendAssignmentNotice(String userId, String senderId, String title, String link) {
+        if (userId == null || userId.isBlank() || title == null || title.isBlank()) return;
+        User user = userRepo.findById(userId).orElse(null);
+        if (user == null || !Boolean.TRUE.equals(user.getEnabled())) return;
+
+        String sourceKey = "assignment-notice:" + userId + ":" + LocalDate.now() + ":" + title.hashCode();
+        if (notificationRepo.existsBySourceKey(sourceKey)) return;
+
+        UserNotification item = new UserNotification();
+        item.setUserId(userId);
+        item.setSenderId(senderId);
+        item.setType("assignment");
+        item.setTitle("新学习任务：" + title);
+        item.setContent(String.format("您好 %s，管理员为您指派了学习任务「%s」，请尽快完成。",
+                user.getUsername(), title));
+        item.setActionPath(toUserActionPath(link));
+        item.setSourceKey(sourceKey);
+        notificationRepo.save(item);
+    }
+
+    @Transactional
+    public Map<String, Object> sendBatchReminder(List<String> userIds, String senderId,
+                                                 String message, String actionPath) {
+        String content = message != null && !message.isBlank()
+                ? message.trim()
+                : "管理员提醒您尽快登录平台完成学习任务。";
+        String path = toUserActionPath(actionPath != null ? actionPath : "/dashboard");
+        int sent = 0;
+        int skipped = 0;
+        for (String userId : userIds) {
+            if (userId == null || userId.isBlank()) continue;
+            User user = userRepo.findById(userId).orElse(null);
+            if (user == null || !Boolean.TRUE.equals(user.getEnabled())) {
+                skipped++;
+                continue;
+            }
+            String sourceKey = "batch-remind:" + userId + ":" + LocalDate.now();
+            if (notificationRepo.existsBySourceKey(sourceKey)) {
+                skipped++;
+                continue;
+            }
+            UserNotification item = new UserNotification();
+            item.setUserId(userId);
+            item.setSenderId(senderId);
+            item.setType("learning_reminder");
+            item.setTitle("学习提醒");
+            item.setContent(String.format("您好 %s，%s", user.getUsername(), content));
+            item.setActionPath(path);
+            item.setSourceKey(sourceKey);
+            notificationRepo.save(item);
+            sent++;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sent", sent);
+        result.put("skipped", skipped);
+        result.put("message", "已向 " + sent + " 名学员发送提醒");
+        return result;
+    }
+
+    @Transactional
+    public int notifyExamPublished(String paperId, String title, String department, String senderId) {
+        if (paperId == null || paperId.isBlank()) return 0;
+        String examTitle = title != null && !title.isBlank() ? title : "未命名考试";
+        int sent = 0;
+        for (User user : resolveExamAudience(department)) {
+            String sourceKey = "exam-publish:" + paperId + ":" + user.getId();
+            if (notificationRepo.existsBySourceKey(sourceKey)) continue;
+            UserNotification item = new UserNotification();
+            item.setUserId(user.getId());
+            item.setSenderId(senderId);
+            item.setType("exam");
+            item.setTitle("新考试通知：" + examTitle);
+            item.setContent(String.format("您好 %s，管理员发布了考试「%s」，请前往考试中心查看并按时参加。",
+                    user.getUsername(), examTitle));
+            item.setActionPath("/user/courses/exams");
+            item.setSourceKey(sourceKey);
+            notificationRepo.save(item);
+            sent++;
+        }
+        return sent;
+    }
+
+    private List<User> resolveExamAudience(String department) {
+        String normalized = department != null ? department.trim() : "";
+        boolean all = normalized.isBlank() || "全员".equals(normalized) || "all".equalsIgnoreCase(normalized);
+        return userRepo.findAll().stream()
+                .filter(user -> !"admin".equalsIgnoreCase(user.getRole()))
+                .filter(user -> Boolean.TRUE.equals(user.getEnabled()))
+                .filter(user -> {
+                    if (all) return true;
+                    String dept = user.getDepartment() != null ? user.getDepartment().trim() : "未分配部门";
+                    return normalized.equals(dept);
+                })
+                .toList();
+    }
+
+    private String toUserActionPath(String link) {
+        if (link == null || link.isBlank()) return "/user/dashboard";
+        String trimmed = link.trim();
+        if (trimmed.startsWith("/user/")) return trimmed;
+        if (trimmed.startsWith("/user")) return trimmed;
+        return "/user" + (trimmed.startsWith("/") ? trimmed : "/" + trimmed);
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> getSummary(String userId) {
         List<Map<String, Object>> items = notificationRepo

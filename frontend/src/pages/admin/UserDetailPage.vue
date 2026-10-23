@@ -147,8 +147,67 @@
             <button type="button" class="more-link">查看更多 ></button>
           </div>
         </div>
+
+        <div class="widget-card assignment-card">
+          <div class="widget-title-row">
+            <div class="widget-title">学习任务指派</div>
+            <el-button type="primary" size="small" @click="openAssignmentDialog">指派任务</el-button>
+          </div>
+          <el-table v-if="assignments.length" :data="assignments" size="small">
+            <el-table-column prop="title" label="任务" min-width="180" />
+            <el-table-column prop="deadline" label="截止" width="120" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-select
+                  :model-value="row.status"
+                  size="small"
+                  @change="(val: string) => updateAssignmentStatus(row.id, val)"
+                >
+                  <el-option label="待完成" value="pending" />
+                  <el-option label="进行中" value="in_progress" />
+                  <el-option label="已完成" value="completed" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="80">
+              <template #default="{ row }">
+                <el-button type="danger" link @click="removeAssignment(row.id)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else description="暂无指派任务" :image-size="56" />
+        </div>
       </section>
     </div>
+
+    <el-dialog v-model="assignmentDialogVisible" title="指派学习任务" width="480px">
+      <el-form label-width="88px">
+        <el-form-item label="任务标题" required>
+          <el-input v-model="assignmentForm.title" placeholder="例如：完成锂电池安全课程" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="assignmentForm.type" style="width: 100%">
+            <el-option label="课程" value="course" />
+            <el-option label="训练" value="training" />
+            <el-option label="考试" value="exam" />
+            <el-option label="自定义" value="custom" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="跳转链接">
+          <el-input v-model="assignmentForm.link" placeholder="/courses/{id}（无需 /user 前缀）" />
+        </el-form-item>
+        <el-form-item label="截止时间">
+          <el-input v-model="assignmentForm.deadline" placeholder="2026-07-01 或 建议尽快完成" />
+        </el-form-item>
+        <el-form-item label="按钮文案">
+          <el-input v-model="assignmentForm.actionText" placeholder="去完成" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="assignmentDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="assignmentSaving" @click="saveAssignment">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -163,7 +222,7 @@ import { TooltipComponent } from 'echarts/components'
 import type { EChartsOption } from 'echarts'
 import { ArrowLeft, Document, Medal, Reading, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { adminApi, type AdminUserDetail } from '@/api/admin'
+import { adminApi, type AdminUserDetail, type LearnerAssignmentItem } from '@/api/admin'
 import { roleLabel } from './userManageShared'
 import { coverUrl } from './courses/courseAdminShared'
 
@@ -173,6 +232,16 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const detail = ref<AdminUserDetail | null>(null)
+const assignments = ref<LearnerAssignmentItem[]>([])
+const assignmentDialogVisible = ref(false)
+const assignmentSaving = ref(false)
+const assignmentForm = ref({
+  title: '',
+  type: 'course',
+  link: '',
+  deadline: '',
+  actionText: '去完成',
+})
 
 const profileItems = computed(() => {
   if (!detail.value) return []
@@ -229,12 +298,79 @@ async function loadDetail() {
   if (!id) return
   loading.value = true
   try {
-    const res = await adminApi.getUserDetail(id)
-    detail.value = res.data
+    const [detailRes, assignmentRes] = await Promise.all([
+      adminApi.getUserDetail(id),
+      adminApi.listLearnerAssignments(id).catch(() => ({ data: [] as LearnerAssignmentItem[] })),
+    ])
+    detail.value = detailRes.data
+    assignments.value = assignmentRes.data || []
   } catch {
     ElMessage.error('加载用户详情失败')
   } finally {
     loading.value = false
+  }
+}
+
+function openAssignmentDialog() {
+  assignmentForm.value = {
+    title: '',
+    type: 'course',
+    link: '',
+    deadline: '',
+    actionText: '去完成',
+  }
+  assignmentDialogVisible.value = true
+}
+
+async function saveAssignment() {
+  if (!detail.value?.profile.id) return
+  if (!assignmentForm.value.title.trim()) {
+    ElMessage.warning('请填写任务标题')
+    return
+  }
+  assignmentSaving.value = true
+  try {
+    await adminApi.createLearnerAssignment({
+      userId: detail.value.profile.id,
+      title: assignmentForm.value.title.trim(),
+      type: assignmentForm.value.type,
+      link: assignmentForm.value.link.trim() || undefined,
+      deadline: assignmentForm.value.deadline.trim() || undefined,
+      actionText: assignmentForm.value.actionText.trim() || '去完成',
+    })
+    assignmentDialogVisible.value = false
+    ElMessage.success('任务已指派')
+    const res = await adminApi.listLearnerAssignments(detail.value.profile.id)
+    assignments.value = res.data || []
+  } catch {
+    ElMessage.error('指派失败')
+  } finally {
+    assignmentSaving.value = false
+  }
+}
+
+async function updateAssignmentStatus(id: string, status: string) {
+  try {
+    await adminApi.updateLearnerAssignmentStatus(id, status)
+    const userId = detail.value?.profile.id
+    if (userId) {
+      const res = await adminApi.listLearnerAssignments(userId)
+      assignments.value = res.data || []
+    }
+    ElMessage.success('状态已更新')
+  } catch {
+    ElMessage.error('更新失败')
+  }
+}
+
+async function removeAssignment(id: string) {
+  try {
+    await ElMessageBox.confirm('确定删除该学习任务？', '确认', { type: 'warning' })
+    await adminApi.deleteLearnerAssignment(id)
+    assignments.value = assignments.value.filter(item => item.id !== id)
+    ElMessage.success('已删除')
+  } catch (action) {
+    if (action !== 'cancel') ElMessage.error('删除失败')
   }
 }
 
@@ -514,6 +650,21 @@ async function openAddTag() {
   font-weight: 600;
   color: #303133;
   margin-bottom: 14px;
+}
+
+.widget-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.widget-title-row .widget-title {
+  margin-bottom: 0;
+}
+
+.assignment-card {
+  margin-top: 16px;
 }
 
 .training-widget {

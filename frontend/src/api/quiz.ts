@@ -126,6 +126,29 @@ export function getWrongQuestions(): Promise<ApiResponse<WrongQuestionsData>> {
   return request.get('/quiz/wrong-questions')
 }
 
+export interface WrongQuestionMasteredData {
+  chapters: Record<string, string[]>
+}
+
+/** 获取已掌握错题标记 */
+export function getWrongQuestionMastered(): Promise<ApiResponse<WrongQuestionMasteredData>> {
+  return request.get('/quiz/wrong-questions/mastered')
+}
+
+/** 标记错题为已掌握 */
+export function markWrongQuestionMastered(payload: {
+  chapterId: string
+  questionId?: string
+  questionIds?: string[]
+}): Promise<ApiResponse<{ success: boolean }>> {
+  return request.post('/quiz/wrong-questions/mastered', payload)
+}
+
+/** 重置全部已掌握标记 */
+export function resetWrongQuestionMastered(): Promise<ApiResponse<{ success: boolean }>> {
+  return request.delete('/quiz/wrong-questions/mastered')
+}
+
 /** 获取测验详情（含答案） */
 export function getQuizDetail(quizId: string): Promise<ApiResponse<Quiz>> {
   return request.get(`/quiz/${quizId}/detail`)

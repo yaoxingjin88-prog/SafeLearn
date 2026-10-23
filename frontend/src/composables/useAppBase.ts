@@ -11,5 +11,15 @@ export function useAppBase() {
     return `${prefix.value}${normalized}`
   }
 
-  return { prefix, p }
+  /** 将任务/外链路径规范为学员端可跳转地址（兼容带或不带 /user 前缀） */
+  function resolveUserPath(link?: string | null) {
+    if (!link) return p('/dashboard')
+    const trimmed = link.trim()
+    if (!trimmed) return p('/dashboard')
+    if (trimmed.startsWith('/user/')) return trimmed
+    if (trimmed.startsWith('/user')) return trimmed
+    return p(trimmed.startsWith('/') ? trimmed : `/${trimmed}`)
+  }
+
+  return { prefix, p, resolveUserPath }
 }

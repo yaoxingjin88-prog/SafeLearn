@@ -4,22 +4,25 @@
     <el-tabs v-model="tab">
       <el-tab-pane label="课程" name="course">
         <div v-if="courses.length" class="fav-grid">
-          <div v-for="item in courses" :key="item.id" class="fav-card" @click="goCourse(item.targetId)">
-            <div class="fav-thumb">
-              <img :src="item.coverImage || '/images/default-course.svg'" alt="" />
+          <div v-for="item in courses" :key="item.id" class="fav-card">
+            <div class="fav-main" @click="goCourse(item.targetId)">
+              <div class="fav-thumb">
+                <img :src="item.coverImage || '/images/default-course.svg'" alt="" />
+              </div>
+              <div class="fav-info">
+                <h4>{{ item.title }}</h4>
+                <el-tag v-if="item.category" size="small">{{ getCategoryName(item.category) }}</el-tag>
+              </div>
             </div>
-            <div class="fav-info">
-              <h4>{{ item.title }}</h4>
-              <el-tag v-if="item.category" size="small">{{ getCategoryName(item.category) }}</el-tag>
-            </div>
+            <el-button text type="danger" @click.stop="removeFavorite('course', item)">取消收藏</el-button>
           </div>
         </div>
         <el-empty v-else description="暂无收藏课程" />
       </el-tab-pane>
       <el-tab-pane label="案例" name="case">
         <div v-if="cases.length" class="fav-list">
-          <div v-for="item in cases" :key="item.id" class="fav-case-card" @click="goCase(item.targetId)">
-            <div class="fav-case-main">
+          <div v-for="item in cases" :key="item.id" class="fav-case-card">
+            <div class="fav-case-main" @click="goCase(item.targetId)">
               <h4 class="fav-case-title">{{ item.title }}</h4>
               <div class="fav-case-meta">
                 <span v-if="item.date" class="meta-item">
@@ -33,9 +36,12 @@
                 </span>
               </div>
             </div>
-            <el-tag v-if="item.severity" size="small" :type="getSeverityTagType(item.severity)" class="fav-sev-tag">
-              {{ getSeverityName(item.severity) }}
-            </el-tag>
+            <div class="fav-case-actions">
+              <el-tag v-if="item.severity" size="small" :type="getSeverityTagType(item.severity)" class="fav-sev-tag">
+                {{ getSeverityName(item.severity) }}
+              </el-tag>
+              <el-button text type="danger" @click.stop="removeFavorite('case', item)">取消收藏</el-button>
+            </div>
           </div>
         </div>
         <el-empty v-else description="暂无收藏案例" />
@@ -48,6 +54,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar, Location } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { favoriteApi, type FavoriteItem } from '@/api/favorite'
 import { useAppBase } from '@/composables/useAppBase'
 
@@ -111,6 +118,17 @@ function getTypeName(type?: string) {
   return map[type] || type
 }
 
+async function removeFavorite(targetType: 'course' | 'case', item: FavoriteItem) {
+  if (!item.targetId) return
+  await favoriteApi.toggle(targetType, item.targetId)
+  ElMessage.success('已取消收藏')
+  if (targetType === 'course') {
+    courses.value = courses.value.filter(c => c.id !== item.id)
+  } else {
+    cases.value = cases.value.filter(c => c.id !== item.id)
+  }
+}
+
 onMounted(async () => {
   try {
     const [cRes, aRes] = await Promise.all([
@@ -127,8 +145,9 @@ onMounted(async () => {
 
 <style scoped>
 .fav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.fav-card { display: flex; gap: 12px; padding: 12px; border-radius: 12px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; }
-.fav-card:hover { background: #f9fafb; }
+.fav-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.fav-main { display: flex; gap: 12px; flex: 1; cursor: pointer; min-width: 0; }
+.fav-card:hover .fav-main { opacity: 0.9; }
 .fav-thumb { width: 80px; height: 56px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
 .fav-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .fav-info h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
@@ -192,5 +211,11 @@ onMounted(async () => {
 .type-chip.type-thermal_runaway { background: #fffbeb; color: #d97706; }
 .type-chip.type-gas_leak { background: #eff6ff; color: #2563eb; }
 
-.fav-sev-tag { flex-shrink: 0; margin-top: 2px; }
+.fav-case-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
 </style>

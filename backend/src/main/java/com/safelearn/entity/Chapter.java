@@ -59,6 +59,9 @@ public class Chapter {
     @Column(name = "scenario_id", columnDefinition = "CHAR(36)")
     private String scenarioId;
 
+    @Column(name = "case_id", columnDefinition = "CHAR(36)")
+    private String caseId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

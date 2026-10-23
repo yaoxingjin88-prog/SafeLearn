@@ -28,16 +28,39 @@ public class CourseController {
     public ApiResponse<Map<String, Object>> getCourses(
             Authentication auth,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "100") int pageSize) {
         String userId = auth != null ? auth.getPrincipal().toString() : null;
-        List<Map<String, Object>> courses = courseService.getCourses(category, keyword, userId);
-        return ApiResponse.success(Map.of("items", courses, "total", courses.size()));
+        return ApiResponse.success(courseService.getCourses(category, keyword, userId, page, pageSize));
     }
 
     @GetMapping("/courses/{id}")
     public ApiResponse<Map<String, Object>> getCourseById(Authentication auth, @PathVariable String id) {
         String userId = auth != null ? auth.getPrincipal().toString() : null;
         return ApiResponse.success(courseService.getCourseDetailForUser(id, userId));
+    }
+
+    @GetMapping("/courses/{id}/related")
+    public ApiResponse<List<Map<String, Object>>> getRelatedCourses(Authentication auth, @PathVariable String id) {
+        String userId = auth != null ? auth.getPrincipal().toString() : null;
+        return ApiResponse.success(courseService.getRelatedCourses(id, userId));
+    }
+
+    @GetMapping("/courses/{id}/reviews")
+    public ApiResponse<Map<String, Object>> getCourseReviews(@PathVariable String id) {
+        return ApiResponse.success(courseService.getCourseReviews(id));
+    }
+
+    @PostMapping("/courses/{id}/reviews")
+    public ApiResponse<Map<String, Object>> submitCourseReview(
+            Authentication auth,
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        String userId = auth.getPrincipal().toString();
+        int rating = body.get("rating") instanceof Number n ? n.intValue() : Integer.parseInt(String.valueOf(body.get("rating")));
+        String content = body.get("content") != null ? String.valueOf(body.get("content")) : "";
+        return ApiResponse.success(courseService.submitCourseReview(userId, id, rating, content));
     }
 
     @GetMapping("/courses/{courseId}/chapters/{chapterId}")
@@ -60,6 +83,12 @@ public class CourseController {
             Authentication auth, @RequestBody ProgressHeartbeatRequest req) {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(courseService.heartbeatProgress(userId, req));
+    }
+
+    @GetMapping("/progress/my-learning")
+    public ApiResponse<List<Map<String, Object>>> getMyLearning(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(courseService.getMyLearningRecords(userId));
     }
 
     @GetMapping("/progress/{courseId}")

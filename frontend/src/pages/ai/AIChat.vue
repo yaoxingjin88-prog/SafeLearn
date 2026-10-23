@@ -154,6 +154,7 @@ import {
   truncateQuestion,
   type AiChatMessage,
 } from '@/composables/useAiChatSession'
+import { loadAiChatDraftFromServer, scheduleAiChatDraftSync } from '@/composables/useAiChatDraftSync'
 
 const router = useRouter()
 const { p } = useAppBase()
@@ -195,12 +196,21 @@ function formatRelevance(relevance: number) {
 function persistSession() {
   if (!sessionReady.value) return
   saveAiChatSession(messages.value, userId.value)
+  scheduleAiChatDraftSync(messages.value, userId.value)
 }
 
 async function initChatSession() {
   const cached = loadAiChatSession(userId.value)
   if (cached && hasUserMessages(cached)) {
     messages.value = cached
+    sessionReady.value = true
+    return
+  }
+
+  const serverDraft = await loadAiChatDraftFromServer(userId.value)
+  if (serverDraft && hasUserMessages(serverDraft)) {
+    messages.value = serverDraft
+    saveAiChatSession(messages.value, userId.value)
     sessionReady.value = true
     return
   }

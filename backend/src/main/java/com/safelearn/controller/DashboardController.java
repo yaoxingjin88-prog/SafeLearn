@@ -83,4 +83,10 @@ public class DashboardController {
         String userId = auth.getPrincipal().toString();
         return ApiResponse.success(userNotificationService.markAllRead(userId));
     }
+
+    @GetMapping("/training-alerts")
+    public ApiResponse<List<Map<String, Object>>> getTrainingAlerts(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(dashboardService.getTrainingAlertsForUser(userId));
+    }
 }

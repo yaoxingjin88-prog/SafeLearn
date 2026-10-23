@@ -22,9 +22,13 @@ public class CourseService {
     private final ChapterRepository chapterRepo;
     private final UserProgressRepository progressRepo;
     private final UserRepository userRepo;
+    private final CourseReviewRepository reviewRepo;
     private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
     private final SystemConfigService systemConfig;
+    private final AssignmentCompletionService assignmentCompletionService;
+    private final ScenarioRepository scenarioRepo;
+    private final AccidentCaseRepository caseRepo;
 
     private static final int MASTERY_THRESHOLD = 60;
 
@@ -33,11 +37,29 @@ public class CourseService {
         return systemConfig.getInt("learning.masteryThreshold", MASTERY_THRESHOLD);
     }
 
-    public List<Map<String, Object>> getCourses(String category, String keyword, String userId) {
+    public Map<String, Object> getCourses(String category, String keyword, String userId, int page, int pageSize) {
         List<Course> courses = courseRepo.findByFilters("published",
                 (category == null || category.equals("all")) ? null : category,
                 (keyword == null || keyword.isBlank()) ? null : keyword);
-        return courses.stream().map(c -> toCourseSummary(c, userId)).toList();
+        List<Map<String, Object>> all = courses.stream().map(c -> toCourseSummary(c, userId)).toList();
+
+        int total = all.size();
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(pageSize, 1), 100);
+        int from = Math.max(0, (safePage - 1) * safeSize);
+        int to = Math.min(total, from + safeSize);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", from >= total ? List.of() : all.subList(from, to));
+        result.put("total", total);
+        result.put("page", safePage);
+        result.put("pageSize", safeSize);
+        result.put("totalPages", safeSize == 0 ? 0 : (int) Math.ceil(total * 1.0 / safeSize));
+        return result;
+    }
+
+    public List<Map<String, Object>> getCourses(String category, String keyword, String userId) {
+        return (List<Map<String, Object>>) getCourses(category, keyword, userId, 1, Integer.MAX_VALUE).get("items");
     }
 
     public Map<String, Object> getCourseById(String id) {
@@ -86,6 +108,7 @@ public class CourseService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("chapter", toChapterInfo(chapter));
+        result.put("nextSteps", buildChapterNextSteps(chapter));
         result.put("chapters", chapters.stream().map(ch -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", ch.getId());
@@ -148,6 +171,7 @@ public class CourseService {
         if (Boolean.TRUE.equals(req.getCompleted())) {
             certificateService.tryIssueOnCourseComplete(userId, req.getCourseId())
                     .ifPresent(cert -> result.put("newCertificate", cert));
+            assignmentCompletionService.syncForUser(userId);
         }
         return result;
     }
@@ -214,6 +238,39 @@ public class CourseService {
             m.put("completedAt", up.getCompleted() ? up.getLastAccessAt() != null ? up.getLastAccessAt().toString() : null : null);
             return m;
         }).toList();
+    }
+
+    public List<Map<String, Object>> getMyLearningRecords(String userId) {
+        return progressRepo.findByUserIdWithDetails(userId).stream()
+                .filter(up -> (up.getProgress() != null && up.getProgress() > 0)
+                        || Boolean.TRUE.equals(up.getCompleted()))
+                .sorted(Comparator.comparing(
+                        (UserProgress up) -> up.getLastAccessAt() != null ? up.getLastAccessAt() : LocalDateTime.MIN,
+                        Comparator.reverseOrder()))
+                .map(up -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("courseId", up.getCourse() != null ? up.getCourse().getId() : null);
+                    m.put("courseTitle", up.getCourse() != null ? up.getCourse().getTitle() : "");
+                    m.put("chapterId", up.getChapter() != null ? up.getChapter().getId() : null);
+                    m.put("chapterTitle", up.getChapter() != null ? up.getChapter().getTitle() : "");
+                    m.put("progress", up.getProgress() != null ? up.getProgress() : 0);
+                    m.put("completed", Boolean.TRUE.equals(up.getCompleted()));
+                    m.put("masteryLevel", up.getMasteryLevel() != null ? up.getMasteryLevel() : 0);
+                    m.put("lastAccessAt", up.getLastAccessAt() != null ? up.getLastAccessAt().toString() : null);
+                    return m;
+                })
+                .toList();
+    }
+
+    public List<Map<String, Object>> getRelatedCourses(String id, String userId) {
+        Course course = courseRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("课程不存在"));
+        String category = course.getCategory();
+        return courseRepo.findByFilters("published", category, null).stream()
+                .filter(c -> !c.getId().equals(id))
+                .limit(3)
+                .map(c -> toCourseSummary(c, userId))
+                .toList();
     }
 
     public Map<String, Object> getSkillTree(String userId) {
@@ -370,11 +427,57 @@ public class CourseService {
         m.put("difficultyLabel", DifficultyLevel.label(ch.getDifficultyLevel() != null ? ch.getDifficultyLevel() : 1));
         m.put("prerequisiteIds", parsePrereqIds(ch.getPrerequisiteIds()));
         m.put("scenarioId", ch.getScenarioId());
+        m.put("caseId", ch.getCaseId());
         m.put("summary", ch.getSummary());
         m.put("contentType", ch.getContentType() != null ? ch.getContentType() : "html");
         m.put("required", ch.getRequired() != null ? ch.getRequired() : true);
         m.put("allowDownload", ch.getAllowDownload() != null ? ch.getAllowDownload() : false);
         return m;
+    }
+
+    private List<Map<String, Object>> buildChapterNextSteps(Chapter chapter) {
+        List<Map<String, Object>> steps = new ArrayList<>();
+        if (chapter.getCaseId() != null && !chapter.getCaseId().isBlank()) {
+            caseRepo.findById(chapter.getCaseId()).ifPresent(c -> {
+                Map<String, Object> step = new LinkedHashMap<>();
+                step.put("type", "case");
+                step.put("title", c.getTitle());
+                step.put("description", "复盘关联事故案例，理解成因与处置教训");
+                step.put("link", "/cases/" + c.getId());
+                steps.add(step);
+            });
+        }
+        if (chapter.getScenarioId() != null && !chapter.getScenarioId().isBlank()) {
+            scenarioRepo.findById(chapter.getScenarioId()).ifPresent(s -> {
+                Map<String, Object> step = new LinkedHashMap<>();
+                String kind = resolveScenarioKind(s);
+                step.put("type", "simulation".equals(kind) ? "simulation" : "training");
+                step.put("title", s.getName());
+                step.put("description", "simulation".equals(kind)
+                        ? "进入三维事故推演，观察热失控演化过程"
+                        : "进入应急决策训练，练习分支处置");
+                step.put("link", "simulation".equals(kind)
+                        ? "/simulation/" + s.getId()
+                        : "/training/" + s.getId());
+                steps.add(step);
+            });
+        }
+        return steps;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String resolveScenarioKind(Scenario s) {
+        if (s.getInitialConditions() == null || s.getInitialConditions().isBlank()) {
+            return "training";
+        }
+        try {
+            Map<String, Object> cond = objectMapper.readValue(s.getInitialConditions(), Map.class);
+            if ("emergency_case".equals(cond.get("trainingKind"))) return "emergency";
+            Object count = cond.get("batteryCount");
+            if (count instanceof Number n && n.intValue() > 0) return "simulation";
+        } catch (Exception ignored) {
+        }
+        return "training";
     }
 
     private void mergeCourseMetadata(Map<String, Object> target, String json) {
@@ -405,5 +508,59 @@ public class CourseService {
                 });
         progress.setLastAccessAt(LocalDateTime.now());
         progressRepo.save(progress);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCourseReviews(String courseId) {
+        courseRepo.findById(courseId).orElseThrow(() -> new RuntimeException("课程不存在"));
+        List<Map<String, Object>> items = reviewRepo.findByCourseIdOrderByCreatedAtDesc(courseId).stream()
+                .map(this::toReviewInfo)
+                .toList();
+        Double avg = reviewRepo.avgRatingByCourseId(courseId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("total", items.size());
+        result.put("averageRating", avg != null ? Math.round(avg * 10.0) / 10.0 : 0);
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> submitCourseReview(String userId, String courseId, int rating, String content) {
+        if (rating < 1 || rating > 5) throw new RuntimeException("评分需在 1-5 之间");
+        if (content == null || content.isBlank()) throw new RuntimeException("请填写评价内容");
+        courseRepo.findById(courseId).orElseThrow(() -> new RuntimeException("课程不存在"));
+        userRepo.findById(userId).orElseThrow(() -> new RuntimeException("用户不存在"));
+
+        CourseReview review = reviewRepo.findByCourseIdAndUserId(courseId, userId).orElseGet(CourseReview::new);
+        review.setCourseId(courseId);
+        review.setUserId(userId);
+        review.setRating(rating);
+        review.setContent(content.trim());
+        reviewRepo.save(review);
+        return toReviewInfo(review);
+    }
+
+    private Map<String, Object> toReviewInfo(CourseReview review) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", review.getId());
+        m.put("courseId", review.getCourseId());
+        m.put("userId", review.getUserId());
+        m.put("rating", review.getRating());
+        m.put("content", review.getContent());
+        m.put("createdAt", review.getCreatedAt() != null ? review.getCreatedAt().toString() : null);
+        userRepo.findById(review.getUserId()).ifPresent(u -> {
+            m.put("username", u.getUsername());
+            m.put("displayName", resolveReviewerName(u));
+        });
+        return m;
+    }
+
+    private String resolveReviewerName(User user) {
+        return switch (user.getUsername()) {
+            case "zhanggong" -> "张工";
+            case "lisi" -> "李工";
+            case "wangwu" -> "王工";
+            default -> user.getUsername();
+        };
     }
 }

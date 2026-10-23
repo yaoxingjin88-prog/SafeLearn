@@ -18,8 +18,9 @@ public class CaseController {
     private final CaseProgressService caseProgressService;
 
     @GetMapping
-    public ApiResponse<List<Map<String, Object>>> getCases() {
-        return ApiResponse.success(caseService.getCases());
+    public ApiResponse<List<Map<String, Object>>> getCases(
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.success(caseService.getCases(keyword));
     }
 
     @GetMapping("/progress/summary")

@@ -13,4 +13,10 @@ public interface ExamPaperAttemptRepository extends JpaRepository<ExamPaperAttem
     long countByUserIdAndPaperId(String userId, String paperId);
 
     Optional<ExamPaperAttempt> findTopByUserIdAndPaperIdAndPassedTrueOrderByScoreDesc(String userId, String paperId);
+
+    long countByUserIdAndCompletedAtIsNull(String userId);
+
+    Optional<ExamPaperAttempt> findTopByUserIdAndPaperIdAndCompletedAtIsNullOrderByStartedAtDesc(String userId, String paperId);
+
+    List<ExamPaperAttempt> findByUserIdAndCompletedAtIsNotNull(String userId);
 }

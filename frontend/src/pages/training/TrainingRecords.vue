@@ -46,13 +46,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { trainingApi } from '@/api/training'
+import type { TrainingRecordSummary } from '@/api/training'
 import { useAppBase } from '@/composables/useAppBase'
 
 const router = useRouter()
 const { p } = useAppBase()
 
 const loading = ref(true)
-const records = ref<any[]>([])
+const records = ref<TrainingRecordSummary[]>([])
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)

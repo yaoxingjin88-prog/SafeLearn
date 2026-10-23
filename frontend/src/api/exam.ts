@@ -5,6 +5,7 @@ export interface UserExamItem {
   id: string
   sourceType: 'paper' | 'chapter' | 'comprehensive'
   title: string
+  description?: string
   examType?: string
   courseId?: string
   courseTitle?: string
@@ -16,13 +17,30 @@ export interface UserExamItem {
   questionCount?: number
   status?: string
   attemptCount?: number
+  usedAttempts?: number
+  maxAttempts?: number
   examPassed?: boolean
+  examStatus?: 'available' | 'in_progress' | 'passed' | 'exhausted'
+  validityText?: string
+  bestScore?: number
   link?: string
   createdAt?: string
 }
 
+export interface ExamCenterStats {
+  pendingExams: number
+  inProgressExams: number
+  completedExams: number
+  averageScore: number
+  percentileRank: number
+}
+
+export interface ExamListResponse extends PaginatedData<UserExamItem> {
+  stats?: ExamCenterStats
+}
+
 export const examApi = {
-  getList(params?: { page?: number; pageSize?: number }): Promise<ApiResponse<PaginatedData<UserExamItem>>> {
+  getList(params?: { page?: number; pageSize?: number; tab?: string }): Promise<ApiResponse<ExamListResponse>> {
     return request.get('/exams', { params })
   },
 

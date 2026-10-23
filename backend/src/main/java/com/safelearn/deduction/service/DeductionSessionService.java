@@ -10,6 +10,7 @@ import com.safelearn.deduction.repository.SimulationSessionRepository;
 import com.safelearn.entity.Scenario;
 import com.safelearn.deduction.repository.SimulationScoreReportRepository;
 import com.safelearn.repository.ScenarioRepository;
+import com.safelearn.service.AssignmentCompletionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class DeductionSessionService {
     private final ScenarioRepository scenarioRepo;
     private final SimulationScoreReportRepository scoreReportRepo;
     private final ObjectMapper objectMapper;
+    private final AssignmentCompletionService assignmentCompletionService;
 
     private static final Set<String> OPTIMAL_OPTIONS = Set.of(
             "opt-vent", "opt-isolate", "opt-confirm-off", "opt-extinguish", "opt-evacuate",
@@ -100,6 +102,7 @@ public class DeductionSessionService {
             saveDecisions(sessionId, summary.get("decisions"));
         }
         sessionRepo.save(session);
+        assignmentCompletionService.syncForUser(userId);
         return toSessionMap(session);
     }
 

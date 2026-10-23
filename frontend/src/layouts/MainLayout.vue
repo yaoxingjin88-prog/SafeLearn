@@ -69,9 +69,6 @@
             <Fold v-if="!collapsed" />
             <Expand v-else />
           </el-icon>
-          <div v-if="route.path === '/dashboard'" class="header-crumbs">
-            <span>首页</span><i>/</i><strong>概览</strong>
-          </div>
         </div>
         <div class="header-right">
           <AdminNotificationPopover v-if="showInboxTools" />
@@ -95,7 +92,7 @@
         </div>
       </el-header>
 
-      <div v-if="breadcrumbs.length && route.path !== '/dashboard' && !route.meta.hideLayoutBreadcrumb" class="breadcrumb-bar">
+      <div v-if="breadcrumbs.length && !route.meta.hideLayoutBreadcrumb" class="breadcrumb-bar">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="`${item.path ?? item.title}-${index}`"
             :to="item.path ? { path: item.path } : undefined">
@@ -104,7 +101,7 @@
         </el-breadcrumb>
       </div>
 
-      <el-main class="admin-main" :class="{ 'admin-main--dashboard': route.path === '/dashboard' }">
+      <el-main class="admin-main">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -120,7 +117,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Setting, Fold, Expand, User, EditPen, Reading, UserFilled, DataLine, Document, Collection, Files,
-  OfficeBuilding, DataAnalysis, BellFilled, Key,
+  OfficeBuilding, DataAnalysis, BellFilled, Key, Warning, VideoPlay,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import { ElMessageBox, type MenuInstance } from 'element-plus'
@@ -179,6 +176,16 @@ const adminMenus: NavMenu[] = [
       { path: '/admin/learning/exams', title: '考试管理', icon: EditPen, permissionModule: 'exam' },
       { path: '/admin/learning/question-bank', title: '题库管理', icon: Collection, permissionModule: 'exam' },
       { path: '/admin/learning/paper-assembly', title: '组卷管理', icon: Files, permissionModule: 'exam' },
+    ],
+  },
+  {
+    path: '/admin/practical',
+    title: '实训内容',
+    icon: Warning,
+    adminOnly: true,
+    children: [
+      { path: '/admin/practical/cases', title: '案例管理', icon: Document, permissionModule: 'training' },
+      { path: '/admin/practical/scenarios', title: '场景管理', icon: VideoPlay, permissionModule: 'training' },
     ],
   },
   {
@@ -251,6 +258,12 @@ const activeMenu = computed(() => {
   }
   if (path.startsWith('/admin/learning')) {
     return '/admin/learning/courses'
+  }
+  if (path.startsWith('/admin/practical/cases')) {
+    return '/admin/practical/cases'
+  }
+  if (path.startsWith('/admin/practical/scenarios')) {
+    return '/admin/practical/scenarios'
   }
   if (path.startsWith('/admin/settings')) {
     return '/admin/settings'
@@ -780,10 +793,6 @@ onMounted(async () => {
   overflow: auto;
 }
 
-.admin-main--dashboard {
-  height: calc(100vh - 64px);
-}
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -916,24 +925,6 @@ onMounted(async () => {
 
 .collapse-btn {
   color: #263246;
-}
-
-.header-crumbs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #8a94a2;
-  font-size: 13px;
-}
-
-.header-crumbs i {
-  color: #c1c7d0;
-  font-style: normal;
-}
-
-.header-crumbs strong {
-  color: #3d4858;
-  font-weight: 600;
 }
 
 :deep(.header-icon-btn) {

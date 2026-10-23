@@ -155,8 +155,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { useAppBase } from '@/composables/useAppBase'
@@ -169,6 +169,7 @@ import {
 import type { AccidentCase } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
 const { p } = useAppBase()
 
 const searchText = ref('')
@@ -266,10 +267,25 @@ function matchSeverity(severity: string, filter: string) {
 }
 
 onMounted(async () => {
+  if (route.query.keyword) {
+    searchText.value = String(route.query.keyword)
+  }
+  await loadCases()
+})
+
+let caseSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchText, () => {
+  if (caseSearchTimer) clearTimeout(caseSearchTimer)
+  caseSearchTimer = setTimeout(() => loadCases(), 300)
+})
+
+async function loadCases() {
   loading.value = true
   try {
+    const params: Record<string, string> = {}
+    if (searchText.value.trim()) params.keyword = searchText.value.trim()
     const [casesRes, progressRes] = await Promise.all([
-      request.get('/cases'),
+      request.get('/cases', { params }),
       request.get('/cases/progress/summary').catch(() => ({ data: [] })),
     ])
     cases.value = casesRes.data
@@ -284,7 +300,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
 
 const filteredCases = computed(() => {
   let result = [...cases.value]

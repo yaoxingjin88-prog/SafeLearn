@@ -2,6 +2,8 @@ package com.safelearn.service;
 
 import com.safelearn.entity.*;
 import com.safelearn.repository.*;
+import com.safelearn.deduction.entity.SimulationSession;
+import com.safelearn.deduction.repository.SimulationSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,8 @@ public class AdminLearningReportService {
     private final ChapterRepository chapterRepo;
     private final UserProgressRepository progressRepo;
     private final QuizAttemptRepository quizAttemptRepo;
+    private final SimulationSessionRepository simulationSessionRepo;
+    private final TrainingRecordRepository trainingRecordRepo;
     private final UserNotificationService userNotificationService;
 
     @Transactional(readOnly = true)
@@ -51,6 +55,17 @@ public class AdminLearningReportService {
                 .filter(item -> scope.inRange(item.getCompletedAt() != null
                         ? item.getCompletedAt() : item.getStartedAt()))
                 .toList();
+        List<SimulationSession> simulations = simulationSessionRepo.findAll().stream()
+                .filter(item -> scope.containsUserId(item.getUserId()))
+                .filter(item -> "completed".equals(item.getStatus()))
+                .filter(item -> scope.inRange(item.getFinishedAt() != null
+                        ? item.getFinishedAt() : item.getStartedAt()))
+                .toList();
+        List<TrainingRecord> trainings = trainingRecordRepo.findAll().stream()
+                .filter(item -> scope.containsUser(item.getUser()))
+                .filter(item -> item.getEndTime() != null)
+                .filter(item -> scope.inRange(item.getEndTime()))
+                .toList();
 
         Map<String, Integer> chapterCounts = courses.stream().collect(Collectors.toMap(
                 Course::getId,
@@ -66,7 +81,7 @@ public class AdminLearningReportService {
                 .toList();
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("summary", buildSummary(learners, filteredRows, allProgress, attempts, scope));
+        result.put("summary", buildSummary(learners, filteredRows, allProgress, attempts, simulations, trainings, scope));
         result.put("charts", buildCharts(learners, courses, chapterCounts, allProgress, attempts, scope, trendDays));
         result.put("followUp", paginate(filteredRows.stream()
                 .filter(row -> !"none".equals(row.get("warningStatus")))
@@ -79,6 +94,7 @@ public class AdminLearningReportService {
 
     private Map<String, Object> buildSummary(List<User> learners, List<Map<String, Object>> rows,
                                               List<UserProgress> progress, List<QuizAttempt> attempts,
+                                              List<SimulationSession> simulations, List<TrainingRecord> trainings,
                                               AnalyticsScope scope) {
         long completedUsers = rows.stream()
                 .filter(row -> "completed".equals(row.get("learningStatus")))
@@ -93,6 +109,27 @@ public class AdminLearningReportService {
                 .sum();
         double avgHours = learners.isEmpty() ? 0
                 : round(totalStudySeconds / 3600.0 / learners.size(), 1);
+
+        long simulationCount = simulations.size();
+        long trainingCount = trainings.size();
+        long simulationParticipants = simulations.stream().map(SimulationSession::getUserId).distinct().count();
+        long trainingParticipants = trainings.stream()
+                .map(item -> item.getUser() != null ? item.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        double avgSimulationScore = simulations.stream()
+                .map(SimulationSession::getTotalScore)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0);
+        double avgTrainingScore = trainings.stream()
+                .map(TrainingRecord::getTotalScore)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0);
 
         YearMonth current = YearMonth.from(scope.to);
         YearMonth previous = current.minusMonths(1);
@@ -111,6 +148,12 @@ public class AdminLearningReportService {
         summary.put("avgStudyHours", avgHours);
         summary.put("examPassRate", passRate);
         summary.put("passedCount", passed);
+        summary.put("simulationCount", simulationCount);
+        summary.put("simulationParticipants", simulationParticipants);
+        summary.put("avgSimulationScore", round(avgSimulationScore, 1));
+        summary.put("trainingCount", trainingCount);
+        summary.put("trainingParticipants", trainingParticipants);
+        summary.put("avgTrainingScore", round(avgTrainingScore, 1));
         return summary;
     }
 

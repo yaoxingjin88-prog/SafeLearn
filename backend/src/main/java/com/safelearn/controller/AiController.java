@@ -40,6 +40,19 @@ public class AiController {
         return ApiResponse.success(aiService.getHistory(userId, page, pageSize));
     }
 
+    @GetMapping("/draft")
+    public ApiResponse<Map<String, Object>> getDraft(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(aiService.getChatDraft(userId));
+    }
+
+    @PutMapping("/draft")
+    public ApiResponse<Map<String, Object>> saveDraft(Authentication auth, @RequestBody Map<String, Object> body) {
+        String userId = auth.getPrincipal().toString();
+        String messages = body.get("messages") != null ? String.valueOf(body.get("messages")) : "[]";
+        return ApiResponse.success(aiService.saveChatDraft(userId, messages));
+    }
+
     @PostMapping("/feedback")
     public ApiResponse<Map<String, Object>> feedback(@RequestBody FeedbackRequest req) {
         return ApiResponse.success(aiService.feedback(req));

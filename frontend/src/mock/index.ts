@@ -6,8 +6,7 @@ import {
   mockDashboardStats, mockRecentCourses, mockAdminStats, mockAdminDashboard, mockAIResponse,
 } from './data'
 
-// Mock 开关 - 设为 false 则走真实 API，设为 true 则强制 mock
-// 设为 'auto' 则自动检测后端是否可用
+// Mock 开关 - 生产环境始终走真实 API；开发环境需设置 VITE_ENABLE_MOCK=true
 export const MOCK_MODE: 'auto' | 'mock' | 'real' = 'real'
 
 let backendAvailable: boolean | null = null

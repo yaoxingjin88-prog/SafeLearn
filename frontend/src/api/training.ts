@@ -1,8 +1,19 @@
 import request from './request'
-import type { TrainingScenario, DecisionPoint, TrainingRecord, ApiResponse, PaginatedData } from '@/types'
+import type {
+  TrainingScenario,
+  DecisionPoint,
+  TrainingRecord,
+  ApiResponse,
+  PaginatedData,
+} from '@/types'
+
+export type TrainingRecordSummary = Pick<
+  TrainingRecord,
+  'id' | 'scenarioId' | 'scenarioName' | 'totalScore' | 'rating' | 'startTime' | 'endTime' | 'completedAt'
+>
 
 export const trainingApi = {
-  getScenarios(params?: { difficulty?: string; page?: number; pageSize?: number }): Promise<ApiResponse<PaginatedData<TrainingScenario>>> {
+  getScenarios(params?: { difficulty?: string; page?: number; pageSize?: number }): Promise<ApiResponse<TrainingScenario[]>> {
     return request.get('/training/scenarios', { params })
   },
 
@@ -22,7 +33,7 @@ export const trainingApi = {
     return request.get(`/training/records/${recordId}/report`)
   },
 
-  getRecords(params?: { page?: number; pageSize?: number }): Promise<ApiResponse<PaginatedData<TrainingRecord>>> {
+  getRecords(params?: { page?: number; pageSize?: number }): Promise<ApiResponse<PaginatedData<TrainingRecordSummary>>> {
     return request.get('/training/records', { params })
   },
 }

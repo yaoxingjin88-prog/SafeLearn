@@ -70,7 +70,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import request from '@/api/request'
+import { dashboardApi } from '@/api/dashboard'
 import { useAppBase } from '@/composables/useAppBase'
 
 interface DayData {
@@ -144,13 +144,11 @@ function goToday() {
 async function loadCalendar() {
   loading.value = true
   try {
-    const res = await request.get('/dashboard/learning-calendar', {
-      params: { year: currentYear.value, month: currentMonth.value },
-    })
+    const res = await dashboardApi.getLearningCalendar(currentYear.value, currentMonth.value)
     const map: Record<string, DayData> = {}
     for (const d of res.data.days || []) map[d.date] = d
     dayDataMap.value = map
-    summary.activeDays = res.data.activeDays || 0
+    summary.activeDays = (res.data as { activeDays?: number }).activeDays || 0
     summary.totalHours = Math.round((res.data.totalMinutes || 0) / 60 * 10) / 10
     if (!selectedDate.value) selectedDate.value = new Date().toISOString().slice(0, 10)
   } finally {
@@ -159,7 +157,7 @@ async function loadCalendar() {
 }
 
 async function loadHistory() {
-  const res = await request.get('/dashboard/learning-history')
+  const res = await dashboardApi.getLearningHistory()
   history.value = res.data || []
 }
 

@@ -33,6 +33,8 @@ public class QuizService {
     private final CertificateService certificateService;
     private final ObjectMapper objectMapper;
     private final AdminInboxScheduler inboxScheduler;
+    private final AssignmentCompletionService assignmentCompletionService;
+    private final WrongQuestionMasteredRepository wrongQuestionMasteredRepo;
 
     /**
      * 获取章节测验（不含正确答案）
@@ -212,6 +214,7 @@ public class QuizService {
         updateMasteryLevel(userId, quiz.getChapterId(), totalScore);
         if (passed) {
             markChapterCompleted(userId, quiz.getChapterId(), totalScore);
+            assignmentCompletionService.syncForUser(userId);
         }
 
         // 构建返回结果
@@ -495,6 +498,7 @@ public class QuizService {
         if (passed) {
             certificateService.tryIssueOnComprehensiveExamPass(userId, attempt.getCourseId(), totalScore)
                     .ifPresent(cert -> response.put("newCertificate", cert));
+            assignmentCompletionService.syncForUser(userId);
         }
 
         return response;
@@ -805,5 +809,60 @@ public class QuizService {
         m.put("startedAt", a.getStartedAt());
         m.put("completedAt", a.getCompletedAt());
         return m;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getWrongQuestionMastered(String userId) {
+        Map<String, List<String>> chapters = new LinkedHashMap<>();
+        for (WrongQuestionMastered row : wrongQuestionMasteredRepo.findByUserId(userId)) {
+            chapters.computeIfAbsent(row.getChapterId(), k -> new ArrayList<>()).add(row.getQuestionId());
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("chapters", chapters);
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> markWrongQuestionMastered(String userId, String chapterId, String questionId) {
+        if (chapterId == null || chapterId.isBlank() || questionId == null || questionId.isBlank()) {
+            throw new RuntimeException("章节与题目不能为空");
+        }
+        if (!wrongQuestionMasteredRepo.existsByUserIdAndChapterIdAndQuestionId(userId, chapterId, questionId)) {
+            WrongQuestionMastered row = new WrongQuestionMastered();
+            row.setUserId(userId);
+            row.setChapterId(chapterId);
+            row.setQuestionId(questionId);
+            wrongQuestionMasteredRepo.save(row);
+        }
+        return Map.of("success", true);
+    }
+
+    @Transactional
+    public Map<String, Object> markWrongQuestionsMasteredBatch(String userId, String chapterId, List<String> questionIds) {
+        if (chapterId == null || chapterId.isBlank()) {
+            throw new RuntimeException("章节不能为空");
+        }
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Map.of("success", true, "count", 0);
+        }
+        int count = 0;
+        for (String questionId : questionIds) {
+            if (questionId == null || questionId.isBlank()) continue;
+            if (!wrongQuestionMasteredRepo.existsByUserIdAndChapterIdAndQuestionId(userId, chapterId, questionId)) {
+                WrongQuestionMastered row = new WrongQuestionMastered();
+                row.setUserId(userId);
+                row.setChapterId(chapterId);
+                row.setQuestionId(questionId);
+                wrongQuestionMasteredRepo.save(row);
+                count++;
+            }
+        }
+        return Map.of("success", true, "count", count);
+    }
+
+    @Transactional
+    public Map<String, Object> resetWrongQuestionMastered(String userId) {
+        wrongQuestionMasteredRepo.deleteByUserId(userId);
+        return Map.of("success", true);
     }
 }

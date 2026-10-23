@@ -8,10 +8,7 @@
       <div class="toolbar-right">
         <span class="toolbar-label">切换角色</span>
         <el-select v-model="selectedRoleId" class="role-select" @change="onRoleChange">
-          <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id">
-            <span>{{ role.name }}</span>
-            <em>{{ role.code }}</em>
-          </el-option>
+          <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
         </el-select>
         <el-button type="primary" plain @click="openCreateDialog">+ 新建角色</el-button>
       </div>
@@ -427,18 +424,6 @@ onMounted(async () => {
 
 .role-select {
   width: 220px;
-}
-
-.role-select :deep(.el-select-dropdown__item) {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.role-select em {
-  font-style: normal;
-  color: #98a1ae;
-  font-size: 11px;
 }
 
 .panel {

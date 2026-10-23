@@ -1,8 +1,10 @@
 package com.safelearn.controller;
 
 import com.safelearn.common.ApiResponse;
+import com.safelearn.service.SimulationRecordsService;
 import com.safelearn.service.SimulationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -13,6 +15,7 @@ import java.util.*;
 public class SimulationController {
 
     private final SimulationService simulationService;
+    private final SimulationRecordsService recordsService;
 
     @GetMapping("/scenarios")
     public ApiResponse<List<Map<String, Object>>> getScenarios() {
@@ -28,5 +31,11 @@ public class SimulationController {
     public ApiResponse<Map<String, Object>> start(@RequestBody Map<String, Object> body) {
         String scenarioId = (String) body.get("scenarioId");
         return ApiResponse.success(simulationService.startSimulation(scenarioId, body));
+    }
+
+    @GetMapping("/records")
+    public ApiResponse<List<Map<String, Object>>> listRecords(Authentication auth) {
+        String userId = auth.getPrincipal().toString();
+        return ApiResponse.success(recordsService.listAllUserRecords(userId));
     }
 }

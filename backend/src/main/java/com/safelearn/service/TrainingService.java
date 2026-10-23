@@ -31,6 +31,7 @@ public class TrainingService {
     private final UserProgressRepository progressRepo;
     private final ObjectMapper objectMapper;
     private final SystemConfigService systemConfig;
+    private final AssignmentCompletionService assignmentCompletionService;
 
     private static final int MASTERY_THRESHOLD = 60;
 
@@ -181,6 +182,7 @@ public class TrainingService {
             nextDecisionPoint = decisionPoints.get(decisions.size());
         } else {
             finalizeRecord(record, scenario, decisions, decisionPoints);
+            assignmentCompletionService.syncForUser(userId);
         }
         recordRepo.save(record);
 

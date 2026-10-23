@@ -29,12 +29,9 @@
           prefix-icon="Search"
           class="search-input"
           clearable
+          @keyup.enter="handleContentSearch"
         />
-        <el-badge :value="notifications" :hidden="notifications === 0" class="notification-badge">
-          <el-button circle>
-            <el-icon><Bell /></el-icon>
-          </el-button>
-        </el-badge>
+        <UserNotificationPopover />
       </div>
       <!-- 阅读进度条 -->
       <div class="reading-progress" :style="{ width: readProgress + '%' }"></div>
@@ -181,6 +178,32 @@
               </template>
             </el-alert>
           </el-card>
+
+          <el-card v-if="nextSteps.length" class="sidebar-card next-steps-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">下一步学习</span>
+                <span class="chapter-count">理论 → 实践</span>
+              </div>
+            </template>
+            <div class="next-steps-list">
+              <div
+                v-for="(step, idx) in nextSteps"
+                :key="`${step.type}-${idx}`"
+                class="next-step-item"
+                @click="goNextStep(step)"
+              >
+                <div class="next-step-icon" :class="step.type">
+                  <el-icon><Document v-if="step.type === 'case'" /><Monitor v-else-if="step.type === 'simulation'" /><Operation v-else /></el-icon>
+                </div>
+                <div class="next-step-body">
+                  <div class="next-step-title">{{ step.title }}</div>
+                  <div class="next-step-desc">{{ step.description }}</div>
+                </div>
+                <el-icon class="next-step-arrow"><ArrowRight /></el-icon>
+              </div>
+            </div>
+          </el-card>
         </aside>
 
         <!-- 主内容区 -->
@@ -214,6 +237,29 @@
 
             <!-- 图文内容 - 优化排版 -->
             <div ref="contentRef" class="content-area" v-html="chapter.content" />
+
+            <div v-if="nextSteps.length" class="next-steps-banner">
+              <div class="banner-head">
+                <span class="banner-label">下一步学习</span>
+                <span class="banner-sub">完成理论后，继续案例复盘与实操训练</span>
+              </div>
+              <div class="banner-actions">
+                <el-button
+                  v-for="(step, idx) in nextSteps"
+                  :key="`banner-${step.type}-${idx}`"
+                  :type="step.type === 'case' ? 'warning' : 'primary'"
+                  plain
+                  @click="goNextStep(step)"
+                >
+                  <el-icon class="mr-1">
+                    <Document v-if="step.type === 'case'" />
+                    <Monitor v-else-if="step.type === 'simulation'" />
+                    <Operation v-else />
+                  </el-icon>
+                  {{ stepTypeLabel(step.type) }}：{{ step.title }}
+                </el-button>
+              </div>
+            </div>
 
             <!-- 章节导航 -->
             <div class="chapter-navigation">
@@ -266,20 +312,21 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Lock, EditPen, ArrowLeft, ArrowRight, Check, CircleCheck,
-  VideoPlay, InfoFilled, Bell, Sunny, PriceTag
+  VideoPlay, InfoFilled, Sunny, PriceTag, Document, Monitor, Operation
 } from '@element-plus/icons-vue'
-import request from '@/api/request'
 import { courseApi } from '@/api/course'
+import { dashboardApi } from '@/api/dashboard'
 import { checkQuizExists } from '@/api/quiz'
 import { useAppBase } from '@/composables/useAppBase'
 import { useCourseNavigation } from '@/composables/useCourseNavigation'
 import { useLearningHeartbeat } from '@/composables/useLearningHeartbeat'
 import NotePanel from '@/components/learning/NotePanel.vue'
 import FavoriteButton from '@/components/learning/FavoriteButton.vue'
+import UserNotificationPopover from '@/components/user/UserNotificationPopover.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { p } = useAppBase()
+const { p, resolveUserPath } = useAppBase()
 const { backToCourseDetail, switchChapter: navSwitchChapter } = useCourseNavigation()
 
 const loading = ref(true)
@@ -291,14 +338,24 @@ const quizPassed = ref(false)
 const quizBestScore = ref(0)
 const masteryLevel = ref(0)
 const searchText = ref('')
-const notifications = ref(3)
-const learningStreak = ref(5)
+const learningStreak = ref(0)
 const showAllNotes = ref(false)
 const videoPlaying = ref(false)
 const chapterProgress = ref(0)
 const readProgress = ref(0)
 const contentRef = ref<HTMLElement | null>(null)
 const keywords = ref<string[]>([])
+const nextSteps = ref<Array<{ type: string; title: string; description: string; link: string }>>([])
+
+function stepTypeLabel(type: string) {
+  const map: Record<string, string> = { case: '案例复盘', simulation: '事故推演', training: '应急训练' }
+  return map[type] || '继续学习'
+}
+
+function goNextStep(step: { link: string }) {
+  if (!step.link) return
+  router.push(resolveUserPath(step.link))
+}
 
 const heartbeatCourseId = computed(() => route.params.courseId as string)
 const heartbeatChapterId = computed(() => route.params.chapterId as string)
@@ -372,6 +429,28 @@ function playVideo() {
   if (video) {
     video.play()
     videoPlaying.value = true
+  }
+}
+
+function handleContentSearch() {
+  const q = searchText.value.trim()
+  if (!q) return
+  const el = contentRef.value
+  if (!el) return
+  const found = (window as Window & { find?: (...args: unknown[]) => boolean }).find?.(
+    q, false, false, true, false, true, false,
+  )
+  if (!found) {
+    ElMessage.info('本章未找到匹配内容')
+  }
+}
+
+async function loadOverviewMeta() {
+  try {
+    const res = await dashboardApi.getOverview()
+    learningStreak.value = res.data.streakDays || 0
+  } catch {
+    learningStreak.value = 0
   }
 }
 
@@ -457,12 +536,18 @@ async function loadChapter() {
   loading.value = true
   try {
     const [chapterRes, progressRes, quizRes] = await Promise.all([
-      request.get(`/courses/${courseId}/chapters/${chapterId}`),
+      courseApi.getChapter(courseId, chapterId),
       courseApi.getProgress(courseId).catch(() => ({ data: [] })),
       checkQuizExists(chapterId).catch(() => ({ data: { exists: false } })),
     ])
-    chapter.value = chapterRes.data.chapter
-    chapters.value = chapterRes.data.chapters
+    const data = chapterRes.data as {
+      chapter: typeof chapter.value
+      chapters: typeof chapters.value
+      nextSteps?: typeof nextSteps.value
+    }
+    chapter.value = data.chapter
+    chapters.value = data.chapters
+    nextSteps.value = data.nextSteps || []
     keywords.value = extractKeywords(chapter.value.content || '')
     hasQuiz.value = quizRes.data?.exists || false
     quizPassed.value = quizRes.data?.quizPassed || false
@@ -493,6 +578,7 @@ async function loadChapter() {
 
 onMounted(() => {
   loadChapter()
+  loadOverviewMeta()
   window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
@@ -599,10 +685,6 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
 
 .search-input {
   width: 240px;
-}
-
-.notification-badge :deep(.el-badge__content) {
-  background: #ef4444;
 }
 
 /* 主布局优化 */
@@ -872,6 +954,66 @@ watch(() => [route.params.courseId, route.params.chapterId], () => {
   font-size: 12px;
   color: #6b7280;
 }
+
+.next-steps-card :deep(.el-card__header) {
+  padding: 14px 16px;
+}
+
+.next-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.next-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid #eef2f7;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.next-step-item:hover {
+  border-color: #6366f1;
+  background: #f5f3ff;
+}
+
+.next-step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.next-step-icon.case { background: #fff7ed; color: #ea580c; }
+.next-step-icon.simulation { background: #eef3ff; color: #2b5aed; }
+.next-step-icon.training { background: #ecfdf5; color: #059669; }
+
+.next-step-body { flex: 1; min-width: 0; }
+.next-step-title { font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+.next-step-desc { font-size: 12px; color: #6b7280; line-height: 1.4; }
+.next-step-arrow { color: #9ca3af; flex-shrink: 0; }
+
+.next-steps-banner {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #eef3ff 100%);
+  border: 1px solid #ddd6fe;
+}
+
+.banner-head { margin-bottom: 12px; }
+.banner-label { font-size: 15px; font-weight: 700; color: #3730a3; margin-right: 10px; }
+.banner-sub { font-size: 13px; color: #6b7280; }
+.banner-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* 主内容区优化 */
 .main-content {
